@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'registration_page.dart';
 import 'home_page.dart';
+import 'warehouse_dashboard.dart';
 import '../services/auth_service.dart';
+import '../providers/user_role_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,26 +48,55 @@ class _LoginPageState extends State<LoginPage> {
       });
 
       try {
+        // Iniciar sesión
         await _authService.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
 
+        // Obtener el ID del usuario autenticado
+        final user = _authService.currentUser;
+        if (user == null) {
+          throw Exception('No se pudo obtener el usuario autenticado');
+        }
+
+        // Cargar el rol del usuario desde la base de datos
+        final userRoleProvider = Provider.of<UserRoleProvider>(context, listen: false);
+        await userRoleProvider.loadUserRole(user.id);
+
+        // Verificar si se obtuvo el rol correctamente
+        if (userRoleProvider.isUnknown) {
+          throw Exception('No se pudo determinar el rol del usuario. Contacte al administrador.');
+        }
+
         setState(() {
           _isLoading = false;
         });
 
-        // Navigate to home page
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
+        // Navegar según el rol del usuario
+        if (userRoleProvider.isCliente) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        } else if (userRoleProvider.isAlmacen) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
+          );
+        } else if (userRoleProvider.isAdmin) {
+          // Para admin, también navegar al dashboard de almacén por ahora
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
+          );
+        }
       } catch (e) {
         setState(() {
           _isLoading = false;
         });
 
-        // Show error message
+        // Mostrar mensaje de error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),

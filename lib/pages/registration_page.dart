@@ -50,6 +50,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         await _authService.signUpWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          nombreCompleto: _nameController.text.trim(),
         );
 
         setState(() {

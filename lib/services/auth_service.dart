@@ -7,11 +7,13 @@ class AuthService {
   Future<AuthResponse> signUpWithEmailAndPassword({
     required String email,
     required String password,
+    String? nombreCompleto,
   }) async {
     try {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
+        data: nombreCompleto != null ? {'nombre_completo': nombreCompleto} : null,
       );
       return response;
     } catch (e) {

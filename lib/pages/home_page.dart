@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'create_request_page.dart';
+import '../services/solicitud_service.dart';
+import '../services/auth_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -24,6 +27,39 @@ class _HomePageState extends State<HomePage> {
   static const Color secondary = Color(0xFF9ECAFF);
 
   int _selectedIndex = 0;
+  List<Map<String, dynamic>> _solicitudes = [];
+  bool _isLoadingSolicitudes = false;
+  
+  final SolicitudService _solicitudService = SolicitudService();
+  final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarSolicitudes();
+  }
+
+  Future<void> _cargarSolicitudes() async {
+    setState(() {
+      _isLoadingSolicitudes = true;
+    });
+
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(user.id);
+        setState(() {
+          _solicitudes = solicitudes;
+        });
+      }
+    } catch (e) {
+      print('Error al cargar solicitudes: $e');
+    } finally {
+      setState(() {
+        _isLoadingSolicitudes = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,7 +166,12 @@ class _HomePageState extends State<HomePage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const CreateRequestPage()),
+            );
+          },
           borderRadius: BorderRadius.circular(12),
           child: Container(
             decoration: BoxDecoration(
@@ -293,7 +334,9 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: () {
+                _cargarSolicitudes();
+              },
               child: Text(
                 'Ver todas',
                 style: TextStyle(
@@ -306,40 +349,101 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         const SizedBox(height: 16),
-        // Request Card 1
-        _buildRequestCard(
-          title: 'Amortiguador Delantero',
-          subtitle: 'Toyota Hilux 2022 • Eje Izquierdo',
-          status: 'En Proceso',
-          statusColor: primaryContainer,
-          quotes: '5 Cotizaciones',
-          time: 'Hace 2h',
-          imageUrl: 'https://via.placeholder.com/96',
-        ),
-        const SizedBox(height: 16),
-        // Request Card 2
-        _buildRequestCard(
-          title: 'Filtro de Aceite K&N',
-          subtitle: 'Honda Civic 2018 • Original',
-          status: 'Completado',
-          statusColor: Colors.green,
-          quotes: '12 Cotizaciones',
-          time: 'Ayer',
-          imageUrl: 'https://via.placeholder.com/96',
-          showSuccessBorder: true,
-        ),
-        const SizedBox(height: 16),
-        // Request Card 3
-        _buildRequestCard(
-          title: 'Óptica Delantera Der.',
-          subtitle: 'VW Vento 2015 • Bi-Xenón',
-          status: 'Expirado',
-          statusColor: onSurfaceVariant,
-          quotes: '0 Cotizaciones',
-          time: '3 días',
-          imageUrl: 'https://via.placeholder.com/96',
-          opacity: 0.8,
-        ),
+        if (_isLoadingSolicitudes)
+          const Center(
+            child: CircularProgressIndicator(
+              color: primaryContainer,
+            ),
+          )
+        else if (_solicitudes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: outlineVariant),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.inbox,
+                  size: 48,
+                  color: onSurfaceVariant,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No tienes solicitudes aún',
+                  style: TextStyle(
+                    color: onSurfaceVariant,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Crea tu primera solicitud de repuesto',
+                  style: TextStyle(
+                    color: onSurfaceVariant.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._solicitudes.take(3).map((solicitud) {
+            final estado = solicitud['estado'] as String? ?? 'en_proceso';
+            Color statusColor;
+            String statusText;
+            
+            switch (estado) {
+              case 'en_proceso':
+                statusColor = primaryContainer;
+                statusText = 'En Proceso';
+                break;
+              case 'completado':
+                statusColor = Colors.green;
+                statusText = 'Completado';
+                break;
+              case 'expirado':
+                statusColor = onSurfaceVariant;
+                statusText = 'Expirado';
+                break;
+              default:
+                statusColor = primaryContainer;
+                statusText = estado;
+            }
+
+            final createdAt = solicitud['created_at'] as String?;
+            String timeText = 'Reciente';
+            if (createdAt != null) {
+              final date = DateTime.parse(createdAt);
+              final now = DateTime.now();
+              final difference = now.difference(date);
+              
+              if (difference.inHours < 1) {
+                timeText = 'Hace ${difference.inMinutes} min';
+              } else if (difference.inHours < 24) {
+                timeText = 'Hace ${difference.inHours}h';
+              } else if (difference.inDays == 1) {
+                timeText = 'Ayer';
+              } else {
+                timeText = 'Hace ${difference.inDays} días';
+              }
+            }
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildRequestCard(
+                title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
+                subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
+                status: statusText,
+                statusColor: statusColor,
+                quotes: '0 Cotizaciones',
+                time: timeText,
+                imageUrl: solicitud['foto_url'] as String? ?? 'https://via.placeholder.com/96',
+              ),
+            );
+          }).toList(),
       ],
     );
   }

@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import '../services/profile_service.dart';
+import '../services/auth_service.dart';
 
 enum UserRole { admin, cliente, almacen, unknown }
 
 class UserRoleProvider with ChangeNotifier {
   final ProfileService _profileService = ProfileService();
+  final AuthService _authService = AuthService();
   
   UserRole _currentRole = UserRole.unknown;
   bool _isLoading = false;
@@ -40,6 +42,16 @@ class UserRoleProvider with ChangeNotifier {
       _currentRole = UserRole.unknown;
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Cargar el rol desde el usuario autenticado actual
+  Future<void> loadUserRoleFromAuth() async {
+    final user = _authService.currentUser;
+    if (user != null && user.rol != null) {
+      _currentRole = _parseRole(user.rol!);
+      _errorMessage = null;
       notifyListeners();
     }
   }

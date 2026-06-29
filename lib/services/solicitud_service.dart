@@ -1,7 +1,7 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'api_client.dart';
 
 class SolicitudService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final ApiClient _apiClient = ApiClient();
 
   // Crear una nueva solicitud de repuesto
   Future<Map<String, dynamic>> crearSolicitud({
@@ -16,9 +16,7 @@ class SolicitudService {
   }) async {
     try {
       final Map<String, dynamic> data = {
-        'cliente_id': clienteId,
         'pieza_nombre': piezaNombre,
-        'estado': 'en_proceso',
       };
 
       // Solo agregar campos opcionales si tienen valor
@@ -29,7 +27,10 @@ class SolicitudService {
       if (direccionEntregaId != null && direccionEntregaId.isNotEmpty) data['direccion_entrega_id'] = direccionEntregaId;
       if (esUrgente) data['es_urgente'] = esUrgente;
 
-      final response = await _supabase.from('solicitudes_repuesto').insert(data).select().single();
+      final response = await _apiClient.post(
+        '/solicitudes',
+        body: data,
+      );
 
       return response;
     } catch (e) {
@@ -40,13 +41,9 @@ class SolicitudService {
   // Obtener todas las solicitudes de un cliente
   Future<List<Map<String, dynamic>>> obtenerSolicitudesCliente(String clienteId) async {
     try {
-      final response = await _supabase
-          .from('solicitudes_repuesto')
-          .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
-          .eq('cliente_id', clienteId)
-          .order('created_at', ascending: false);
+      final response = await _apiClient.getList('/solicitudes');
 
-      return List<Map<String, dynamic>>.from(response);
+      return response;
     } catch (e) {
       throw Exception('Error al obtener solicitudes: $e');
     }
@@ -55,15 +52,22 @@ class SolicitudService {
   // Obtener una solicitud por ID
   Future<Map<String, dynamic>> obtenerSolicitudPorId(String solicitudId) async {
     try {
-      final response = await _supabase
-          .from('solicitudes_repuesto')
-          .select('*')
-          .eq('id', solicitudId)
-          .single();
+      final response = await _apiClient.get('/solicitudes/$solicitudId');
 
       return response;
     } catch (e) {
       throw Exception('Error al obtener solicitud: $e');
+    }
+  }
+
+  // Obtener solicitudes activas (para almacenes)
+  Future<List<Map<String, dynamic>>> obtenerSolicitudesActivas() async {
+    try {
+      final response = await _apiClient.getList('/solicitudes/activas');
+
+      return response;
+    } catch (e) {
+      throw Exception('Error al obtener solicitudes activas: $e');
     }
   }
 }

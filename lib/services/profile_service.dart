@@ -1,20 +1,14 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'api_client.dart';
 
 class ProfileService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final ApiClient _apiClient = ApiClient();
 
   // Obtener el rol del usuario desde la tabla profiles
   Future<String?> getUserRole(String userId) async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select('rol')
-          .eq('id', userId)
-          .single();
-      
+      final response = await _apiClient.get('/profile');
       return response['rol'] as String?;
     } catch (e) {
-      // Si el perfil no existe o hay un error, retornar null
       print('Error al obtener el rol del usuario: $e');
       return null;
     }
@@ -23,15 +17,32 @@ class ProfileService {
   // Obtener el perfil completo del usuario
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .single();
-      
+      final response = await _apiClient.get('/profile');
       return response;
     } catch (e) {
       print('Error al obtener el perfil del usuario: $e');
+      return null;
+    }
+  }
+
+  // Actualizar el perfil del usuario
+  Future<Map<String, dynamic>?> updateProfile({
+    String? nombreCompleto,
+    String? telefono,
+    String? avatarUrl,
+  }) async {
+    try {
+      final response = await _apiClient.put(
+        '/profile',
+        body: {
+          if (nombreCompleto != null) 'nombre_completo': nombreCompleto,
+          if (telefono != null) 'telefono': telefono,
+          if (avatarUrl != null) 'avatar_url': avatarUrl,
+        },
+      );
+      return response;
+    } catch (e) {
+      print('Error al actualizar el perfil del usuario: $e');
       return null;
     }
   }

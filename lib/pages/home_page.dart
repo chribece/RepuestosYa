@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'create_request_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -39,6 +40,12 @@ class _HomePageState extends State<HomePage> {
     _cargarSolicitudes();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cargarSolicitudes();
+  }
+
   Future<void> _cargarSolicitudes() async {
     setState(() {
       _isLoadingSolicitudes = true;
@@ -46,8 +53,10 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final user = _authService.currentUser;
+      print('Cargando solicitudes para usuario: ${user?.id}');
       if (user != null) {
         final solicitudes = await _solicitudService.obtenerSolicitudesCliente(user.id);
+        print('Solicitudes cargadas: ${solicitudes.length}');
         setState(() {
           _solicitudes = solicitudes;
         });
@@ -391,6 +400,7 @@ class _HomePageState extends State<HomePage> {
           )
         else
           ..._solicitudes.take(3).map((solicitud) {
+            print('Renderizando solicitud: $solicitud');
             final estado = solicitud['estado'] as String? ?? 'en_proceso';
             Color statusColor;
             String statusText;
@@ -480,17 +490,29 @@ class _HomePageState extends State<HomePage> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.image_not_supported,
-                      color: onSurfaceVariant,
-                      size: 32,
-                    );
-                  },
-                ),
+                child: imageUrl.startsWith('http') || imageUrl.startsWith('https')
+                    ? Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.image_not_supported,
+                            color: onSurfaceVariant,
+                            size: 32,
+                          );
+                        },
+                      )
+                    : Image.file(
+                        File(imageUrl),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.image_not_supported,
+                            color: onSurfaceVariant,
+                            size: 32,
+                          );
+                        },
+                      ),
               ),
             ),
             const SizedBox(width: 12),

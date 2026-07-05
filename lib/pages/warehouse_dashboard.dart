@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'profile_page.dart';
+import '../services/solicitud_service.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -26,6 +28,37 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   bool _isOpen = true;
   int _selectedIndex = 0;
+  
+  List<Map<String, dynamic>> _solicitudes = [];
+  bool _isLoadingSolicitudes = false;
+  
+  final SolicitudService _solicitudService = SolicitudService();
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarSolicitudes();
+  }
+
+  Future<void> _cargarSolicitudes() async {
+    setState(() {
+      _isLoadingSolicitudes = true;
+    });
+
+    try {
+      final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+      print('Solicitudes activas cargadas: ${solicitudes.length}');
+      setState(() {
+        _solicitudes = solicitudes;
+      });
+    } catch (e) {
+      print('Error al cargar solicitudes activas: $e');
+    } finally {
+      setState(() {
+        _isLoadingSolicitudes = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +343,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'Solicitudes Cercanas',
+          'Solicitudes Activas',
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -318,9 +351,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ),
         ),
         TextButton(
-          onPressed: () {},
+          onPressed: _cargarSolicitudes,
           child: Text(
-            'Ver todas',
+            'Recargar',
             style: TextStyle(
               color: primary,
               fontSize: 14,
@@ -332,41 +365,111 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   Widget _buildRequestCards() {
+    if (_isLoadingSolicitudes) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: primaryContainer,
+        ),
+      );
+    }
+
+    if (_solicitudes.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: outlineVariant),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.inbox,
+              size: 48,
+              color: onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No hay solicitudes activas',
+              style: TextStyle(
+                color: onSurfaceVariant,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Las solicitudes de clientes aparecerán aquí',
+              style: TextStyle(
+                color: onSurfaceVariant.withOpacity(0.7),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
-      children: [
-        _buildRequestCard(
-          title: 'Amortiguadores Delanteros',
-          subtitle: 'Toyota Hilux 2022 • Gas',
-          distance: '2.4 km',
-          time: 'Hace 5 min',
-          badge: 'Compatible',
-          badgeColor: Colors.green,
-        ),
-        const SizedBox(height: 16),
-        _buildRequestCard(
-          title: 'Kit de Embrague',
-          subtitle: 'Ford Ranger 2019 • 3.2 Diesel',
-          distance: '4.8 km',
-          time: 'Hace 12 min',
-          badge: null,
-        ),
-        const SizedBox(height: 16),
-        _buildRequestCard(
-          title: 'Pastillas de Freno',
-          subtitle: 'Honda CR-V 2021 • Cerámica',
-          distance: '0.9 km',
-          time: 'Hace 2 min',
-          badge: 'Urgente',
-          badgeColor: primary,
-        ),
-      ],
+      children: _solicitudes.map((solicitud) {
+        // Extraer información del cliente
+        final cliente = solicitud['profiles'] as Map<String, dynamic>?;
+        final clienteNombre = cliente?['nombre_completo'] as String? ?? 'Cliente';
+        
+        // Extraer información del vehículo si existe
+        final vehiculo = solicitud['vehiculos_cliente'] as Map<String, dynamic>?;
+        final modelo = vehiculo?['modelos_vehiculo'] as Map<String, dynamic>?;
+        final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
+        final vehiculoInfo = marca != null && modelo != null
+            ? '${marca['nombre']} ${modelo['nombre']}'
+            : 'Vehículo no especificado';
+        
+        // Calcular tiempo
+        final createdAt = solicitud['created_at'] as String?;
+        String timeText = 'Reciente';
+        if (createdAt != null) {
+          final date = DateTime.parse(createdAt);
+          final now = DateTime.now();
+          final difference = now.difference(date);
+          
+          if (difference.inHours < 1) {
+            timeText = 'Hace ${difference.inMinutes} min';
+          } else if (difference.inHours < 24) {
+            timeText = 'Hace ${difference.inHours}h';
+          } else if (difference.inDays == 1) {
+            timeText = 'Ayer';
+          } else {
+            timeText = 'Hace ${difference.inDays} días';
+          }
+        }
+
+        // Determinar badge
+        String? badge;
+        Color? badgeColor;
+        final esUrgente = solicitud['es_urgente'] as bool? ?? false;
+        if (esUrgente) {
+          badge = 'Urgente';
+          badgeColor = primary;
+        }
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _buildRequestCard(
+            title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
+            subtitle: '$vehiculoInfo • $clienteNombre',
+            distance: null,
+            time: timeText,
+            badge: badge,
+            badgeColor: badgeColor,
+          ),
+        );
+      }).toList(),
     );
   }
 
   Widget _buildRequestCard({
     required String title,
     required String subtitle,
-    required String distance,
+    String? distance,
     required String time,
     String? badge,
     Color? badgeColor,
@@ -432,24 +535,26 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.location_on,
-                    color: secondary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    distance,
-                    style: TextStyle(
+              if (distance != null)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
                       color: secondary,
-                      fontSize: 14,
+                      size: 20,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 24),
+                    const SizedBox(width: 4),
+                    Text(
+                      distance,
+                      style: TextStyle(
+                        color: secondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              if (distance != null)
+                const SizedBox(width: 24),
               Row(
                 children: [
                   Icon(
@@ -599,9 +704,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             label: 'Profile',
             isSelected: _selectedIndex == 3,
             onTap: () {
-              setState(() {
-                _selectedIndex = 3;
-              });
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
             },
           ),
         ],

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import '../services/vehiculo_service.dart';
+import '../services/direccion_service.dart';
 import '../providers/user_role_provider.dart';
 
 class CreateRequestPage extends StatefulWidget {
@@ -15,17 +17,27 @@ class CreateRequestPage extends StatefulWidget {
 
 class _CreateRequestPageState extends State<CreateRequestPage> {
   final _formKey = GlobalKey<FormState>();
+  final _piezaNombreController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _vehicleController = TextEditingController();
+  final _vinController = TextEditingController();
   final _locationController = TextEditingController(text: 'Av. Libertador 4500, Palermo, CABA');
   
   File? _selectedImage;
   bool _isUploading = false;
   bool _isSubmitting = false;
   
+  String? _selectedVehiculoId;
+  String? _selectedDireccionId;
+  List<Map<String, dynamic>> _vehiculos = [];
+  List<Map<String, dynamic>> _direcciones = [];
+  bool _isLoadingVehiculos = false;
+  bool _isLoadingDirecciones = false;
+  
   final ImagePicker _imagePicker = ImagePicker();
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
+  final VehiculoService _vehiculoService = VehiculoService();
+  final DireccionService _direccionService = DireccionService();
 
   // Color scheme from HTML
   static const Color primary = Color(0xFFFFB5A0);
@@ -41,11 +53,90 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   static const Color surfaceContainerLow = Color(0xFF1C1B1B);
 
   @override
+  void initState() {
+    super.initState();
+    _cargarVehiculos();
+    _cargarDirecciones();
+  }
+
+  @override
   void dispose() {
+    _piezaNombreController.dispose();
     _descriptionController.dispose();
-    _vehicleController.dispose();
+    _vinController.dispose();
     _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _cargarVehiculos() async {
+    setState(() {
+      _isLoadingVehiculos = true;
+    });
+
+    try {
+      final vehiculos = await _vehiculoService.getVehiculos();
+      setState(() {
+        _vehiculos = vehiculos;
+        // Seleccionar la dirección principal por defecto
+        if (_direcciones.isNotEmpty) {
+          _selectedDireccionId = _direcciones.first['id'] as String?;
+        }
+      });
+    } catch (e) {
+      print('Error al cargar vehículos: $e');
+    } finally {
+      setState(() {
+        _isLoadingVehiculos = false;
+      });
+    }
+  }
+
+  Future<void> _cargarDirecciones() async {
+    setState(() {
+      _isLoadingDirecciones = true;
+    });
+
+    try {
+      final direcciones = await _direccionService.getDirecciones();
+      setState(() {
+        _direcciones = direcciones;
+        // Seleccionar la dirección principal por defecto
+        final direccionPrincipal = direcciones.firstWhere(
+          (d) => d['es_principal'] == true,
+          orElse: () => direcciones.isNotEmpty ? direcciones.first : {},
+        );
+        if (direccionPrincipal.isNotEmpty) {
+          _selectedDireccionId = direccionPrincipal['id'] as String?;
+          _locationController.text = _formatDireccion(direccionPrincipal);
+        }
+      });
+    } catch (e) {
+      print('Error al cargar direcciones: $e');
+    } finally {
+      setState(() {
+        _isLoadingDirecciones = false;
+      });
+    }
+  }
+
+  String _formatDireccion(Map<String, dynamic> direccion) {
+    final calle = direccion['calle'] as String? ?? '';
+    final numero = direccion['numero'] as String? ?? '';
+    final departamento = direccion['departamento'] as String?;
+    final ciudad = direccion['ciudad'] as String? ?? '';
+    final provincia = direccion['provincia'] as String? ?? '';
+    
+    String direccionText = '$calle $numero';
+    if (departamento != null && departamento.isNotEmpty) {
+      direccionText += ', Depto $departamento';
+    }
+    if (ciudad.isNotEmpty) {
+      direccionText += ', $ciudad';
+    }
+    if (provincia.isNotEmpty) {
+      direccionText += ', $provincia';
+    }
+    return direccionText;
   }
 
   Future<void> _pickImage() async {
@@ -159,19 +250,15 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           throw Exception('No hay usuario autenticado');
         }
 
-        // Extraer el nombre de la pieza del vehículo seleccionado
-        String piezaNombre = 'Repuesto solicitado';
-        if (_vehicleController.text.isNotEmpty) {
-          piezaNombre = _vehicleController.text;
-        }
-
-        // Crear la solicitud en Supabase
+        // Crear la solicitud con los datos correctos
         await _solicitudService.crearSolicitud(
           clienteId: user.id,
-          piezaNombre: piezaNombre,
+          vehiculoId: _selectedVehiculoId,
+          piezaNombre: _piezaNombreController.text,
           descripcion: _descriptionController.text,
           fotoUrl: _selectedImage?.path, // TODO: Subir imagen a Supabase Storage
-          direccionEntregaId: null, // TODO: Crear dirección en tabla direcciones_entrega
+          vinBusqueda: _vinController.text.isNotEmpty ? _vinController.text : null,
+          direccionEntregaId: _selectedDireccionId,
           esUrgente: false,
         );
 
@@ -230,27 +317,45 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       builder: (context) => AlertDialog(
         backgroundColor: surfaceContainerHigh,
         title: const Text(
-          'Cambiar ubicación',
+          'Seleccionar dirección de entrega',
           style: TextStyle(color: onSurface),
         ),
-        content: TextField(
-          controller: _locationController,
-          style: const TextStyle(color: onSurface),
-          decoration: InputDecoration(
-            hintText: 'Ingresa tu dirección',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
-            filled: true,
-            fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          maxLines: 2,
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _isLoadingDirecciones
+              ? const Center(
+                  child: CircularProgressIndicator(color: primaryContainer),
+                )
+              : _direcciones.isEmpty
+                  ? const Text(
+                      'No tienes direcciones registradas',
+                      style: TextStyle(color: onSurfaceVariant),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _direcciones.length,
+                      itemBuilder: (context, index) {
+                        final direccion = _direcciones[index];
+                        final isSelected = direccion['id'] == _selectedDireccionId;
+                        return ListTile(
+                          title: Text(
+                            _formatDireccion(direccion),
+                            style: const TextStyle(color: onSurface),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: primaryContainer)
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              _selectedDireccionId = direccion['id'] as String?;
+                              _locationController.text = _formatDireccion(direccion);
+                            });
+                            Navigator.pop(context);
+                            _showToast('Dirección actualizada');
+                          },
+                        );
+                      },
+                    ),
         ),
         actions: [
           TextButton(
@@ -260,19 +365,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             child: const Text(
               'Cancelar',
               style: TextStyle(color: onSurfaceVariant),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              if (_locationController.text.isNotEmpty) {
-                setState(() {});
-                Navigator.pop(context);
-                _showToast('Ubicación actualizada');
-              }
-            },
-            child: const Text(
-              'Guardar',
-              style: TextStyle(color: primaryContainer),
             ),
           ),
         ],
@@ -445,6 +537,51 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               ),
               const SizedBox(height: 24),
 
+              // Nombre del repuesto
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Nombre del repuesto',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _piezaNombreController,
+                    style: const TextStyle(color: onSurface),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: surfaceContainerHigh,
+                      hintText: 'Ej: Filtro de aceite, Disco de freno...',
+                      hintStyle: const TextStyle(color: onSurfaceVariant),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: outlineVariant),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryContainer, width: 2),
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor ingresa el nombre del repuesto';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
               // Vehicle Selector
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +603,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButtonFormField<String>(
-                        value: _vehicleController.text.isEmpty ? null : _vehicleController.text,
+                        value: _selectedVehiculoId,
                         decoration: const InputDecoration(
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           border: InputBorder.none,
@@ -474,23 +611,35 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         dropdownColor: surfaceContainerHigh,
                         style: const TextStyle(color: onSurface),
                         icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'toyota_corolla_2022',
-                            child: Text('Toyota Corolla 2022 (VIN: ...4589)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'honda_civic_2018',
-                            child: Text('Honda Civic 2018 (VIN: ...1234)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'new',
-                            child: Text('+ Agregar nuevo vehículo'),
-                          ),
-                        ],
+                        items: _isLoadingVehiculos
+                            ? [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('Cargando vehículos...'),
+                                ),
+                              ]
+                            : _vehiculos.isEmpty
+                                ? [
+                                    const DropdownMenuItem(
+                                      value: null,
+                                      child: Text('No hay vehículos registrados'),
+                                    ),
+                                  ]
+                                : _vehiculos.map((vehiculo) {
+                                    final modelo = vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
+                                    final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
+                                    final vin = vehiculo['vin'] as String? ?? '';
+                                    final nombreVehiculo = marca != null && modelo != null
+                                        ? '${marca['nombre']} ${modelo['nombre']}'
+                                        : 'Vehículo';
+                                    return DropdownMenuItem(
+                                      value: vehiculo['id'] as String?,
+                                      child: Text('$nombreVehiculo (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})'),
+                                    );
+                                  }).toList(),
                         onChanged: (value) {
                           setState(() {
-                            _vehicleController.text = value ?? '';
+                            _selectedVehiculoId = value;
                           });
                         },
                         validator: (value) {
@@ -547,6 +696,45 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       }
                       return null;
                     },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // VIN Field
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Código VIN (opcional)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _vinController,
+                    style: const TextStyle(color: onSurface),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: surfaceContainerHigh,
+                      hintText: 'Ej: 1HGBH41JXMN109186',
+                      hintStyle: const TextStyle(color: onSurfaceVariant),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: outlineVariant),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryContainer, width: 2),
+                      ),
+                    ),
                   ),
                 ],
               ),

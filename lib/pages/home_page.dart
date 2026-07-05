@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'create_request_page.dart';
+import 'profile_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 
@@ -733,9 +734,10 @@ class _HomePageState extends State<HomePage> {
             label: 'Profile',
             isSelected: _selectedIndex == 3,
             onTap: () {
-              setState(() {
-                _selectedIndex = 3;
-              });
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
             },
           ),
         ],

@@ -23,20 +23,25 @@ const getDirecciones = async (req, res) => {
 // POST /direcciones
 const createDireccion = async (req, res) => {
   try {
-    const { nombre_ubicacion, direccion_texto, latitude, longitude } = req.body;
+    // 1. Extraemos las variables camelCase que enviará la app de Flutter
+    const { alias, callePrincipal, calleSecundaria, referencia } = req.body;
 
-    if (!nombre_ubicacion || !direccion_texto) {
-      return res.status(400).json({ error: 'nombre_ubicacion and direccion_texto are required' });
+    // 2. Validación de campos obligatorios según el nuevo diseño del formulario
+    if (!alias || !callePrincipal) {
+      return res.status(400).json({ 
+        error: 'El alias (ej. Casa) y la calle principal son obligatorios.' 
+      });
     }
 
+    // 3. Insertamos directamente mapeando a las nuevas columnas de Supabase
     const { data: direccion, error } = await supabase
       .from('direcciones_entrega')
       .insert({
         cliente_id: req.user.id,
-        nombre_ubicacion,
-        direccion_texto,
-        latitude,
-        longitude
+        alias: alias.trim(),
+        calle_principal: callePrincipal.trim(),
+        calle_secundaria: calleSecundaria && calleSecundaria.trim().length > 0 ? calleSecundaria.trim() : null,
+        referencia: referencia && referencia.trim().length > 0 ? referencia.trim() : null
       })
       .select()
       .single();
@@ -56,9 +61,10 @@ const createDireccion = async (req, res) => {
 const updateDireccion = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_ubicacion, direccion_texto, latitude, longitude } = req.body;
+    // Capturamos las nuevas variables desde el cuerpo de la petición
+    const { alias, callePrincipal, calleSecundaria, referencia } = req.body;
 
-    // Verify ownership
+    // Verificar pertenencia del registro (Seguridad)
     const { data: existing, error: checkError } = await supabase
       .from('direcciones_entrega')
       .select('cliente_id')
@@ -73,15 +79,23 @@ const updateDireccion = async (req, res) => {
       return res.status(403).json({ error: 'You do not own this address' });
     }
 
+    // Construimos el objeto de actualización dinámicamente con los nuevos campos
+    const updateData = {};
+    if (alias) updateData.alias = alias.trim();
+    if (callePrincipal) updateData.calle_principal = callePrincipal.trim();
+    
+    // Permitir limpiar o modificar campos opcionales
+    if (calleSecundaria !== undefined) {
+      updateData.calle_secundaria = calleSecundaria && calleSecundaria.trim().length > 0 ? calleSecundaria.trim() : null;
+    }
+    if (referencia !== undefined) {
+      updateData.referencia = referencia && referencia.trim().length > 0 ? referencia.trim() : null;
+    }
+
+    // Ejecutamos la actualización en la tabla reestructurada
     const { data: direccion, error } = await supabase
       .from('direcciones_entrega')
-      .update({
-        nombre_ubicacion,
-        direccion_texto,
-        latitude,
-        longitude,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -102,7 +116,7 @@ const deleteDireccion = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verify ownership
+    // Verificar pertenencia del registro
     const { data: existing, error: checkError } = await supabase
       .from('direcciones_entrega')
       .select('cliente_id')

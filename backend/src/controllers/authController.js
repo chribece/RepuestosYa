@@ -122,4 +122,22 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+// POST /auth/logout
+const logout = async (req, res) => {
+  try {
+    // Since we use stateless JWTs, the main logout action is on the client side
+    // However, we can also sign out from Supabase Auth if needed
+    // For now, we'll just return success as the JWT will be discarded on the client
+    
+    // Optional: Sign out from Supabase if we have the session
+    // This would require passing the Supabase session token or using the service role
+    // For simplicity, we'll just acknowledge the logout
+    
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { register, login, logout };

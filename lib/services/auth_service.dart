@@ -150,10 +150,26 @@ class AuthService {
   // Cerrar sesión
   Future<void> signOut() async {
     try {
+      // Call backend logout endpoint (optional for JWT stateless)
+      try {
+        await _apiClient.post(
+          '/auth/logout',
+          requireAuth: true,
+        );
+      } catch (e) {
+        // Ignore backend errors - JWT is stateless, client-side logout is sufficient
+        print('Backend logout call failed (non-critical): $e');
+      }
+      
+      // Clear local token and user data
       await _apiClient.clearToken();
       _currentUser = null;
       _authStateController.add(AuthState(user: null));
     } catch (e) {
+      // Even if everything fails, clear local data
+      await _apiClient.clearToken();
+      _currentUser = null;
+      _authStateController.add(AuthState(user: null));
       throw Exception('Error al cerrar sesión: $e');
     }
   }

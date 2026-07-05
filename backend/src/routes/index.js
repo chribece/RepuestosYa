@@ -9,10 +9,13 @@ const vehiculoController = require('../controllers/vehiculoController');
 const direccionController = require('../controllers/direccionController');
 const solicitudController = require('../controllers/solicitudController');
 const cotizacionController = require('../controllers/cotizacionController');
+const marcaController = require('../controllers/marcaController');
+const modeloController = require('../controllers/modeloController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
+router.post('/auth/logout', auth, authController.logout);
 
 // Profile routes (protected)
 router.get('/profile', auth, profileController.getProfile);
@@ -23,6 +26,12 @@ router.get('/vehiculos', auth, vehiculoController.getVehiculos);
 router.post('/vehiculos', auth, vehiculoController.createVehiculo);
 router.put('/vehiculos/:id', auth, vehiculoController.updateVehiculo);
 router.delete('/vehiculos/:id', auth, vehiculoController.deleteVehiculo);
+
+// Marca routes (public - catálogo)
+router.get('/marcas', marcaController.getMarcas);
+
+// Modelo routes (public - catálogo con filtro)
+router.get('/modelos', modeloController.getModelos);
 
 // Direccion routes (protected)
 router.get('/direcciones', auth, direccionController.getDirecciones);

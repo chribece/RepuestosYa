@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import '../services/almacen_service.dart';
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
@@ -22,14 +23,15 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   String _selectedCondition = 'new';
+  String _selectedDeliveryTime = '24-48 horas';
   
   File? _selectedImage;
   bool _isSubmitting = false;
 
   final ImagePicker _imagePicker = ImagePicker();
   final AuthService _authService = AuthService();
-  // Asumiendo que extiendes o usas tu SolicitudService para insertar cotizaciones
-  final SolicitudService _solicitudService = SolicitudService(); 
+  final SolicitudService _solicitudService = SolicitudService();
+  final AlmacenService _almacenService = AlmacenService(); 
 
   // Sistema de Diseño y Paleta de Colores Industrial
   static const Color background = Color(0xFF131313);
@@ -44,7 +46,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   static const Color onPrimaryContainer = Color(0xFF541200);
   static const Color secondary = Color(0xFF9ECAFF);
   static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
   static const Color outlineVariant = Color(0xFF5B4039);
   static const Color onSurface = Color(0xFFE5E2E1);
   static const Color onSurfaceVariant = Color(0xFFE4BEB4);
@@ -56,11 +57,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     super.dispose();
   }
 
-  // Lógica para seleccionar imagen desde la cámara/galería (Misma lógica que CreateRequestPage)
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery, // O ImageSource.camera según prefieras
+        source: ImageSource.gallery,
         imageQuality: 80,
       );
       if (image != null) {
@@ -75,7 +75,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     }
   }
 
-  // Envío asíncrono de datos al Backend
   Future<void> _enviarCotizacion() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -84,33 +83,35 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     });
 
     try {
-      final userId = _authService.currentUser?.id; 
-      final String solicitudId = widget.solicitud['id']?.toString() ?? '';
+      final String solicitudId = widget.solicitud['solicitud_id']?.toString() ??
+                                 widget.solicitud['id']?.toString() ?? '';
       String? uploadedImageUrl;
 
-      // 1. Si el operador del almacén capturó una foto física del stock
       if (_selectedImage != null) {
-        // TODO: Implementa aquí la subida al Storage Bucket de tu backend
-        // tal como lo hace el cliente en create_request_page.dart para rescatar el link string.
-        
-        // Enlace de prueba provisional para verificar la persistencia en base de datos:
         uploadedImageUrl = "https://tu-proyecto.supabase.co/storage/v1/object/public/cotizaciones/repuesto_verificado.jpg";
       }
 
-      // 2. Invocación asíncrona estructurada al servicio corregido
+      final almacen = await _almacenService.obtenerMiAlmacen();
+      if (almacen == null) {
+        throw Exception('No tienes un almacén asociado. Contacta al administrador.');
+      }
+
+      final String almacenId = almacen['id']?.toString() ?? '';
+
       await _solicitudService.crearCotizacion(
         solicitudId: solicitudId,
-        almacenId: userId ?? '',
+        almacenId: almacenId,
         precio: double.tryParse(_priceController.text) ?? 0.0,
         notas: _notesController.text.trim(),
-        fotoUrl: uploadedImageUrl, // Pasamos el String limpio libre de errores multipart
+        fotoUrl: uploadedImageUrl,
+        tiempoEntrega: _selectedDeliveryTime,
       );
 
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
-        Navigator.pop(context, true); // Cierra la pantalla y actualiza el Dashboard en tiempo real
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
@@ -119,7 +120,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al procesar la cotización: $e'), 
+            content: Text('Error al procesar la cotización: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -129,16 +130,25 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Extracción dinámica segura de datos de la fila de la BD
-    final String piezaNombre = widget.solicitud['pieza_nombre'] ?? 'Repuesto';
-    final String descripcion = widget.solicitud['descripcion'] ?? 'Sin especificaciones técnicas';
-    final String idSolicitud = widget.solicitud['id']?.toString().substring(0, double.parse(widget.solicitud['id'].toString().length.toString()) > 4 ? 4 : widget.solicitud['id'].toString().length) ?? '0000';
+    // EXTRAER EL MAPA ANIDADO (SI EXISTE)
+    final Map<String, dynamic> objetoInterno = widget.solicitud['solicitud'] is Map<String, dynamic>
+        ? widget.solicitud['solicitud'] as Map<String, dynamic>
+        : {};
+
+    // EXTRACCIÓN SEGURA MULTINIVEL DE TEXTOS
+    final String piezaNombre = objetoInterno['pieza_nombre'] ?? widget.solicitud['pieza_nombre'] ?? 'Repuesto';
+    final String descripcion = objetoInterno['descripcion'] ?? widget.solicitud['descripcion'] ?? 'Sin especificaciones técnicas';
+    
+    final String idSolicitud = widget.solicitud['solicitud_id']?.toString() ?? 
+                               widget.solicitud['id']?.toString() ?? '0000';
+    final String idCorto = idSolicitud.isNotEmpty 
+        ? idSolicitud.substring(0, idSolicitud.length > 4 ? 4 : idSolicitud.length) 
+        : '0000';
 
     return Scaffold(
       backgroundColor: background,
       body: Stack(
         children: [
-          // Capas decorativas de difuminado ambiental
           Positioned(
             top: -100,
             right: -100,
@@ -153,7 +163,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           SafeArea(
             child: Column(
               children: [
-                _buildHeader(idSolicitud, piezaNombre),
+                _buildHeader(idCorto, piezaNombre),
                 Expanded(
                   child: Form(
                     key: _formKey,
@@ -167,6 +177,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           _buildPriceField(),
                           const SizedBox(height: 24),
                           _buildConditionDropdown(),
+                          const SizedBox(height: 24),
+                          _buildDeliveryTimeDropdown(),
                           const SizedBox(height: 24),
                           _buildImageUploadArea(),
                           const SizedBox(height: 24),
@@ -202,19 +214,22 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Nueva Cotización',
-                style: TextStyle(color: onSurface, fontSize: 20, fontWeight: FontWeight.w600, fontFamily: 'Sora'),
-              ),
-              Text(
-                'Solicitud #$id - $pieza',
-                style: const TextStyle(color: onSurfaceVariant, fontSize: 12, fontFamily: 'Inter'),
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Nueva Cotización',
+                  style: TextStyle(color: onSurface, fontSize: 20, fontWeight: FontWeight.w600, fontFamily: 'Sora'),
+                ),
+                Text(
+                  'Solicitud #$id - $pieza',
+                  style: const TextStyle(color: onSurfaceVariant, fontSize: 12, fontFamily: 'Inter'),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -222,6 +237,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   }
 
   Widget _buildSummaryCard(String title, String subtitle) {
+    // EXTRAER MAPA ANIDADO PARA LA IMAGEN
+    final Map<String, dynamic> objetoInterno = widget.solicitud['solicitud'] is Map<String, dynamic>
+        ? widget.solicitud['solicitud'] as Map<String, dynamic>
+        : {};
+
+    // VERIFICACIÓN ABSOLUTA EN CADENA (Prueba todas las opciones para no fallar)
+    final String? urlDeLaImagen = objetoInterno['foto_url'] ?? 
+                                  objetoInterno['image_url'] ?? 
+                                  widget.solicitud['foto_url'] ?? 
+                                  widget.solicitud['image_url'];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -239,10 +265,38 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: outlineVariant, width: 1),
             ),
-            child: widget.solicitud['imagen_url'] != null 
+            child: (urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty)
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(7),
-                    child: Image.network(widget.solicitud['imagen_url'], fit: BoxFit.cover),
+                    child: urlDeLaImagen.trim().startsWith('/')
+                        ? Image.file(
+                            File(urlDeLaImagen.trim()),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(
+                              Icons.precision_manufacturing,
+                              color: primaryContainer,
+                              size: 32,
+                            ),
+                          )
+                        : Image.network(
+                            urlDeLaImagen.trim(),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(
+                              Icons.precision_manufacturing,
+                              color: primaryContainer,
+                              size: 32,
+                            ),
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: primary),
+                                ),
+                              );
+                            },
+                          ),
                   )
                 : const Icon(Icons.precision_manufacturing, color: primaryContainer, size: 32),
           ),
@@ -357,6 +411,45 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _selectedCondition = value);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeliveryTimeDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Tiempo de Entrega Estimado',
+          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: outlineVariant),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedDeliveryTime,
+              dropdownColor: surfaceContainerHigh,
+              icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+              isExpanded: true,
+              style: const TextStyle(color: onSurface, fontSize: 15, fontFamily: 'Inter'),
+              items: const [
+                DropdownMenuItem(value: 'Inmediata', child: Text('Inmediata')),
+                DropdownMenuItem(value: '24-48 horas', child: Text('24-48 horas')),
+                DropdownMenuItem(value: '3-5 días', child: Text('3-5 días')),
+                DropdownMenuItem(value: '1-2 semanas', child: Text('1-2 semanas')),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _selectedDeliveryTime = value);
               },
             ),
           ),

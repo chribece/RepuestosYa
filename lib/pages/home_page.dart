@@ -583,7 +583,7 @@ class _HomePageState extends State<HomePage> {
                 timeText = 'Hace ${difference.inDays} días';
               }
             }
-
+            final String urlFinal = solicitud['foto_url'] as String? ?? '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: _buildRequestCard(
@@ -593,7 +593,7 @@ class _HomePageState extends State<HomePage> {
                 statusColor: statusColor,
                 quotes: '0 Cotizaciones',
                 time: timeText,
-                imageUrl: solicitud['foto_url'] as String? ?? 'https://via.placeholder.com/96',
+                imageUrl: urlFinal,
               ),
             );
           }).toList(),

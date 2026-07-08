@@ -18,19 +18,20 @@ class SolicitudService {
       throw Exception('Error al obtener solicitudes paginadas: $e');
     }
   }
+
   // Método puente para compatibilidad con la vista Home
   Future<List<Map<String, dynamic>>> obtenerSolicitudesCliente(String clienteId) async {
     try {
-      // Llama a la misma ruta pero con valores por defecto para evitar romper la vista anterior
       return await obtenerSolicitudesPaginadas(
         clienteId: clienteId,
         page: 1,
-        limit: 50, // Un número alto para traer las principales
+        limit: 50,
       );
     } catch (e) {
       throw Exception('Error en SolicitudService.obtenerSolicitudesCliente: $e');
     }
   }
+
   // Crear una nueva solicitud de repuesto (Rol Cliente)
   Future<Map<String, dynamic>> crearSolicitud({
     required String clienteId,
@@ -51,7 +52,10 @@ class SolicitudService {
 
       if (vehiculoId != null) data['vehiculo_id'] = vehiculoId;
       if (descripcion != null && descripcion.isNotEmpty) data['descripcion'] = descripcion;
+      
+      // ESTÁNDAR: Aseguramos el envío a la columna real de la BD
       if (fotoUrl != null && fotoUrl.isNotEmpty) data['foto_url'] = fotoUrl;
+      
       if (vinBusqueda != null && vinBusqueda.isNotEmpty) data['vin_busqueda'] = vinBusqueda;
       if (direccionEntregaId != null) data['direccion_entrega_id'] = direccionEntregaId;
 
@@ -81,30 +85,30 @@ class SolicitudService {
     }
   }
 
-  // Crear una nueva cotización asociada a una solicitud (Consistente con fotoUrl del cliente)
+  // Crear una nueva cotización asociada a una solicitud
   Future<Map<String, dynamic>> crearCotizacion({
     required String solicitudId,
     required String almacenId,
     required double precio,
     String? notas,
-    String? fotoUrl, // Recibe la URL pública como String desde el Storage
+    String? fotoUrl,
+    required String tiempoEntrega,
   }) async {
     try {
       final Map<String, dynamic> data = {
         'solicitud_id': solicitudId,
         'almacen_id': almacenId,
-        'precio': precio,
+        'precio_venta': precio,
+        'tiempo_entrega_estimado': tiempoEntrega,
       };
 
-      // Inyección dinámica de campos opcionales sin duplicaciones
       if (notas != null && notas.isNotEmpty) {
-        data['notas'] = notas;
+        data['notas_adicionales'] = notas;
       }
       if (fotoUrl != null && fotoUrl.isNotEmpty) {
-        data['imagen_url'] = fotoUrl; // Mapeado a la columna real en la BD de Supabase
+        data['foto_evidencia_url'] = fotoUrl;
       }
 
-      // Envía el JSON plano al backend sin mezclar lógica multipart redundante
       final response = await _apiClient.post(
         '/cotizaciones',
         body: data,

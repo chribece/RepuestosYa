@@ -191,4 +191,24 @@ const updateCotizacionEstado = async (req, res) => {
   }
 };
 
-module.exports = { createCotizacion, getMisCotizaciones, getCotizacionesPorSolicitud, updateCotizacionEstado };
+// GET /almacen/mi-almacen (para almacenes)
+const getMiAlmacen = async (req, res) => {
+  try {
+    const { data: almacen, error } = await supabase
+      .from('almacenes')
+      .select('*')
+      .eq('encargado_id', req.user.id)
+      .single();
+
+    if (error || !almacen) {
+      return res.status(404).json({ error: 'Warehouse not found for this user' });
+    }
+
+    res.json(almacen);
+  } catch (error) {
+    console.error('Get mi almacen error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { createCotizacion, getMisCotizaciones, getCotizacionesPorSolicitud, updateCotizacionEstado, getMiAlmacen };

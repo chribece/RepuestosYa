@@ -39,6 +39,9 @@ router.post('/direcciones', auth, direccionController.createDireccion);
 router.put('/direcciones/:id', auth, direccionController.updateDireccion);
 router.delete('/direcciones/:id', auth, direccionController.deleteDireccion);
 
+// Almacen routes (protected)
+router.get('/almacen/mi-almacen', auth, requireRole('almacen'), cotizacionController.getMiAlmacen);
+
 // Solicitud routes (protected)
 router.get('/solicitudes', auth, solicitudController.getMisSolicitudes);
 router.get('/solicitudes/activas', auth, requireRole('almacen'), solicitudController.getSolicitudesActivas);

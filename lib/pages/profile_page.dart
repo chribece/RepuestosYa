@@ -5,6 +5,7 @@ import 'login_page.dart';
 import 'home_page.dart';
 import 'vehicles_page.dart';
 import 'addresses_page.dart';
+import 'warehouse_dashboard.dart'; // Importación indispensable para la redirección de almacén
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -29,14 +30,19 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color secondaryContainer = Color(0xFF1E95F2);
   static const Color surfaceContainerLow = Color(0xFF1C1B1B);
   static const Color error = Color(0xFFFF1744);
-  static const Color dividerColor = Color(0xFF333333);
-  static const Color cardBackground = Color(0xFF1E1E1E);
+  static const Color dividerColor = Color(0xFF2C2C2C);
+
+  // Llave global indispensable para abrir de manera segura el menú hamburguesa
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
-  
+
   Map<String, dynamic>? _profile;
-  bool _isLoading = true;
+  bool _isLoading = false;
+
+  final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
 
   @override
   void initState() {
@@ -44,79 +50,113 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadProfile();
   }
 
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _telefonoController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadProfile() async {
     setState(() {
       _isLoading = true;
     });
 
-    try {
-      final user = _authService.currentUser;
-      if (user != null) {
-        final profile = await _profileService.getUserProfile(user.id);
+    final user = _authService.currentUser;
+    if (user != null) {
+      final profileData = await _profileService.getUserProfile(user.id);
+      if (profileData != null && mounted) {
         setState(() {
-          _profile = profile;
+          _profile = profileData;
+          _nombreController.text = profileData['nombre_completo'] ?? '';
+          _telefonoController.text = profileData['telefono'] ?? '';
         });
       }
-    } catch (e) {
-      print('Error loading profile: $e');
-    } finally {
+    }
+
+    if (mounted) {
       setState(() {
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _showLogoutDialog() {
-    return showDialog(
+  Future<void> _saveProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final updated = await _profileService.updateProfile(
+      nombreCompleto: _nombreController.text.trim(),
+      telefono: _telefonoController.text.trim(),
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (updated != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil actualizado correctamente')),
+        );
+        _loadProfile();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar el perfil')),
+        );
+      }
+    }
+  }
+
+  // Función inteligente para redireccionar dinámicamente según el Rol del usuario
+  void _navigateToHomeBasedOnRole() {
+    final user = _authService.currentUser;
+    
+    if (user?.rol == 'almacen' || user?.rol == 'warehouse') {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
+        (route) => false,
+      );
+    } else {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+        (route) => false,
+      );
+    }
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: surfaceContainerHigh,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: Text(
-            'Cerrar Sesión',
-            style: TextStyle(
-              color: onSurface,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            '¿Estás seguro de que quieres cerrar sesión?',
-            style: TextStyle(
-              color: onSurfaceVariant,
-              fontSize: 16,
-            ),
+          backgroundColor: surfaceVariant,
+          title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            '¿Estás seguro de que deseas salir de la aplicación?',
+            style: TextStyle(color: onSurfaceVariant),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                'Cancelar',
-                style: TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: primary)),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
-                await _handleLogout();
+                Navigator.pop(context); // Cierra el modal dialog
+                await _authService.signOut();
+                if (mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
               },
-              child: Text(
-                'Cerrar Sesión',
-                style: TextStyle(
-                  color: error,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: const Text('Salir', style: TextStyle(color: error)),
             ),
           ],
         );
@@ -124,34 +164,74 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _handleLogout() async {
-    try {
-      await _authService.signOut();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cerrar sesión: $e'),
-            backgroundColor: error,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = _authService.currentUser;
 
     return Scaffold(
+      key: _scaffoldKey, // Vinculación de la llave limpia para el menú
       backgroundColor: background,
+      
+      // MENÚ LATERAL (DRAWER) CON REDIRECCIÓN INTELIGENTE
+      drawer: Drawer(
+        child: Container(
+          color: background,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: const BoxDecoration(
+                  color: surfaceContainerHigh,
+                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'RepuestosYa',
+                      style: TextStyle(
+                        color: primaryContainer,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Menú de Opciones',
+                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.home, color: primaryContainer),
+                title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el menú lateral visualmente
+                  _navigateToHomeBasedOnRole(); // Llama a la redirección dinámica por rol
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person, color: primaryContainer),
+                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context); // Solo cierra el drawer porque ya está aquí
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el drawer lateral
+                  _showLogoutDialog(); // Llama a tu función nativa de confirmación
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      
       body: SafeArea(
         child: Column(
           children: [
@@ -159,27 +239,34 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildTopAppBar(),
             // Main Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    // Profile Header
-                    _buildProfileHeader(user),
-                    const SizedBox(height: 24),
-                    // Menu Section
-                    _buildMenuSection(),
-                    const SizedBox(height: 24),
-                    // Logout Button
-                    _buildLogoutButton(),
-                    const SizedBox(height: 16),
-                    // Footer
-                    _buildFooter(),
-                    const SizedBox(height: 80), // Space for bottom nav
-                  ],
-                ),
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          // Profile Header
+                          _buildProfileHeader(user),
+                          const SizedBox(height: 24),
+                          // Form Fields
+                          _buildEditableFields(),
+                          const SizedBox(height: 24),
+                          // Menu Section (SÓLO PARA CLIENTES)
+                          if (user?.rol != 'almacen' && user?.rol != 'warehouse') ...[
+                            _buildMenuSection(),
+                            const SizedBox(height: 24),
+                          ],
+                          // Logout Button
+                          _buildLogoutButton(),
+                          const SizedBox(height: 16),
+                          // Footer
+                          _buildFooter(),
+                          const SizedBox(height: 80), // Space for bottom nav
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -191,7 +278,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: surface,
         border: Border(
           bottom: BorderSide(color: outlineVariant, width: 1),
@@ -202,251 +289,228 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           Row(
             children: [
-              InkWell(
-                onTap: () {
-                  Navigator.pop(context);
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.menu,
-                    color: primary,
-                    size: 24,
-                  ),
+              IconButton(
+                icon: const Icon(
+                  Icons.menu,
+                  color: primaryContainer,
+                  size: 24,
                 ),
+                onPressed: () {
+                  // Abre de manera segura el Drawer lateral de esta pantalla
+                  _scaffoldKey.currentState?.openDrawer();
+                },
               ),
-              const SizedBox(width: 12),
-              Text(
+              const SizedBox(width: 4),
+              const Text(
                 'Mi Perfil',
                 style: TextStyle(
-                  color: primaryContainer,
-                  fontSize: 22,
+                  color: Colors.white,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: surfaceVariant,
-              shape: BoxShape.circle,
-              border: Border.all(color: primaryContainer, width: 2),
+          if (!_isLoading)
+            IconButton(
+              icon: const Icon(Icons.save, color: primaryContainer),
+              onPressed: _saveProfile,
             ),
-            child: Icon(
-              Icons.person,
-              color: onSurfaceVariant,
-              size: 24,
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildProfileHeader(User? user) {
-    return Column(
+    final displayName = _profile?['nombre_completo'] ?? user?.nombreCompleto ?? 'Usuario';
+    final email = user?.email ?? 'Sin correo registrado';
+    final roleDisplay = (user?.rol == 'almacen' || user?.rol == 'warehouse') ? 'Rol: Almacén / Vendedor' : 'Rol: Cliente';
+
+    return Row(
       children: [
-        // Avatar with glow effect
-        Center(
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(100),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryContainer.withOpacity(0.3),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Container(
-                  width: 128,
-                  height: 128,
-                  decoration: BoxDecoration(
-                    color: surfaceVariant,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: primaryContainer, width: 4),
-                  ),
-                  child: Icon(
-                    Icons.person,
-                    color: primaryContainer,
-                    size: 72,
-                  ),
-                ),
-                // Edit button
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: primaryContainer,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: surface, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.edit,
-                      color: onPrimaryContainer,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Name
-        Text(
-          user?.nombreCompleto ?? 'Usuario',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.5,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 4),
-        // Email and phone
-        Text(
-          '${user?.email ?? ''} • +54 11 4567-8901',
-          style: TextStyle(
-            color: const Color(0xFFB0B0B0),
-            fontSize: 14,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        // Badge
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          width: 80,
+          height: 80,
           decoration: BoxDecoration(
-            color: secondaryContainer.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(100),
-            border: Border.all(color: secondaryContainer.withOpacity(0.2)),
+            color: surfaceContainerHigh,
+            shape: BoxShape.circle,
+            border: Border.all(color: primaryContainer, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: primaryContainer.withOpacity(0.2),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: Text(
-            'Miembro Platinum',
-            style: TextStyle(
-              color: secondaryContainer,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+          child: const Icon(
+            Icons.person,
+            size: 40,
+            color: primary,
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                email,
+                style: const TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                roleDisplay,
+                style: const TextStyle(
+                  color: primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEditableFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Información Personal',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _nombreController,
+          label: 'Nombre Completo',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _telefonoController,
+          label: 'Teléfono',
+          icon: Icons.phone_android_outlined,
+          keyboardType: TextInputType.phone,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: onSurfaceVariant),
+        prefixIcon: Icon(icon, color: primaryContainer),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: outlineVariant),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: primaryContainer, width: 2),
+        ),
+        filled: true,
+        fillColor: surfaceContainerLow,
+      ),
     );
   }
 
   Widget _buildMenuSection() {
-    return Column(
-      children: [
-        // Main menu items
-        _buildMenuCard([
-          _buildMenuItem(
-            icon: Icons.directions_car,
-            label: 'Mis Vehículos',
-          ),
-          _buildMenuItem(
-            icon: Icons.location_on,
-            label: 'Direcciones',
-          ),
-          _buildMenuItem(
-            icon: Icons.payments,
-            label: 'Métodos de Pago',
-          ),
-          _buildMenuItem(
-            icon: Icons.help,
-            label: 'Centro de Ayuda',
-          ),
-        ]),
-        const SizedBox(height: 8),
-        // Settings
-        _buildMenuCard([
-          _buildMenuItem(
-            icon: Icons.settings,
-            label: 'Configuración',
-          ),
-        ]),
-      ],
-    );
-  }
-
-  Widget _buildMenuCard(List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: dividerColor),
+        color: surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: outlineVariant, width: 1),
       ),
       child: Column(
-        children: children,
+        children: [
+          _buildMenuItem(
+            icon: Icons.directions_car_outlined,
+            title: 'Mis Vehículos',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VehiclesPage()),
+              );
+            },
+          ),
+          _buildMenuItem(
+            icon: Icons.location_on_outlined,
+            title: 'Mis Direcciones',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddressesPage()),
+              );
+            },
+            isLast: true,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildMenuItem({
     required IconData icon,
-    required String label,
+    required String title,
+    required VoidCallback onTap,
+    bool isLast = false,
   }) {
     return Column(
       children: [
-        InkWell(
-          onTap: () {
-            if (label == 'Mis Vehículos') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const VehiclesPage()),
-              );
-            } else if (label == 'Direcciones') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddressesPage()),
-              );
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: const Color(0xFFB0B0B0),
-                  size: 24,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: onSurface,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: outlineVariant,
-                  size: 24,
-                ),
-              ],
+        ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: primary),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          trailing: const Icon(
+            Icons.arrow_forward_ios,
+            color: onSurfaceVariant,
+            size: 16,
+          ),
+          onTap: onTap,
         ),
-        // Divider (except for last item)
-        if (label != 'Configuración')
+        if (!isLast)
           Container(
             height: 1,
             margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -476,7 +540,7 @@ class _ProfilePageState extends State<ProfilePage> {
         child: InkWell(
           onTap: _showLogoutDialog,
           borderRadius: BorderRadius.circular(12),
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -501,13 +565,15 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildFooter() {
-    return Text(
-      'Versión 2.1.0 • Built for Performance',
-      style: TextStyle(
-        color: outlineVariant,
-        fontSize: 12,
+    return const Center(
+      child: Text(
+        'Versión 2.1.0 • Built for Performance',
+        style: TextStyle(
+          color: outlineVariant,
+          fontSize: 12,
+        ),
+        textAlign: TextAlign.center,
       ),
-      textAlign: TextAlign.center,
     );
   }
 }

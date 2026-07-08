@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'profile_page.dart';
+import 'login_page.dart';
 import '../services/solicitud_service.dart';
+import '../services/auth_service.dart';
+import 'create_quotation_page.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -10,29 +13,34 @@ class WarehouseDashboard extends StatefulWidget {
 }
 
 class _WarehouseDashboardState extends State<WarehouseDashboard> {
-  // Color scheme from HTML
-  static const Color primary = Color(0xFFFFB5A0);
+  // Configuración de Colores basada exactamente en tu JSON de Tailwind
+  static const Color background = Color(0xFF131313);
+  static const Color surface = Color(0xFF131313);
+  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
+  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
+  static const Color surfaceVariant = Color(0xFF353534);
+  static const Color cardBackground = Color(0xFF1E1E1E);
+  
   static const Color primaryContainer = Color(0xFFFF5722);
   static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
+  static const Color primary = Color(0xFFFFB5A0);
+  static const Color secondary = Color(0xFF9ECAFF);
   static const Color outlineVariant = Color(0xFF5B4039);
   static const Color onSurface = Color(0xFFE5E2E1);
   static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final SolicitudService _solicitudService = SolicitudService();
 
   bool _isOpen = true;
   int _selectedIndex = 0;
-  
   List<Map<String, dynamic>> _solicitudes = [];
   bool _isLoadingSolicitudes = false;
-  
-  final SolicitudService _solicitudService = SolicitudService();
+
+  // Variables para la cuadrícula Bento (puedes conectarlas a tu backend si lo deseas)
+  final int _ventasCount = 42;
+  final int _pendientesCount = 12;
+  final int _vistasCount = 850;
 
   @override
   void initState() {
@@ -44,54 +52,190 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     setState(() {
       _isLoadingSolicitudes = true;
     });
-
     try {
       final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
-      print('Solicitudes activas cargadas: ${solicitudes.length}');
       setState(() {
         _solicitudes = solicitudes;
+        _isLoadingSolicitudes = false;
       });
     } catch (e) {
-      print('Error al cargar solicitudes activas: $e');
-    } finally {
       setState(() {
         _isLoadingSolicitudes = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar solicitudes: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: background,
+      
+      drawer: Drawer(
+        child: Container(
+          color: background,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: const BoxDecoration(
+                  color: surfaceContainerHigh,
+                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'RepuestosYa',
+                      style: TextStyle(
+                        color: primaryContainer,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Sora',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Panel de Control (Almacén)',
+                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.dashboard, color: primaryContainer),
+                title: const Text('Panel Principal', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.pop(context),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person, color: primaryContainer),
+                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfilePage()),
+                  );
+                },
+              ),
+              const Divider(color: outlineVariant),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await AuthService().signOut();
+                  if (context.mounted) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      
       body: SafeArea(
         child: Column(
           children: [
-            // Header Section
-            _buildHeader(),
-            // Main Content
+            _buildTopAppBar(),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
                     // Dashboard Welcome
-                    _buildWelcomeSection(),
-                    const SizedBox(height: 16),
+                    const Text(
+                      'Almacén Central',
+                      style: TextStyle(
+                        color: onSurface,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Sora',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Gestión de inventario y pedidos en tiempo real.',
+                      style: TextStyle(
+                        color: onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
                     // Stats Grid (Bento Style)
-                    _buildStatsGrid(),
-                    const SizedBox(height: 16),
+                    _buildBentoStatsGrid(),
+                    const SizedBox(height: 24),
+                    
                     // Section Title
-                    _buildSectionTitle(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Solicitudes Cercanas',
+                          style: TextStyle(
+                            color: onSurface,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Sora',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _cargarSolicitudes,
+                          child: const Text(
+                            'Ver todas',
+                            style: TextStyle(color: primary, fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
+                    
                     // Request Cards List
-                    _buildRequestCards(),
-                    const SizedBox(height: 16),
-                    // Atmospheric Visual Element
-                    _buildSystemStatus(),
-                    const SizedBox(height: 80), // Space for bottom nav
+                    _isLoadingSolicitudes
+                        ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+                        : _solicitudes.isEmpty
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 32),
+                                  child: Text(
+                                    'No hay solicitudes activas en este momento',
+                                    style: TextStyle(color: onSurfaceVariant),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _solicitudes.length,
+                                itemBuilder: (context, index) {
+                                  final solicitud = _solicitudes[index];
+                                  
+                                  // Simulación de tags basado en el índice o la data real para replicar tu HTML
+                                  String? tagType;
+                                  if (index % 3 == 0) tagType = 'COMPATIBLE';
+                                  if (index % 3 == 2) tagType = 'URGENTE';
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: _buildRequestBentoCard(
+                                      solicitud: solicitud,
+                                    ),
+                                  );
+                                },
+                              ),
                   ],
                 ),
               ),
@@ -99,503 +243,72 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ],
         ),
       ),
-      // Navigation Bar
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildTopAppBar() {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: surface,
-        border: Border(
-          bottom: BorderSide(color: outlineVariant, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'RepuestosYa',
+          IconButton(
+            icon: const Icon(Icons.menu, color: primaryContainer, size: 24),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            'REPUESTOSYA',
             style: TextStyle(
               color: primaryContainer,
               fontSize: 24,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-              textBaseline: TextBaseline.alphabetic,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Sora',
+              letterSpacing: -0.5,
             ),
           ),
-          Row(
-            children: [
-              // Status Chip
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _isOpen = !_isOpen;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(color: outlineVariant),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _isOpen ? Colors.green : Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isOpen ? 'Abierto' : 'Cerrado',
-                        style: TextStyle(
-                          color: onSurface,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Profile Avatar
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: surfaceVariant,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: outlineVariant),
-                ),
-                child: Icon(
-                  Icons.person,
-                  color: onSurfaceVariant,
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWelcomeSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Almacén Central',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Gestión de inventario y pedidos en tiempo real.',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsGrid() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryContainer.withOpacity(0.1),
-                  blurRadius: 15,
-                ),
-              ],
-            ),
-            height: 112,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ventas',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  '42',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryContainer.withOpacity(0.1),
-                  blurRadius: 15,
-                ),
-              ],
-            ),
-            height: 112,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pendientes',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  '12',
-                  style: TextStyle(
-                    color: primary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: primaryContainer.withOpacity(0.1),
-                  blurRadius: 15,
-                ),
-              ],
-            ),
-            height: 112,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Vistas',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  '850',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Solicitudes Activas',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        TextButton(
-          onPressed: _cargarSolicitudes,
-          child: Text(
-            'Recargar',
-            style: TextStyle(
-              color: primary,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRequestCards() {
-    if (_isLoadingSolicitudes) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: primaryContainer,
-        ),
-      );
-    }
-
-    if (_solicitudes.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: outlineVariant),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              Icons.inbox,
-              size: 48,
-              color: onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No hay solicitudes activas',
-              style: TextStyle(
-                color: onSurfaceVariant,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Las solicitudes de clientes aparecerán aquí',
-              style: TextStyle(
-                color: onSurfaceVariant.withOpacity(0.7),
-                fontSize: 14,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: _solicitudes.map((solicitud) {
-        // Extraer información del cliente
-        final cliente = solicitud['profiles'] as Map<String, dynamic>?;
-        final clienteNombre = cliente?['nombre_completo'] as String? ?? 'Cliente';
-        
-        // Extraer información del vehículo si existe
-        final vehiculo = solicitud['vehiculos_cliente'] as Map<String, dynamic>?;
-        final modelo = vehiculo?['modelos_vehiculo'] as Map<String, dynamic>?;
-        final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
-        final vehiculoInfo = marca != null && modelo != null
-            ? '${marca['nombre']} ${modelo['nombre']}'
-            : 'Vehículo no especificado';
-        
-        // Calcular tiempo
-        final createdAt = solicitud['created_at'] as String?;
-        String timeText = 'Reciente';
-        if (createdAt != null) {
-          final date = DateTime.parse(createdAt);
-          final now = DateTime.now();
-          final difference = now.difference(date);
+          const Spacer(),
           
-          if (difference.inHours < 1) {
-            timeText = 'Hace ${difference.inMinutes} min';
-          } else if (difference.inHours < 24) {
-            timeText = 'Hace ${difference.inHours}h';
-          } else if (difference.inDays == 1) {
-            timeText = 'Ayer';
-          } else {
-            timeText = 'Hace ${difference.inDays} días';
-          }
-        }
-
-        // Determinar badge
-        String? badge;
-        Color? badgeColor;
-        final esUrgente = solicitud['es_urgente'] as bool? ?? false;
-        if (esUrgente) {
-          badge = 'Urgente';
-          badgeColor = primary;
-        }
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildRequestCard(
-            title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
-            subtitle: '$vehiculoInfo • $clienteNombre',
-            distance: null,
-            time: timeText,
-            badge: badge,
-            badgeColor: badgeColor,
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildRequestCard({
-    required String title,
-    required String subtitle,
-    String? distance,
-    required String time,
-    String? badge,
-    Color? badgeColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
+          // Status Toggle Simulation (Clickable)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isOpen = !_isOpen;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: outlineVariant, width: 1),
               ),
-              if (badge != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: badgeColor?.withOpacity(0.1) ?? Colors.transparent,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: badgeColor?.withOpacity(0.3) ?? Colors.transparent,
-                    ),
-                  ),
-                  child: Text(
-                    badge,
-                    style: TextStyle(
-                      color: badgeColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              if (distance != null)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: secondary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      distance,
-                      style: TextStyle(
-                        color: secondary,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              if (distance != null)
-                const SizedBox(width: 24),
-              Row(
+              child: Row(
                 children: [
-                  Icon(
-                    Icons.schedule,
-                    color: onSurfaceVariant,
-                    size: 20,
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _isOpen ? Colors.green : Colors.red,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   Text(
-                    time,
-                    style: TextStyle(
-                      color: onSurfaceVariant,
-                      fontSize: 14,
+                    _isOpen ? 'Abierto' : 'Cerrado',
+                    style: const TextStyle(
+                      color: onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryContainer,
-                foregroundColor: onPrimaryContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                elevation: 0,
-                shadowColor: primaryContainer.withOpacity(0.3),
-              ),
-              child: Text(
-                'COTIZAR',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ),
           ),
         ],
@@ -603,143 +316,262 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
-  Widget _buildSystemStatus() {
+  Widget _buildBentoStatsGrid() {
+    return Row(
+      children: [
+        Expanded(child: _buildBentoStatCard('Ventas', '$_ventasCount', Colors.white)),
+        const SizedBox(width: 8),
+        Expanded(child: _buildBentoStatCard('Pendientes', '$_pendientesCount', primaryContainer)),
+        const SizedBox(width: 8),
+        Expanded(child: _buildBentoStatCard('Vistas', '$_vistasCount', Colors.white)),
+      ],
+    );
+  }
+
+  Widget _buildBentoStatCard(String label, String value, Color valueColor) {
     return Container(
-      height: 128,
+      height: 112,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            surfaceContainerHigh.withOpacity(0.5),
-            background,
+        color: cardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: outlineVariant, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: primaryContainer.withOpacity(0.05),
+            blurRadius: 15,
+            spreadRadius: 0,
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: onSurfaceVariant, fontSize: 12),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'JetBrains Mono',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequestBentoCard({
+  required Map<String, dynamic> solicitud,
+}) {
+  // Extracción e indexación de datos directamente desde el modelo del backend
+  final String title = solicitud['pieza_nombre'] ?? 'Repuesto Desconocido';
+  final String subtitle = solicitud['descripcion'] ?? 'Sin especificaciones añadidas';
+  final String distance = '2.8 km'; // Simulado o extraído si guardas coordenadas
+  final String time = 'Hace 10 min';
+  final String? tagType = solicitud['urgente'] == true ? 'URGENTE' : 'ESTÁNDAR';
+
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: surfaceContainerLow,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: outlineVariant, width: 1),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: onSurface,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: onSurfaceVariant, 
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (tagType != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tagType == 'URGENTE' 
+                      ? primary.withOpacity(0.1) 
+                      : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: tagType == 'URGENTE' 
+                        ? primary.withOpacity(0.3) 
+                        : Colors.green.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  tagType,
+                  style: TextStyle(
+                    color: tagType == 'URGENTE' ? primary : Colors.green,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ),
+            ]
           ],
         ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            bottom: 16,
-            left: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Estado del Sistema',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                    letterSpacing: 2,
-                  ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Icon(Icons.location_on, color: secondary, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              distance,
+              style: const TextStyle(
+                color: secondary, 
+                fontSize: 14,
+                fontFamily: 'Inter',
+              ),
+            ),
+            const SizedBox(width: 24),
+            const Icon(Icons.schedule, color: onSurfaceVariant, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              time,
+              style: const TextStyle(
+                color: onSurfaceVariant, 
+                fontSize: 14,
+                fontFamily: 'Inter',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () async {
+              // Navegación asíncrona hacia el formulario con los datos estructurados
+              final bool? vueltaConExito = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CreateQuotationPage(solicitud: solicitud),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Red Operativa',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+              );
+
+              // Si retorna true tras la inserción en BD, recargamos el Feed
+              if (vueltaConExito == true && mounted) {
+                _cargarSolicitudes(); // Método asíncrono nativo del Dashboard
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('¡La cotización ha sido enviada e indexada en el sistema!'),
+                    backgroundColor: Colors.green,
                   ),
-                ),
-              ],
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryContainer,
+              foregroundColor: onPrimaryContainer,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'COTIZAR',
+              style: TextStyle(
+                fontSize: 16, 
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Sora',
+                letterSpacing: 0.5,
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildBottomNavBar() {
     return Container(
       height: 64,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: outlineVariant, width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryContainer.withOpacity(0.15),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        border: Border(top: BorderSide(color: outlineVariant, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(
-            icon: Icons.home,
-            label: 'Home',
-            isSelected: _selectedIndex == 0,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 0;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.search,
-            label: 'Search',
-            isSelected: _selectedIndex == 1,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 1;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.shopping_cart,
-            label: 'Orders',
-            isSelected: _selectedIndex == 2,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 2;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.person,
-            label: 'Profile',
-            isSelected: _selectedIndex == 3,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
-            },
-          ),
+          _buildBottomNavItem(Icons.home, 'Home', 0),
+          _buildBottomNavItem(Icons.search, 'Search', 1),
+          _buildBottomNavItem(Icons.shopping_cart, 'Orders', 2),
+          _buildBottomNavItem(Icons.person, 'Profile', 3),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildBottomNavItem(IconData icon, String label, int index) {
+    final bool isActive = _selectedIndex == index;
     return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? primaryContainer : onSurfaceVariant,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? primaryContainer : onSurfaceVariant,
-              fontSize: 14,
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+        if (index == 3) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfilePage()),
+          );
+        }
+      },
+      child: Container(
+        height: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? primaryContainer : onSurfaceVariant,
+              size: 24,
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                color: isActive ? primaryContainer : onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

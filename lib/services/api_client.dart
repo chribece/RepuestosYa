@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://192.168.10.232:3000/api';
+  static const String baseUrl = 'http://192.168.100.2:3000/api';
   static const String _tokenKey = 'auth_token';
   
   String? _token;

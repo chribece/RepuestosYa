@@ -4,6 +4,8 @@ import 'create_request_page.dart';
 import 'profile_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import 'todas_solicitudes_page.dart'; 
+import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,7 +36,7 @@ class _HomePageState extends State<HomePage> {
   
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
-
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     super.initState();
@@ -56,7 +58,11 @@ class _HomePageState extends State<HomePage> {
       final user = _authService.currentUser;
       print('Cargando solicitudes para usuario: ${user?.id}');
       if (user != null) {
-        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(user.id);
+        final solicitudes = await _solicitudService.obtenerSolicitudesPaginadas(
+          clienteId: user.id,
+          page: 1,
+          limit: 20,
+        );
         print('Solicitudes cargadas: ${solicitudes.length}');
         setState(() {
           _solicitudes = solicitudes;
@@ -74,7 +80,107 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: background,
+      // 2. AGREGA EL MENU LATERAL (DRAWER) AQUÍ
+      drawer: Drawer(
+        child: Container(
+          color: background, // Mantiene tu fondo oscuro
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              DrawerHeader(
+                decoration: const BoxDecoration(
+                  color: surfaceContainerHigh,
+                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'RepuestosYa',
+                      style: TextStyle(
+                        color: primaryContainer,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Menú de Opciones',
+                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.home, color: primary),
+                title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el drawer
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person, color: primary),
+                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfilePage()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                onTap: () async {
+                  // 1. Cerrar el menú lateral visualmente
+                  Navigator.pop(context);
+                  // 2. Mostramos un diálogo de carga rápido por si la petición tarda
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(
+                      child: CircularProgressIndicator(
+                        color: primaryContainer,
+                      ),
+                    ),
+                  );
+
+                  try {
+                    // 2. Ejecutamos el método correcto de tu auth_service.dart
+                    await _authService.signOut(); 
+                    // 3. Quitamos el diálogo de carga
+                    if (context.mounted) Navigator.pop(context);
+
+                    // 4. Redirigir al usuario al Login y limpiar el historial de navegación
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginPage()),
+                        (route) => false, // Borra todas las páginas anteriores del historial
+                      );
+                    }
+                  } catch (e) {
+                    // Si algo falla quitamos la carga y reportamos el error
+                    if (context.mounted) Navigator.pop(context);
+                    print('Error al cerrar sesión: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error al cerrar sesión: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                    // Opcional: Puedes mostrar un SnackBar si algo falla
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+
       body: SafeArea(
         child: Column(
           children: [
@@ -127,10 +233,16 @@ class _HomePageState extends State<HomePage> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.menu,
-                color: primary,
-                size: 24,
+             IconButton(
+                icon: const Icon(
+                  Icons.menu,
+                  color: primary,
+                  size: 24,
+                ),
+                onPressed: () {
+                  // Abre el drawer de forma segura usando la GlobalKey
+                  _scaffoldKey.currentState?.openDrawer();
+                },
               ),
               const SizedBox(width: 12),
               Text(
@@ -145,7 +257,16 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          Container(
+
+          InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
             width: 40,
             height: 40,
             decoration: BoxDecoration(
@@ -153,16 +274,17 @@ class _HomePageState extends State<HomePage> {
               shape: BoxShape.circle,
               border: Border.all(color: outlineVariant),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.person,
               color: onSurfaceVariant,
               size: 24,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildNewSearchButton() {
     return Container(
@@ -176,13 +298,16 @@ class _HomePageState extends State<HomePage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const CreateRequestPage()),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
+          onTap: () async {
+          // Agregamos async/await para refrescar al volver
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateRequestPage()),
+          );
+          // Esta línea se ejecuta en cuanto se cierra "CreateRequestPage"
+          _cargarSolicitudes();
+        },
+        borderRadius: BorderRadius.circular(12),
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
@@ -222,7 +347,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sube una foto o busca por código',
+                  'Sube una foto',
                   style: TextStyle(
                     color: onSurfaceVariant,
                     fontSize: 12,
@@ -237,96 +362,104 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Buscando',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
+  // Calculamos dinámicamente según los estados de tu BD
+  final int buscandoCount = _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
+  final int cotizadasCount = _solicitudes.where((s) => s['estado'] == 'completado').length; 
+
+  // Si necesitas formatear a dos dígitos (ej: 03, 05)
+  final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
+  final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
+
+  return Row(
+    children: [
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Buscando',
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '03',
-                      style: TextStyle(
-                        color: primaryContainer,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.history,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    buscandoTxt, // CAMBIO: Variable dinámica
+                    style: const TextStyle(
                       color: primaryContainer,
-                      size: 24,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Cotizadas',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '12',
-                      style: TextStyle(
-                        color: secondaryContainer,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.request_quote,
-                      color: secondaryContainer,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.history,
+                    color: primaryContainer,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Cotizadas',
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    cotizadasTxt, // CAMBIO: Variable dinámica
+                    style: const TextStyle(
+                      color: secondaryContainer,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.request_quote,
+                    color: secondaryContainer,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildRequestsSection() {
     return Column(
@@ -343,9 +476,18 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            // En home_page.dart dentro de _buildRequestsSection()
             TextButton(
               onPressed: () {
-                _cargarSolicitudes();
+                //  Navegar a la página completa con scroll infinito
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TodasSolicitudesPage()),
+                ).then((_) {
+                  // Opcional: Cuando el usuario regrese del listado completo, 
+                  // refresca el Home por si hubo cambios
+                  _cargarSolicitudes();
+                });
               },
               child: Text(
                 'Ver todas',

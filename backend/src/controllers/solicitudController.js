@@ -3,11 +3,24 @@ const supabase = require('../services/supabase');
 // GET /solicitudes (mis solicitudes - clientes)
 const getMisSolicitudes = async (req, res) => {
   try {
-    const { data: solicitudes, error } = await supabase
+    // Capturamos page y limit desde la URL. Si no vienen, por defecto no paginamos (o asignamos valores base)
+    const page = parseInt(req.query.page);
+    const limit = parseInt(req.query.limit);
+
+    let query = supabase
       .from('solicitudes_repuesto')
       .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
       .eq('cliente_id', req.user.id)
       .order('created_at', { ascending: false });
+
+    // Si el frontend envía parámetros de paginación, aplicamos el rango
+    if (!isNaN(page) && !isNaN(limit)) {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    }
+
+    const { data: solicitudes, error } = await query;
 
     if (error) {
       return res.status(400).json({ error: error.message });

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'api_client.dart';
 
+
 // Clases compatibles con Supabase para mantener la misma interfaz
 class User {
   final String id;

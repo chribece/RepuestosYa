@@ -3,7 +3,10 @@ import 'profile_page.dart';
 import 'login_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import '../services/almacen_service.dart';
 import 'create_quotation_page.dart';
+import 'perfil_almacen_page.dart';
+import 'register_almacen_page.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -31,6 +34,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SolicitudService _solicitudService = SolicitudService();
+  final AuthService _authService = AuthService();
+  final AlmacenService _almacenService = AlmacenService();
 
   bool _isOpen = true;
   int _selectedIndex = 0;
@@ -114,14 +119,24 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
-                leading: const Icon(Icons.person, color: primaryContainer),
-                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
-                onTap: () {
+                leading: const Icon(Icons.store, color: primaryContainer),
+                title: const Text('Mi Almacén', style: TextStyle(color: Colors.white)),
+                onTap: () async {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfilePage()),
-                  );
+                  final almacen = await _almacenService.obtenerMiAlmacen();
+                  if (context.mounted) {
+                    if (almacen != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PerfilAlmacenPage()),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RegisterAlmacenPage()),
+                      );
+                    }
+                  }
                 },
               ),
               const Divider(color: outlineVariant),
@@ -531,7 +546,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           _buildBottomNavItem(Icons.home, 'Home', 0),
           _buildBottomNavItem(Icons.search, 'Search', 1),
           _buildBottomNavItem(Icons.shopping_cart, 'Orders', 2),
-          _buildBottomNavItem(Icons.person, 'Profile', 3),
+          _buildBottomNavItem(Icons.store, 'Mi Almacén', 3),
         ],
       ),
     );
@@ -540,15 +555,25 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildBottomNavItem(IconData icon, String label, int index) {
     final bool isActive = _selectedIndex == index;
     return InkWell(
-      onTap: () {
+      onTap: () async {
         setState(() {
           _selectedIndex = index;
         });
         if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfilePage()),
-          );
+          final almacen = await _almacenService.obtenerMiAlmacen();
+          if (context.mounted) {
+            if (almacen != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PerfilAlmacenPage()),
+              );
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RegisterAlmacenPage()),
+              );
+            }
+          }
         }
       },
       child: Container(

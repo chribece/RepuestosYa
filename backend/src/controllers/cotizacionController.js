@@ -123,7 +123,7 @@ const getCotizacionesPorSolicitud = async (req, res) => {
 
     const { data: cotizaciones, error } = await supabase
       .from('cotizaciones')
-      .select('*, almacenes(nombre_comercial, direccion_texto)')
+      .select('*, almacenes(nombre_comercial, direccion_texto, latitude, longitude)')
       .eq('solicitud_id', solicitud_id)
       .order('precio_venta', { ascending: true });
 

@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'create_request_page.dart';
 import 'profile_page.dart';
+import 'register_almacen_page.dart';
+import 'perfil_almacen_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import '../services/almacen_service.dart';
 import 'todas_solicitudes_page.dart'; 
 import 'login_page.dart';
-
+import 'package:provider/provider.dart';
+import '../providers/user_role_provider.dart';
+import 'received_quotations_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -36,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
+  final AlmacenService _almacenService = AlmacenService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
@@ -468,7 +474,7 @@ class _HomePageState extends State<HomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
+            const Text(
               'Mis Solicitudes',
               style: TextStyle(
                 color: Colors.white,
@@ -476,20 +482,16 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            // En home_page.dart dentro de _buildRequestsSection()
             TextButton(
               onPressed: () {
-                //  Navegar a la página completa con scroll infinito
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const TodasSolicitudesPage()),
                 ).then((_) {
-                  // Opcional: Cuando el usuario regrese del listado completo, 
-                  // refresca el Home por si hubo cambios
                   _cargarSolicitudes();
                 });
               },
-              child: Text(
+              child: const Text(
                 'Ver todas',
                 style: TextStyle(
                   color: primary,
@@ -517,13 +519,13 @@ class _HomePageState extends State<HomePage> {
             ),
             child: Column(
               children: [
-                Icon(
+                const Icon(
                   Icons.inbox,
                   size: 48,
                   color: onSurfaceVariant,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'No tienes solicitudes aún',
                   style: TextStyle(
                     color: onSurfaceVariant,
@@ -543,7 +545,6 @@ class _HomePageState extends State<HomePage> {
           )
         else
           ..._solicitudes.take(3).map((solicitud) {
-            print('Renderizando solicitud: $solicitud');
             final estado = solicitud['estado'] as String? ?? 'en_proceso';
             Color statusColor;
             String statusText;
@@ -583,17 +584,42 @@ class _HomePageState extends State<HomePage> {
                 timeText = 'Hace ${difference.inDays} días';
               }
             }
-            final String urlFinal = solicitud['foto_url'] as String? ?? '';
+
+            final int cantidadCotizaciones = solicitud['cotizaciones_count'] ?? 
+                (solicitud['cotizaciones'] != null ? (solicitud['cotizaciones'] as List).length : 0);
+            
+            final String quotesText = cantidadCotizaciones == 1 
+                ? '1 Cotización nueva' 
+                : '$cantidadCotizaciones Cotizaciones';
+
+            final String urlFinal = solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+            final String piezaNombreFinal = solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
-              child: _buildRequestCard(
-                title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
-                subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
-                status: statusText,
-                statusColor: statusColor,
-                quotes: '0 Cotizaciones',
-                time: timeText,
-                imageUrl: urlFinal,
+              child: GestureDetector(
+                onTap: () {
+                  // CORRECCIÓN: Se añaden todos los parámetros que exige tu ReceivedQuotationsPage
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ReceivedQuotationsPage(
+                        solicitudId: solicitud['id'].toString(),
+                        piezaNombre: piezaNombreFinal,
+                      ),
+                    ),
+                  );
+                },
+                child: _buildRequestCard(
+                  title: piezaNombreFinal,
+                  subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
+                  status: statusText,
+                  statusColor: statusColor,
+                  quotes: quotesText,
+                  tieneCotizaciones: cantidadCotizaciones > 0,
+                  time: timeText,
+                  imageUrl: urlFinal,
+                ),
               ),
             );
           }).toList(),
@@ -607,6 +633,7 @@ class _HomePageState extends State<HomePage> {
     required String status,
     required Color statusColor,
     required String quotes,
+    required bool tieneCotizaciones,
     required String time,
     required String imageUrl,
     bool showSuccessBorder = false,
@@ -619,7 +646,13 @@ class _HomePageState extends State<HomePage> {
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E1E),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: outlineVariant),
+          border: Border.all(
+            color: tieneCotizaciones ? primaryContainer : outlineVariant,
+            width: tieneCotizaciones ? 1.5 : 1.0,
+          ),
+          boxShadow: tieneCotizaciones 
+              ? [BoxShadow(color: primaryContainer.withOpacity(0.15), blurRadius: 8, spreadRadius: 1)]
+              : null,
         ),
         child: Row(
           children: [
@@ -633,29 +666,19 @@ class _HomePageState extends State<HomePage> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: imageUrl.startsWith('http') || imageUrl.startsWith('https')
-                    ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.image_not_supported,
-                            color: onSurfaceVariant,
-                            size: 32,
-                          );
-                        },
-                      )
-                    : Image.file(
-                        File(imageUrl),
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.image_not_supported,
-                            color: onSurfaceVariant,
-                            size: 32,
-                          );
-                        },
-                      ),
+                child: imageUrl.isEmpty
+                    ? const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32)
+                    : (imageUrl.startsWith('http') || imageUrl.startsWith('https')
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32),
+                          )
+                        : Image.file(
+                            File(imageUrl), // ¡Restaura la lectura de archivos locales!
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32),
+                          )),
               ),
             ),
             const SizedBox(width: 12),
@@ -670,32 +693,19 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: Text(
                           title,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(100),
-                          border: Border.all(
-                            color: statusColor.withOpacity(0.2),
-                          ),
+                          border: Border.all(color: statusColor.withOpacity(0.2)),
                         ),
                         child: Text(
                           status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -703,10 +713,9 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color: const Color(0xFFB0B0B0),
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -716,27 +725,21 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Icon(
                             Icons.receipt_long,
-                            color: secondaryContainer,
+                            color: tieneCotizaciones ? primaryContainer : secondaryContainer,
                             size: 20,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             quotes,
                             style: TextStyle(
-                              color: secondaryContainer,
+                              color: tieneCotizaciones ? primaryContainer : secondaryContainer,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                      Text(
-                        time,
-                        style: TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
+                      Text(time, style: const TextStyle(color: onSurfaceVariant, fontSize: 14)),
                     ],
                   ),
                 ],
@@ -746,8 +749,8 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-
+  }  
+  
   Widget _buildTrendingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

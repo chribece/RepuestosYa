@@ -120,4 +120,42 @@ class SolicitudService {
       throw Exception('Error en SolicitudService.crearCotizacion: $e');
     }
   }
+
+  // Obtener cotizaciones recibidas para una solicitud específica (Rol Cliente)
+  Future<List<Map<String, dynamic>>> obtenerCotizacionesRecibidas(String solicitudId) async {
+    try {
+      final response = await _apiClient.getList('/cotizaciones/solicitud/$solicitudId');
+      return response;
+    } catch (e) {
+      throw Exception('Error al obtener cotizaciones recibidas: $e');
+    }
+  }
+
+  // Aceptar una cotización específica (Rol Cliente)
+  Future<Map<String, dynamic>> aceptarCotizacion(String cotizacionId) async {
+    try {
+      final response = await _apiClient.put(
+        '/cotizaciones/$cotizacionId/estado',
+        body: {'estado': 'aceptada'},
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      throw Exception('Error al aceptar cotización: $e');
+    }
+  }
+
+  // Rechazar una cotización específica (Rol Cliente)
+  Future<Map<String, dynamic>> rechazarCotizacion(String cotizacionId) async {
+    try {
+      final response = await _apiClient.put(
+        '/cotizaciones/$cotizacionId/estado',
+        body: {'estado': 'rechazada'},
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      throw Exception('Error al rechazar cotización: $e');
+    }
+  }
 }

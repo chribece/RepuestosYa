@@ -11,6 +11,7 @@ const solicitudController = require('../controllers/solicitudController');
 const cotizacionController = require('../controllers/cotizacionController');
 const marcaController = require('../controllers/marcaController');
 const modeloController = require('../controllers/modeloController');
+const almacenController = require('../controllers/almacenController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
@@ -40,6 +41,9 @@ router.put('/direcciones/:id', auth, direccionController.updateDireccion);
 router.delete('/direcciones/:id', auth, direccionController.deleteDireccion);
 
 // Almacen routes (protected)
+router.post('/almacenes', auth, requireRole('almacen'), almacenController.createAlmacen);
+router.get('/almacenes/encargado/:encargadoId', auth, almacenController.getAlmacenByEncargado);
+router.put('/almacenes/:id', auth, requireRole('almacen'), almacenController.updateAlmacen);
 router.get('/almacen/mi-almacen', auth, requireRole('almacen'), cotizacionController.getMiAlmacen);
 
 // Solicitud routes (protected)

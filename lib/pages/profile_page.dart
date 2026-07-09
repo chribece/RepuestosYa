@@ -254,10 +254,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           _buildEditableFields(),
                           const SizedBox(height: 24),
                           // Menu Section (SÓLO PARA CLIENTES)
-                          if (user?.rol != 'almacen' && user?.rol != 'warehouse') ...[
-                            _buildMenuSection(),
-                            const SizedBox(height: 24),
-                          ],
+                          _buildMenuSection(),
+                          const SizedBox(height: 24),
                           // Logout Button
                           _buildLogoutButton(),
                           const SizedBox(height: 16),

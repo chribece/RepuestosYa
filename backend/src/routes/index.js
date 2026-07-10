@@ -23,39 +23,39 @@ router.get('/profile', auth, profileController.getProfile);
 router.put('/profile', auth, profileController.updateProfile);
 
 // Vehiculo routes (protected)
-router.get('/vehiculos', auth, vehiculoController.getVehiculos);
-router.post('/vehiculos', auth, vehiculoController.createVehiculo);
-router.put('/vehiculos/:id', auth, vehiculoController.updateVehiculo);
-router.delete('/vehiculos/:id', auth, vehiculoController.deleteVehiculo);
+router.get('/vehicles', auth, vehiculoController.getVehiculos);
+router.post('/vehicles', auth, vehiculoController.createVehiculo);
+router.put('/vehicles/:id', auth, vehiculoController.updateVehiculo);
+router.delete('/vehicles/:id', auth, vehiculoController.deleteVehiculo);
 
 // Marca routes (public - catálogo)
-router.get('/marcas', marcaController.getMarcas);
+router.get('/brands', marcaController.getMarcas);
 
 // Modelo routes (public - catálogo con filtro)
-router.get('/modelos', modeloController.getModelos);
+router.get('/models', modeloController.getModelos);
 
 // Direccion routes (protected)
-router.get('/direcciones', auth, direccionController.getDirecciones);
-router.post('/direcciones', auth, direccionController.createDireccion);
-router.put('/direcciones/:id', auth, direccionController.updateDireccion);
-router.delete('/direcciones/:id', auth, direccionController.deleteDireccion);
+router.get('/addresses', auth, direccionController.getDirecciones);
+router.post('/addresses', auth, direccionController.createDireccion);
+router.put('/addresses/:id', auth, direccionController.updateDireccion);
+router.delete('/addresses/:id', auth, direccionController.deleteDireccion);
 
 // Almacen routes (protected)
-router.post('/almacenes', auth, requireRole('almacen'), almacenController.createAlmacen);
-router.get('/almacenes/encargado/:encargadoId', auth, almacenController.getAlmacenByEncargado);
-router.put('/almacenes/:id', auth, requireRole('almacen'), almacenController.updateAlmacen);
-router.get('/almacen/mi-almacen', auth, requireRole('almacen'), cotizacionController.getMiAlmacen);
+router.post('/warehouses', auth, almacenController.createAlmacen); // No role requirement for registration
+router.get('/warehouses/encargado/:encargadoId', auth, almacenController.getAlmacenByEncargado);
+router.put('/warehouses/:id', auth, requireRole('almacen'), almacenController.updateAlmacen);
+router.get('/warehouse/my-warehouse', auth, requireRole('almacen'), cotizacionController.getMiAlmacen);
 
 // Solicitud routes (protected)
-router.get('/solicitudes', auth, solicitudController.getMisSolicitudes);
-router.get('/solicitudes/activas', auth, requireRole('almacen'), solicitudController.getSolicitudesActivas);
-router.post('/solicitudes', auth, solicitudController.createSolicitud);
-router.get('/solicitudes/:id', auth, solicitudController.getSolicitudPorId);
+router.get('/requests', auth, solicitudController.getMisSolicitudes);
+router.get('/requests/active', auth, requireRole('almacen'), solicitudController.getSolicitudesActivas);
+router.post('/requests', auth, solicitudController.createSolicitud);
+router.get('/requests/:id', auth, solicitudController.getSolicitudPorId);
 
 // Cotizacion routes (protected)
-router.post('/cotizaciones', auth, requireRole('almacen'), cotizacionController.createCotizacion);
-router.get('/cotizaciones/mis-cotizaciones', auth, requireRole('almacen'), cotizacionController.getMisCotizaciones);
-router.get('/cotizaciones/solicitud/:solicitud_id', auth, cotizacionController.getCotizacionesPorSolicitud);
-router.put('/cotizaciones/:id/estado', auth, cotizacionController.updateCotizacionEstado);
+router.post('/quotations', auth, requireRole('almacen'), cotizacionController.createCotizacion);
+router.get('/quotations/my-quotations', auth, requireRole('almacen'), cotizacionController.getMisCotizaciones);
+router.get('/quotations/request/:solicitud_id', auth, cotizacionController.getCotizacionesPorSolicitud);
+router.put('/quotations/:id/status', auth, cotizacionController.updateCotizacionEstado);
 
 module.exports = router;

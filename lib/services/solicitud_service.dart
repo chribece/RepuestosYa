@@ -11,7 +11,7 @@ class SolicitudService {
   }) async {
     try {
       final response = await _apiClient.getList(
-        '/solicitudes?cliente_id=$clienteId&page=$page&limit=$limit',
+        '/requests?cliente_id=$clienteId&page=$page&limit=$limit',
       );
       return response;
     } catch (e) {
@@ -60,7 +60,7 @@ class SolicitudService {
       if (direccionEntregaId != null) data['direccion_entrega_id'] = direccionEntregaId;
 
       final response = await _apiClient.post(
-        '/solicitudes',
+        '/requests',
         body: data,
         requireAuth: true,
       );
@@ -78,7 +78,7 @@ class SolicitudService {
   // Obtener solicitudes activas para el feed del almacén
   Future<List<Map<String, dynamic>>> obtenerSolicitudesActivas() async {
     try {
-      final response = await _apiClient.getList('/solicitudes/activas');
+      final response = await _apiClient.getList('/requests/active');
       return response;
     } catch (e) {
       throw Exception('Error al obtener solicitudes activas: $e');
@@ -110,7 +110,7 @@ class SolicitudService {
       }
 
       final response = await _apiClient.post(
-        '/cotizaciones',
+        '/quotations',
         body: data,
         requireAuth: true,
       );
@@ -124,7 +124,7 @@ class SolicitudService {
   // Obtener cotizaciones recibidas para una solicitud específica (Rol Cliente)
   Future<List<Map<String, dynamic>>> obtenerCotizacionesRecibidas(String solicitudId) async {
     try {
-      final response = await _apiClient.getList('/cotizaciones/solicitud/$solicitudId');
+      final response = await _apiClient.getList('/quotations/request/$solicitudId');
       return response;
     } catch (e) {
       throw Exception('Error al obtener cotizaciones recibidas: $e');
@@ -135,7 +135,7 @@ class SolicitudService {
   Future<Map<String, dynamic>> aceptarCotizacion(String cotizacionId) async {
     try {
       final response = await _apiClient.put(
-        '/cotizaciones/$cotizacionId/estado',
+        '/quotations/$cotizacionId/status',
         body: {'estado': 'aceptada'},
         requireAuth: true,
       );
@@ -149,7 +149,7 @@ class SolicitudService {
   Future<Map<String, dynamic>> rechazarCotizacion(String cotizacionId) async {
     try {
       final response = await _apiClient.put(
-        '/cotizaciones/$cotizacionId/estado',
+        '/quotations/$cotizacionId/status',
         body: {'estado': 'rechazada'},
         requireAuth: true,
       );

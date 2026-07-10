@@ -6,7 +6,7 @@ class VehiculoService {
   // Obtener todos los vehículos del usuario
   Future<List<Map<String, dynamic>>> getVehiculos() async {
     try {
-      final response = await _apiClient.getList('/vehiculos');
+      final response = await _apiClient.getList('/vehicles');
       return response;
     } catch (e) {
       throw Exception('Error al obtener vehículos: $e');
@@ -32,7 +32,7 @@ class VehiculoService {
       if (patente != null && patente.isNotEmpty) data['patente'] = patente;
 
       final response = await _apiClient.post(
-        '/vehiculos',
+        '/vehicles',
         body: data,
       );
 
@@ -61,7 +61,7 @@ class VehiculoService {
       if (patente != null && patente.isNotEmpty) data['patente'] = patente;
 
       final response = await _apiClient.put(
-        '/vehiculos/$id',
+        '/vehicles/$id',
         body: data,
       );
 
@@ -74,7 +74,7 @@ class VehiculoService {
   // Eliminar un vehículo
   Future<void> deleteVehiculo(String id) async {
     try {
-      await _apiClient.delete('/vehiculos/$id');
+      await _apiClient.delete('/vehicles/$id');
     } catch (e) {
       throw Exception('Error al eliminar vehículo: $e');
     }

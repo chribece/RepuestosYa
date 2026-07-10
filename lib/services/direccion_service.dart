@@ -6,7 +6,7 @@ class DireccionService {
   // Obtener todas las direcciones del usuario
   Future<List<Map<String, dynamic>>> getDirecciones() async {
     try {
-      final response = await _apiClient.getList('/direcciones');
+      final response = await _apiClient.getList('/addresses');
       return response;
     } catch (e) {
       throw Exception('Error al obtener direcciones: $e');
@@ -34,7 +34,7 @@ class DireccionService {
       }
 
       final response = await _apiClient.post(
-        '/direcciones',
+        '/addresses',
         body: data,
       );
 
@@ -61,7 +61,7 @@ class DireccionService {
       if (referencia != null) data['referencia'] = referencia;
 
       final response = await _apiClient.put(
-        '/direcciones/$id',
+        '/addresses/$id',
         body: data,
       );
 
@@ -74,7 +74,7 @@ class DireccionService {
   // Eliminar una dirección
   Future<void> deleteDireccion(String id) async {
     try {
-      await _apiClient.delete('/direcciones/$id');
+      await _apiClient.delete('/addresses/$id');
     } catch (e) {
       throw Exception('Error al eliminar dirección: $e');
     }

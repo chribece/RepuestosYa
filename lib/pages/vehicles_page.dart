@@ -29,6 +29,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
   static const Color background = Color(0xFF131313);
   static const Color surface = Color(0xFF131313);
   static const Color error = Color(0xFFFF1744);
+  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -494,9 +495,19 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Marca',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'Marca',
+                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -563,9 +574,19 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Modelo',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                    RichText(
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Modelo',
+                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Container(
@@ -628,48 +649,94 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                
-                TextFormField(
-                  controller: _vinController,
-                  style: const TextStyle(color: onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Número VIN (Chasis)',
-                    labelStyle: const TextStyle(color: onSurfaceVariant),
-                    filled: true,
-                    fillColor: onSurfaceVariant.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: outlineVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'Número VIN (Chasis)',
+                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Requerido';
-                    }
-                    return null;
-                  },
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _vinController,
+                      style: const TextStyle(color: onSurface),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: onSurfaceVariant.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: outlineVariant),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El VIN es requerido';
+                        }
+                        if (value.trim().length < 17) {
+                          return 'El VIN debe tener 17 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _anioController,
-                  style: const TextStyle(color: onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Año',
-                    labelStyle: const TextStyle(color: onSurfaceVariant),
-                    filled: true,
-                    fillColor: onSurfaceVariant.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: outlineVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          const TextSpan(
+                            text: 'Año',
+                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Requerido';
-                    }
-                    return null;
-                  },
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _anioController,
+                      style: const TextStyle(color: onSurface),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: onSurfaceVariant.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: outlineVariant),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'El año es requerido';
+                        }
+                        final year = int.tryParse(value.trim());
+                        if (year == null) {
+                          return 'Ingresa un año válido';
+                        }
+                        final currentYear = DateTime.now().year;
+                        if (year < 1900 || year > currentYear + 1) {
+                          return 'Año debe estar entre 1900 y ${currentYear + 1}';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

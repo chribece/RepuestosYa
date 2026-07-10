@@ -49,6 +49,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   static const Color outlineVariant = Color(0xFF5B4039);
   static const Color onSurface = Color(0xFFE5E2E1);
   static const Color onSurfaceVariant = Color(0xFFE4BEB4);
+  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void dispose() {
@@ -340,9 +341,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Precio de Venta (USD)',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Precio de Venta (USD)',
+                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -351,8 +362,16 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
           style: const TextStyle(color: Colors.white, fontSize: 22, fontFamily: 'Sora', fontWeight: FontWeight.bold),
           validator: (value) {
-            if (value == null || value.isEmpty) return 'Por favor ingresa un precio';
-            if (double.tryParse(value) == null || double.parse(value) <= 0) return 'Ingresa un monto válido';
+            if (value == null || value.trim().isEmpty) {
+              return 'Por favor ingresa un precio';
+            }
+            final price = double.tryParse(value.trim());
+            if (price == null || price <= 0) {
+              return 'Ingresa un monto válido mayor a 0';
+            }
+            if (price < 0.01) {
+              return 'El precio debe ser al menos \$0.01';
+            }
             return null;
           },
           decoration: InputDecoration(
@@ -384,9 +403,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Estado del Repuesto',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Estado del Repuesto',
+                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -423,9 +452,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Tiempo de Entrega Estimado',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Tiempo de Entrega Estimado',
+                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Container(

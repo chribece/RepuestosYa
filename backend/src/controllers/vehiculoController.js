@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// GET /vehiculos
+// GET /vehicles
 const getVehiculos = async (req, res) => {
   try {
     const { data: vehiculos, error } = await supabase
@@ -20,7 +20,7 @@ const getVehiculos = async (req, res) => {
   }
 };
 
-// POST /vehiculos
+// POST /vehicles
 const createVehiculo = async (req, res) => {
   try {
     const { marcaId, modeloId, anio, vin, patente } = req.body;
@@ -141,7 +141,7 @@ const createVehiculo = async (req, res) => {
   }
 };
 
-// PUT /vehiculos/:id
+// PUT /vehicles/:id
 const updateVehiculo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -194,7 +194,7 @@ const updateVehiculo = async (req, res) => {
   }
 };
 
-// DELETE /vehiculos/:id
+// DELETE /vehicles/:id
 const deleteVehiculo = async (req, res) => {
   try {
     const { id } = req.params;

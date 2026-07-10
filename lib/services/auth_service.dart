@@ -83,6 +83,7 @@ class AuthService {
     required String email,
     required String password,
     String? nombreCompleto,
+    String? rol,
   }) async {
     try {
       final response = await _apiClient.post(
@@ -91,6 +92,7 @@ class AuthService {
           'email': email,
           'password': password,
           'nombreCompleto': nombreCompleto,
+          if (rol != null) 'rol': rol,
         },
         requireAuth: false,
       );
@@ -106,7 +108,7 @@ class AuthService {
         rol: userData['rol'] as String?,
       );
 
-      _authStateController.add(AuthState(user: _currentUser));
+      _authStateController.add(AuthState(user: _currentUser!));
 
       return AuthResponse(user: _currentUser!, token: token);
     } catch (e) {
@@ -180,6 +182,11 @@ class AuthService {
 
   // Verificar si hay un usuario autenticado
   bool get isAuthenticated => _currentUser != null;
+
+  // Obtener el token actual
+  Future<String?> getToken() async {
+    return _apiClient.token;
+  }
 
   // Escuchar cambios en el estado de autenticación
   Stream<AuthState> get authStateChanges => _authStateController.stream;

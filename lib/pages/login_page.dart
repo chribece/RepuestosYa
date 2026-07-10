@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'registration_page.dart';
+import 'role_selection_page.dart';
 import 'home_page.dart';
 import 'warehouse_dashboard.dart';
 import '../services/auth_service.dart';
@@ -403,13 +403,13 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const RegistrationPage()),
+                MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
               );
             },
             child: const Text(
-              'Crear cuenta',
+              '¿Aún no tienes cuenta? Regístrate',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 color: secondaryContainer,
                 fontWeight: FontWeight.bold,
               ),

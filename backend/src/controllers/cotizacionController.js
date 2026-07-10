@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// POST /cotizaciones (solo almacenes)
+// POST /quotations (solo almacenes)
 const createCotizacion = async (req, res) => {
   try {
     // Verify warehouse role
@@ -70,7 +70,7 @@ const createCotizacion = async (req, res) => {
   }
 };
 
-// GET /cotizaciones/mis-cotizaciones (para almacenes)
+// GET /quotations/my-quotations (para almacenes)
 const getMisCotizaciones = async (req, res) => {
   try {
     // Get warehouse ID for this user
@@ -101,7 +101,7 @@ const getMisCotizaciones = async (req, res) => {
   }
 };
 
-// GET /cotizaciones/solicitud/:solicitud_id (para clientes)
+// GET /quotations/request/:solicitud_id (para clientes)
 const getCotizacionesPorSolicitud = async (req, res) => {
   try {
     const { solicitud_id } = req.params;
@@ -138,7 +138,7 @@ const getCotizacionesPorSolicitud = async (req, res) => {
   }
 };
 
-// PUT /cotizaciones/:id/estado (solo clientes)
+// PUT /quotations/:id/status (solo clientes)
 const updateCotizacionEstado = async (req, res) => {
   try {
     const { id } = req.params;

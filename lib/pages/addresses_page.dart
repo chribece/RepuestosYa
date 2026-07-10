@@ -27,6 +27,7 @@ class _AddressesPageState extends State<AddressesPage> {
   static const Color background = Color(0xFF131313);
   static const Color surface = Color(0xFF131313);
   static const Color error = Color(0xFFFF1744);
+  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -323,38 +324,90 @@ class _AddressDialogState extends State<AddressDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Input Alias
-                TextFormField(
-                  controller: _aliasController,
-                  style: const TextStyle(color: _AddressesPageState.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Alias (Ej. Casa, Trabajo)*',
-                    labelStyle: const TextStyle(color: _AddressesPageState.onSurfaceVariant),
-                    filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Alias (Ej. Casa, Trabajo)',
+                            style: TextStyle(color: _AddressesPageState.onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _AddressesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'El alias es obligatorio' : null,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _aliasController,
+                      style: const TextStyle(color: _AddressesPageState.onSurface),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'El alias es obligatorio';
+                        }
+                        if (v.trim().length < 2) {
+                          return 'El alias debe tener al menos 2 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
 
                 // Input Calle Principal
-                TextFormField(
-                  controller: _callePrincipalController,
-                  style: const TextStyle(color: _AddressesPageState.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Calle Principal*',
-                    labelStyle: const TextStyle(color: _AddressesPageState.onSurfaceVariant),
-                    filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Calle Principal',
+                            style: TextStyle(color: _AddressesPageState.onSurfaceVariant, fontSize: 12),
+                          ),
+                          TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: _AddressesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'La calle principal es obligatoria' : null,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _callePrincipalController,
+                      style: const TextStyle(color: _AddressesPageState.onSurface),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'La calle principal es obligatoria';
+                        }
+                        if (v.trim().length < 5) {
+                          return 'La calle debe tener al menos 5 caracteres';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
 

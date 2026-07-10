@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// GET /marcas
+// GET /brands
 const getMarcas = async (req, res) => {
   try {
     const { data: marcas, error } = await supabase

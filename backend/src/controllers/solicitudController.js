@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// GET /solicitudes (mis solicitudes - clientes)
+// GET /requests (mis solicitudes - clientes)
 const getMisSolicitudes = async (req, res) => {
   try {
     // Capturamos page y limit desde la URL. Si no vienen, por defecto no paginamos (o asignamos valores base)
@@ -33,7 +33,7 @@ const getMisSolicitudes = async (req, res) => {
   }
 };
 
-// GET /solicitudes/activas (para almacenes)
+// GET /requests/active (para almacenes)
 const getSolicitudesActivas = async (req, res) => {
   try {
     const { data: solicitudes, error } = await supabase
@@ -53,7 +53,7 @@ const getSolicitudesActivas = async (req, res) => {
   }
 };
 
-// POST /solicitudes
+// POST /requests
 const createSolicitud = async (req, res) => {
   try {
     const { vehiculo_id, pieza_nombre, descripcion, foto_url, vin_busqueda, direccion_entrega_id, es_urgente } = req.body;
@@ -92,7 +92,7 @@ const createSolicitud = async (req, res) => {
   }
 };
 
-// GET /solicitudes/:id
+// GET /requests/:id
 const getSolicitudPorId = async (req, res) => {
   try {
     const { id } = req.params;

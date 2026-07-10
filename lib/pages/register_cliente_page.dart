@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'login_page.dart';
 import '../services/auth_service.dart';
 
-class RegistrationPage extends StatefulWidget {
-  const RegistrationPage({super.key});
+class RegisterClientePage extends StatefulWidget {
+  const RegisterClientePage({super.key});
 
   @override
-  State<RegistrationPage> createState() => _RegistrationPageState();
+  State<RegisterClientePage> createState() => _RegisterClientePageState();
 }
 
-class _RegistrationPageState extends State<RegistrationPage> {
+class _RegisterClientePageState extends State<RegisterClientePage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -19,7 +19,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
   bool _isLoading = false;
   final AuthService _authService = AuthService();
 
-  // Color scheme from HTML
+  // Color scheme - Industrial Dark Theme
+  static const Color background = Color(0xFF131313);
   static const Color primary = Color(0xFFFFB5A0);
   static const Color primaryContainer = Color(0xFFFF5722);
   static const Color onPrimaryContainer = Color(0xFF541200);
@@ -29,7 +30,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
   static const Color onSurfaceVariant = Color(0xFFE4BEB4);
   static const Color tertiaryContainer = Color(0xFF019AD8);
   static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
   static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
@@ -130,14 +130,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
             color: primaryContainer.withOpacity(0.2),
           ),
           child: const Icon(
-            Icons.build,
+            Icons.person,
             size: 50,
             color: primary,
           ),
         ),
         const SizedBox(height: 24),
         const Text(
-          'Crear Cuenta',
+          'Registro de Cliente',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -376,7 +376,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             ),
           ),
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return 'Por favor ingrese su contraseña';
             }
             if (value.length < 6) {
@@ -441,7 +441,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             ),
           ),
           validator: (value) {
-            if (value == null || value.isEmpty) {
+            if (value == null || value.trim().isEmpty) {
               return 'Por favor confirme su contraseña';
             }
             if (value != _passwordController.text) {
@@ -608,7 +608,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
-            '© 2024 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
+            '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
             style: TextStyle(
               fontSize: 12,
               color: onSurfaceVariant,

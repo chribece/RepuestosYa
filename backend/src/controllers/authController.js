@@ -4,19 +4,20 @@ const jwt = require('jsonwebtoken');
 // POST /auth/register
 const register = async (req, res) => {
   try {
-    const { email, password, nombreCompleto } = req.body;
+    const { email, password, nombreCompleto, rol } = req.body;
 
     if (!email || !password || !nombreCompleto) {
       return res.status(400).json({ error: 'Email, password and nombreCompleto are required' });
     }
 
-    // Create user in Supabase Auth
+    // Create user in Supabase Auth with role in metadata if provided
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          nombre_completo: nombreCompleto
+          nombre_completo: nombreCompleto,
+          ...(rol && { rol }) // Include rol in metadata if provided
         }
       }
     });
@@ -25,19 +26,39 @@ const register = async (req, res) => {
       return res.status(400).json({ error: authError.message });
     }
 
-    // Profile is automatically created by the trigger handle_new_user()
-    // Wait a moment for the trigger to execute
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Get the profile to include role in JWT
-    const { data: profile, error: profileError } = await supabase
+    // Create profile manually to ensure it exists (more reliable than trigger)
+    const userRole = rol || 'cliente';
+    let profile = null;
+    const { data: createdProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
+      .insert({
+        id: authData.user.id,
+        nombre_completo: nombreCompleto,
+        email: email,
+        rol: userRole,
+        tipo_membresia: 'Regular Member'
+      })
+      .select()
       .single();
 
     if (profileError) {
-      return res.status(500).json({ error: 'Error fetching profile' });
+      console.error('Profile creation error:', profileError);
+      // If profile already exists (trigger fired), try to fetch it
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+      
+      if (fetchError || !existingProfile) {
+        return res.status(500).json({ 
+          error: 'Error creating user profile',
+          details: profileError.message 
+        });
+      }
+      profile = existingProfile;
+    } else {
+      profile = createdProfile;
     }
 
     // Generate JWT
@@ -93,6 +114,7 @@ const login = async (req, res) => {
       .single();
 
     if (profileError) {
+      console.error('Profile fetch error:', profileError);
       return res.status(500).json({ error: 'Error fetching profile' });
     }
 

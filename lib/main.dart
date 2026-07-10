@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'pages/login_page.dart';
+import 'pages/welcome_page.dart';
 import 'providers/user_role_provider.dart';
 import 'services/api_client.dart';
 
@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
             brightness: Brightness.dark,
           ),
         ),
-        home: const LoginPage(),
+        home: const WelcomePage(),
       ),
     );
   }

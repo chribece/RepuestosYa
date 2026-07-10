@@ -49,6 +49,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   static const Color secondaryContainer = Color(0xFF1E95F2);
   static const Color background = Color(0xFF131313);
   static const Color surfaceContainerLow = Color(0xFF1C1B1B);
+  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -705,7 +706,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 label: 'Nombre del repuesto',
                 controller: _piezaNombreController,
                 hint: 'Ej: Filtro de aceite, Disco de freno...',
-                validator: (v) => (v == null || v.isEmpty) ? 'Ingresa el nombre del repuesto' : null,
+                isRequired: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Ingresa el nombre del repuesto';
+                  }
+                  if (v.trim().length < 3) {
+                    return 'El nombre debe tener al menos 3 caracteres';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -713,9 +723,19 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Selecciona tu vehículo',
-                    style: TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+                  RichText(
+                    text: const TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Selecciona tu vehículo',
+                          style: TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+                        ),
+                        TextSpan(
+                          text: ' *',
+                          style: TextStyle(fontSize: 12, color: requiredAsterisk, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -751,7 +771,12 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                     );
                                   }).toList(),
                         onChanged: (value) => setState(() => _selectedVehiculoId = value),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Selecciona un vehículo' : null,
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return 'Selecciona un vehículo';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ),
@@ -765,7 +790,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 controller: _descriptionController,
                 hint: 'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad...',
                 maxLines: 4,
-                validator: (v) => (v == null || v.isEmpty) ? 'Ingresa una descripción' : null,
+                isRequired: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Ingresa una descripción';
+                  }
+                  if (v.trim().length < 10) {
+                    return 'La descripción debe tener al menos 10 caracteres';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 
@@ -910,14 +944,26 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     required TextEditingController controller,
     required String hint,
     int maxLines = 1,
+    bool isRequired = false,
     String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: label,
+                style: const TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+              ),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(fontSize: 12, color: requiredAsterisk, fontWeight: FontWeight.bold),
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(

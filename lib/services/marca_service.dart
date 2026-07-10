@@ -6,7 +6,7 @@ class MarcaService {
   // Obtener todas las marcas
   Future<List<Map<String, dynamic>>> getMarcas() async {
     try {
-      final response = await _apiClient.get('/marcas', requireAuth: false);
+      final response = await _apiClient.get('/brands', requireAuth: false);
       if (response['exito'] == true && response['datos'] != null) {
         return List<Map<String, dynamic>>.from(response['datos']);
       }

@@ -1,19 +1,47 @@
 const supabase = require('../services/supabase');
 
-// POST /almacenes (crear almacén)
+// POST /warehouses (crear almacén)
 const createAlmacen = async (req, res) => {
   try {
-    const { encargado_id, nombre_comercial, direccion_texto, latitude, longitude } = req.body;
+    const { 
+      encargado_id, 
+      nombre_comercial, 
+      ruc, 
+      representante_legal, 
+      telefono, 
+      email, 
+      direccion_texto, 
+      latitude, 
+      longitude 
+    } = req.body;
 
-    if (!encargado_id || !nombre_comercial || !direccion_texto) {
-      return res.status(400).json({ error: 'encargado_id, nombre_comercial and direccion_texto are required' });
+    if (!encargado_id || !nombre_comercial || !direccion_texto || !ruc || !representante_legal || !telefono || !email) {
+      return res.status(400).json({ 
+        error: 'encargado_id, nombre_comercial, direccion_texto, ruc, representante_legal, telefono and email are required' 
+      });
     }
 
+    // First, update the user's role to 'almacen' in profiles
+    const { error: roleError } = await supabase
+      .from('profiles')
+      .update({ rol: 'almacen' })
+      .eq('id', encargado_id);
+
+    if (roleError) {
+      console.error('Error updating user role:', roleError);
+      // Continue anyway, as the trigger might handle this
+    }
+
+    // Create the warehouse
     const { data: almacen, error } = await supabase
       .from('almacenes')
       .insert({
         encargado_id,
         nombre_comercial,
+        ruc,
+        representante_legal,
+        telefono,
+        email,
         direccion_texto,
         latitude: latitude || 0,
         longitude: longitude || 0,
@@ -34,7 +62,7 @@ const createAlmacen = async (req, res) => {
   }
 };
 
-// GET /almacenes/encargado/:encargadoId (obtener almacén por encargado)
+// GET /warehouses/encargado/:encargadoId (obtener almacén por encargado)
 const getAlmacenByEncargado = async (req, res) => {
   try {
     const { encargadoId } = req.params;
@@ -56,7 +84,7 @@ const getAlmacenByEncargado = async (req, res) => {
   }
 };
 
-// PUT /almacenes/:id (actualizar almacén)
+// PUT /warehouses/:id (actualizar almacén)
 const updateAlmacen = async (req, res) => {
   try {
     const { id } = req.params;

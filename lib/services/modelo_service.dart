@@ -6,7 +6,7 @@ class ModeloService {
   // Obtener modelos filtrados por marca
   Future<List<Map<String, dynamic>>> getModelosPorMarca(int marcaId) async {
     try {
-      final response = await _apiClient.get('/modelos?marcaId=$marcaId', requireAuth: false);
+      final response = await _apiClient.get('/models?marcaId=$marcaId', requireAuth: false);
       if (response['exito'] == true && response['datos'] != null) {
         return List<Map<String, dynamic>>.from(response['datos']);
       }

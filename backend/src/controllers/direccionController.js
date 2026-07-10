@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// GET /direcciones
+// GET /addresses
 const getDirecciones = async (req, res) => {
   try {
     const { data: direcciones, error } = await supabase
@@ -20,7 +20,7 @@ const getDirecciones = async (req, res) => {
   }
 };
 
-// POST /direcciones
+// POST /addresses
 const createDireccion = async (req, res) => {
   try {
     // 1. Extraemos las variables camelCase que enviará la app de Flutter
@@ -57,7 +57,7 @@ const createDireccion = async (req, res) => {
   }
 };
 
-// PUT /direcciones/:id
+// PUT /addresses/:id
 const updateDireccion = async (req, res) => {
   try {
     const { id } = req.params;
@@ -111,7 +111,7 @@ const updateDireccion = async (req, res) => {
   }
 };
 
-// DELETE /direcciones/:id
+// DELETE /addresses/:id
 const deleteDireccion = async (req, res) => {
   try {
     const { id } = req.params;

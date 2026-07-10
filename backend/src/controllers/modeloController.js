@@ -1,6 +1,6 @@
 const supabase = require('../services/supabase');
 
-// GET /modelos?marcaId={id}
+// GET /models?marcaId={id}
 const getModelos = async (req, res) => {
   try {
     const { marcaId } = req.query;

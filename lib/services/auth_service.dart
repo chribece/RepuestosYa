@@ -86,6 +86,11 @@ class AuthService {
     String? rol,
   }) async {
     try {
+      print('AuthService: Intentando registrar usuario');
+      print('AuthService: Email: $email');
+      print('AuthService: Nombre: $nombreCompleto');
+      print('AuthService: Rol: $rol');
+      
       final response = await _apiClient.post(
         '/auth/register',
         body: {
@@ -97,6 +102,7 @@ class AuthService {
         requireAuth: false,
       );
 
+      print('AuthService: Registro exitoso');
       final token = response['token'] as String;
       await _apiClient.setToken(token);
 
@@ -112,6 +118,7 @@ class AuthService {
 
       return AuthResponse(user: _currentUser!, token: token);
     } catch (e) {
+      print('AuthService: Error en registro: $e');
       throw Exception('Error al registrar usuario: $e');
     }
   }

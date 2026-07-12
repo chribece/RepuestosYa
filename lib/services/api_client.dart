@@ -60,6 +60,9 @@ class ApiClient {
   Exception _handleError(http.Response response) {
     String message = 'Error desconocido';
     
+    print('ApiClient Error: Status ${response.statusCode}');
+    print('ApiClient Error: Body ${response.body}');
+    
     try {
       final body = json.decode(response.body);
       if (body is Map && body.containsKey('error')) {

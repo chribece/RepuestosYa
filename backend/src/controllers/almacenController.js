@@ -15,9 +15,14 @@ const createAlmacen = async (req, res) => {
       longitude 
     } = req.body;
 
-    if (!encargado_id || !nombre_comercial || !direccion_texto || !ruc || !representante_legal || !telefono || !email) {
+    const required = { encargado_id, nombre_comercial, direccion_texto, ruc, representante_legal, telefono, email };
+    const missing = Object.entries(required)
+      .filter(([_, value]) => !value)
+      .map(([key]) => key);
+
+    if (missing.length > 0) {
       return res.status(400).json({ 
-        error: 'encargado_id, nombre_comercial, direccion_texto, ruc, representante_legal, telefono and email are required' 
+        error: `Missing required fields: ${missing.join(', ')}` 
       });
     }
 

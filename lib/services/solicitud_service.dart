@@ -11,7 +11,7 @@ class SolicitudService {
   }) async {
     try {
       final response = await _apiClient.getList(
-        '/requests?cliente_id=$clienteId&page=$page&limit=$limit',
+        '/requests?page=$page&limit=$limit',
       );
       return response;
     } catch (e) {
@@ -45,17 +45,13 @@ class SolicitudService {
   }) async {
     try {
       final Map<String, dynamic> data = {
-        'cliente_id': clienteId,
         'pieza_nombre': piezaNombre,
         'es_urgente': esUrgente,
       };
 
       if (vehiculoId != null) data['vehiculo_id'] = vehiculoId;
       if (descripcion != null && descripcion.isNotEmpty) data['descripcion'] = descripcion;
-      
-      // ESTÁNDAR: Aseguramos el envío a la columna real de la BD
       if (fotoUrl != null && fotoUrl.isNotEmpty) data['foto_url'] = fotoUrl;
-      
       if (vinBusqueda != null && vinBusqueda.isNotEmpty) data['vin_busqueda'] = vinBusqueda;
       if (direccionEntregaId != null) data['direccion_entrega_id'] = direccionEntregaId;
 
@@ -93,6 +89,7 @@ class SolicitudService {
     String? notas,
     String? fotoUrl,
     required String tiempoEntrega,
+    String? estadoRepuesto, 
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -107,6 +104,12 @@ class SolicitudService {
       }
       if (fotoUrl != null && fotoUrl.isNotEmpty) {
         data['foto_evidencia_url'] = fotoUrl;
+      }
+      
+      if (estadoRepuesto != null && estadoRepuesto.isNotEmpty) {
+        data['condicion_repuesto'] = estadoRepuesto;
+        data['estado_repuesto'] = estadoRepuesto;
+        data['condicion'] = estadoRepuesto;
       }
 
       final response = await _apiClient.post(

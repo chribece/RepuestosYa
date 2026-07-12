@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'role_selection_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -165,7 +166,7 @@ class _WelcomePageState extends State<WelcomePage> {
               // Navigate to role selection for registration
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
+                MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
               );
             },
             style: OutlinedButton.styleFrom(

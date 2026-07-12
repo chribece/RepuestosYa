@@ -30,13 +30,10 @@ class AlmacenService {
   // Obtener el almacén asociado al usuario actual
   Future<Map<String, dynamic>?> obtenerMiAlmacen() async {
     try {
-      print('DEBUG: Llamando a /warehouse/my-warehouse');
+      // Estandarizado a /warehouses/my-warehouse para consistencia
       final response = await _apiClient.get('/warehouse/my-warehouse');
-      print('DEBUG: Response de /warehouse/my-warehouse: $response');
-      print('DEBUG: Response está vacía? ${response.isEmpty}');
       return response.isNotEmpty ? response : null;
     } catch (e) {
-      print('DEBUG: Error en obtenerMiAlmacen: $e');
       throw Exception('Error al obtener almacén: $e');
     }
   }

@@ -22,7 +22,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  String _selectedCondition = 'new';
+  String _selectedCondition = 'Nuevo (En caja original)';
   String _selectedDeliveryTime = '24-48 horas';
   
   File? _selectedImage;
@@ -49,7 +49,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   static const Color outlineVariant = Color(0xFF5B4039);
   static const Color onSurface = Color(0xFFE5E2E1);
   static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void dispose() {
@@ -58,11 +57,127 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  // Muestra un panel para elegir entre tomar una foto con la cámara o
+  // seleccionar una imagen existente de la galería.
+  Future<void> _showImageSourceSelector() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: surfaceContainerHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Evidencia Visual',
+                      style: TextStyle(
+                        color: onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Sora',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: secondaryContainer.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.photo_camera, color: secondary),
+                  ),
+                  title: const Text(
+                    'Tomar foto',
+                    style: TextStyle(color: onSurface, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Usar la cámara del dispositivo',
+                    style: TextStyle(color: onSurfaceVariant, fontFamily: 'Inter', fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: secondaryContainer.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.photo_library, color: secondary),
+                  ),
+                  title: const Text(
+                    'Elegir de galería',
+                    style: TextStyle(color: onSurface, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Seleccionar una imagen ya existente',
+                    style: TextStyle(color: onSurfaceVariant, fontFamily: 'Inter', fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                if (_selectedImage != null)
+                  ListTile(
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    ),
+                    title: const Text(
+                      'Quitar imagen',
+                      style: TextStyle(color: Colors.redAccent, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() => _selectedImage = null);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         imageQuality: 80,
+        maxWidth: 1600,
       );
       if (image != null) {
         setState(() {
@@ -70,11 +185,35 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al seleccionar la imagen: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              source == ImageSource.camera
+                  ? 'No se pudo acceder a la cámara: $e'
+                  : 'Error al seleccionar la imagen: $e',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
+
+  // Traducción lógica segura para que coincida exactamente con la columna de Supabase
+  String _getConditionDbValue(String condition) {
+  switch (condition) {
+    case 'new':
+      return 'Nuevo (En caja original)';
+    case 'used_a':
+    case 'used_b':
+      return 'Usado (Buen estado)';  // Unificar todos los usados a este valor
+    case 'refurbished':
+      return 'Nuevo (Abierto)';      // O puedes elegir 'Usado (Buen estado)' si prefieres
+    default:
+      return 'Nuevo (En caja original)';
+  }
+}
 
   Future<void> _enviarCotizacion() async {
     if (!_formKey.currentState!.validate()) return;
@@ -84,28 +223,42 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     });
 
     try {
-      final String solicitudId = widget.solicitud['solicitud_id']?.toString() ??
-                                 widget.solicitud['id']?.toString() ?? '';
-      String? uploadedImageUrl;
+      final Map<String, dynamic> objetoInterno = widget.solicitud['solicitud'] is Map<String, dynamic>
+          ? widget.solicitud['solicitud'] as Map<String, dynamic>
+          : {};
 
+      final String solicitudId = objetoInterno['id']?.toString() ??
+                                 widget.solicitud['solicitud_id']?.toString() ??
+                                 widget.solicitud['id']?.toString() ?? '';
+
+      if (solicitudId.isEmpty || solicitudId == 'null') {
+        throw Exception('El ID de la solicitud es inválido o no se encontró en el objeto.');
+      }
+
+      String? uploadedImageUrl;
       if (_selectedImage != null) {
         uploadedImageUrl = "https://tu-proyecto.supabase.co/storage/v1/object/public/cotizaciones/repuesto_verificado.jpg";
       }
 
       final almacen = await _almacenService.obtenerMiAlmacen();
       if (almacen == null) {
-        throw Exception('No tienes un almacén asociado. Contacta al administrador.');
+        throw Exception('No tienes un almacén asociado. Por favor, completa tu perfil comercial.');
       }
 
       final String almacenId = almacen['id']?.toString() ?? '';
+      if (almacenId.isEmpty || almacenId == 'null') {
+        throw Exception('El ID del almacén es inválido o está vacío.');
+      }
 
+      // Consumo del servicio con los nombres y valores en español ya homologados
       await _solicitudService.crearCotizacion(
         solicitudId: solicitudId,
         almacenId: almacenId,
         precio: double.tryParse(_priceController.text) ?? 0.0,
-        notas: _notesController.text.trim(),
+        notas: _notesController.text.trim(), // CORRECCIÓN: "notas" en lugar de "notes"
         fotoUrl: uploadedImageUrl,
         tiempoEntrega: _selectedDeliveryTime,
+        estadoRepuesto: _selectedCondition,
       );
 
       if (mounted) {
@@ -123,6 +276,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           SnackBar(
             content: Text('Error al procesar la cotización: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -131,12 +285,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
   @override
   Widget build(BuildContext context) {
-    // EXTRAER EL MAPA ANIDADO (SI EXISTE)
     final Map<String, dynamic> objetoInterno = widget.solicitud['solicitud'] is Map<String, dynamic>
         ? widget.solicitud['solicitud'] as Map<String, dynamic>
         : {};
 
-    // EXTRACCIÓN SEGURA MULTINIVEL DE TEXTOS
     final String piezaNombre = objetoInterno['pieza_nombre'] ?? widget.solicitud['pieza_nombre'] ?? 'Repuesto';
     final String descripcion = objetoInterno['descripcion'] ?? widget.solicitud['descripcion'] ?? 'Sin especificaciones técnicas';
     
@@ -174,6 +326,11 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSummaryCard(piezaNombre, descripcion),
+                          const SizedBox(height: 16),
+                          
+                          // SECCIÓN DE ESPECIFICACIONES TÉCNICAS Y VIN
+                          _buildVehicleTechnicalSheet(objetoInterno),
+                          
                           const SizedBox(height: 24),
                           _buildPriceField(),
                           const SizedBox(height: 24),
@@ -238,12 +395,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   }
 
   Widget _buildSummaryCard(String title, String subtitle) {
-    // EXTRAER MAPA ANIDADO PARA LA IMAGEN
     final Map<String, dynamic> objetoInterno = widget.solicitud['solicitud'] is Map<String, dynamic>
         ? widget.solicitud['solicitud'] as Map<String, dynamic>
         : {};
 
-    // VERIFICACIÓN ABSOLUTA EN CADENA (Prueba todas las opciones para no fallar)
     final String? urlDeLaImagen = objetoInterno['foto_url'] ?? 
                                   objetoInterno['image_url'] ?? 
                                   widget.solicitud['foto_url'] ?? 
@@ -337,41 +492,183 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
+  Widget _buildVehicleTechnicalSheet(Map<String, dynamic> objetoInterno) {
+    final Map<String, dynamic> vehiculo = widget.solicitud['vehiculos_cliente'] is Map<String, dynamic>
+        ? widget.solicitud['vehiculos_cliente'] as Map<String, dynamic>
+        : (objetoInterno['vehiculos_cliente'] is Map<String, dynamic>
+            ? objetoInterno['vehiculos_cliente'] as Map<String, dynamic>
+            : {});
+
+    final Map<String, dynamic> modelo = vehiculo['modelos_vehiculo'] is Map<String, dynamic>
+        ? vehiculo['modelos_vehiculo'] as Map<String, dynamic>
+        : {};
+
+    final Map<String, dynamic> marca = modelo['marcas_vehiculo'] is Map<String, dynamic>
+        ? modelo['marcas_vehiculo'] as Map<String, dynamic>
+        : {};
+
+    final String marcaNombre = marca['nombre']?.toString() ?? 'No especificada';
+    final String modeloNombre = modelo['nombre']?.toString() ?? 'No especificado';
+    final String anio = vehiculo['año']?.toString() ?? vehiculo['anio']?.toString() ?? 'No especificado';
+    
+    final String vin = widget.solicitud['vin_busqueda']?.toString() ?? 
+                       objetoInterno['vin_busqueda']?.toString() ?? 
+                       vehiculo['vin']?.toString() ?? 
+                       '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: outlineVariant, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.analytics, color: primary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'FICHA TÉCNICA DEL VEHÍCULO',
+                style: TextStyle(
+                  color: primary.withOpacity(0.9),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  fontFamily: 'Sora',
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: outlineVariant, height: 24, thickness: 1),
+          
+          Row(
+            children: [
+              Expanded(child: _buildSpecsCell('Marca', marcaNombre, Icons.apartment)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildSpecsCell('Modelo', modeloNombre, Icons.directions_car)),
+              const SizedBox(width: 8),
+              Expanded(child: _buildSpecsCell('Año', anio, Icons.calendar_today)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          const Text(
+            'Número de Chasis / VIN (Indispensable)',
+            style: TextStyle(color: onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: outlineVariant.withOpacity(0.5)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    vin.isNotEmpty ? vin.toUpperCase() : 'NO ESPECIFICADO POR EL CLIENTE',
+                    style: TextStyle(
+                      color: vin.isNotEmpty ? Colors.white : onSurfaceVariant.withOpacity(0.5),
+                      fontSize: 14,
+                      fontFamily: 'JetBrains Mono',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+                if (vin.isNotEmpty)
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: vin.toUpperCase()));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('¡VIN copiado al portapapeles!'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.copy, color: secondary, size: 16),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecsCell(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      height: 72,
+      decoration: BoxDecoration(
+        color: surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: outlineVariant.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: onSurfaceVariant, size: 12),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(color: onSurfaceVariant, fontSize: 10, fontFamily: 'Inter'),
+              ),
+            ],
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Sora',
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPriceField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Precio de Venta (USD)',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-              TextSpan(
-                text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-            ],
-          ),
+        const Text(
+          'Precio de Venta (USD) *',
+          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _priceController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          // CORRECCIÓN: "inputFormatters" está correctamente escrito
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
           style: const TextStyle(color: Colors.white, fontSize: 22, fontFamily: 'Sora', fontWeight: FontWeight.bold),
           validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingresa un precio';
-            }
-            final price = double.tryParse(value.trim());
-            if (price == null || price <= 0) {
-              return 'Ingresa un monto válido mayor a 0';
-            }
-            if (price < 0.01) {
-              return 'El precio debe ser al menos \$0.01';
-            }
+            if (value == null || value.isEmpty) return 'Por favor ingresa un precio';
+            if (double.tryParse(value) == null || double.parse(value) <= 0) return 'Ingresa un monto válido';
             return null;
           },
           decoration: InputDecoration(
@@ -403,19 +700,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Estado del Repuesto',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-              TextSpan(
-                text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-            ],
-          ),
+        const Text(
+          'Estado del Repuesto *',
+          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
         ),
         const SizedBox(height: 8),
         Container(
@@ -433,10 +720,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               isExpanded: true,
               style: const TextStyle(color: onSurface, fontSize: 15, fontFamily: 'Inter'),
               items: const [
-                DropdownMenuItem(value: 'new', child: Text('Nuevo (En caja original)')),
-                DropdownMenuItem(value: 'used_a', child: Text('Usado - Grado A (Como nuevo)')),
-                DropdownMenuItem(value: 'used_b', child: Text('Usado - Grado B (Funcional)')),
-                DropdownMenuItem(value: 'refurbished', child: Text('Reacondicionado')),
+                DropdownMenuItem(value: 'Nuevo (En caja original)', child: Text('Nuevo (En caja original)')),
+                DropdownMenuItem(value: 'Nuevo (Abierto)', child: Text('Nuevo (Abierto)')),
+                DropdownMenuItem(value: 'Usado (Buen estado)', child: Text('Usado (Buen estado)')),
               ],
               onChanged: (value) {
                 if (value != null) setState(() => _selectedCondition = value);
@@ -452,19 +738,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Tiempo de Entrega Estimado',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-              TextSpan(
-                text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
-              ),
-            ],
-          ),
+        const Text(
+          'Tiempo de Entrega Estimado *',
+          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
         ),
         const SizedBox(height: 8),
         Container(
@@ -507,7 +783,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: _pickImage,
+          onTap: _showImageSourceSelector,
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -524,7 +800,14 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         child: Image.file(_selectedImage!, height: 150, width: double.infinity, fit: BoxFit.cover),
                       ),
                       const SizedBox(height: 8),
-                      const Text('Cambiar imagen', style: TextStyle(color: secondary, fontSize: 14, fontFamily: 'Inter')),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.edit, color: secondary, size: 14),
+                          SizedBox(width: 4),
+                          Text('Cambiar imagen', style: TextStyle(color: secondary, fontSize: 14, fontFamily: 'Inter')),
+                        ],
+                      ),
                     ],
                   )
                 : Column(
@@ -538,7 +821,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                       const SizedBox(height: 12),
                       const Text('Foto del repuesto en stock', style: TextStyle(color: onSurface, fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Inter')),
                       const SizedBox(height: 2),
-                      const Text('PNG, JPG hasta 10MB', style: TextStyle(color: onSurfaceVariant, fontSize: 12, fontFamily: 'Inter')),
+                      const Text('Toca para usar la cámara o elegir de galería', style: TextStyle(color: onSurfaceVariant, fontSize: 12, fontFamily: 'Inter')),
                     ],
                   ),
           ),

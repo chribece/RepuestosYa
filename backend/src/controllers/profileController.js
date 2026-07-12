@@ -7,9 +7,15 @@ const getProfile = async (req, res) => {
       .from('profiles')
       .select('*')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
+      console.error('Profile fetch error:', error);
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    if (!profile) {
+      console.log('Profile not found for ID:', req.user.id);
       return res.status(404).json({ error: 'Profile not found' });
     }
 

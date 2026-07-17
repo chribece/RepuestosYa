@@ -1,4 +1,5 @@
 const supabase = require('../services/supabase');
+const { invalidatePattern } = require('../services/cache');
 
 // POST /quotations (solo almacenes)
 const createCotizacion = async (req, res) => {
@@ -62,6 +63,9 @@ const createCotizacion = async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Invalidar caché de solicitudes activas
+    await invalidatePattern('solicitudes:activas:*');
 
     res.status(201).json(cotizacion);
   } catch (error) {
@@ -183,6 +187,9 @@ const updateCotizacionEstado = async (req, res) => {
         .update({ estado: 'completado' })
         .eq('id', cotizacion.solicitud_id);
     }
+
+    // Invalidar caché de solicitudes activas
+    await invalidatePattern('solicitudes:activas:*');
 
     res.json(updatedCotizacion);
   } catch (error) {

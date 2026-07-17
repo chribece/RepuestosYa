@@ -1,4 +1,5 @@
 const supabase = require('../services/supabase');
+const { getOrSet, invalidatePattern } = require('../services/cache');
 
 // GET /requests (mis solicitudes - clientes)
 const getMisSolicitudes = async (req, res) => {
@@ -36,17 +37,29 @@ const getMisSolicitudes = async (req, res) => {
 // GET /requests/active (para almacenes)
 const getSolicitudesActivas = async (req, res) => {
   try {
-    const { data: solicitudes, error } = await supabase
-      .from('solicitudes_repuesto')
-      .select('*, profiles(nombre_completo, email), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
-      .eq('estado', 'en_proceso')
-      .order('created_at', { ascending: false });
+    const page = parseInt(req.query.page) || 1;
+    const cacheKey = `solicitudes:activas:page:${page}`;
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
+    const { data: solicitudes, fromCache } = await getOrSet(
+      cacheKey,
+      60, // 60 segundos TTL
+      async () => {
+        const { data, error } = await supabase
+          .from('solicitudes_repuesto')
+          .select('*, profiles(nombre_completo, email), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
+          .eq('estado', 'en_proceso')
+          .order('created_at', { ascending: false });
 
-    res.json(solicitudes || []);
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        return data || [];
+      }
+    );
+
+    res.setHeader('X-Cache', fromCache ? 'HIT' : 'MISS');
+    res.json(solicitudes);
   } catch (error) {
     console.error('Get solicitudes activas error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -84,6 +97,9 @@ const createSolicitud = async (req, res) => {
     if (error) {
       return res.status(400).json({ error: error.message });
     }
+
+    // Invalidar caché de solicitudes activas
+    await invalidatePattern('solicitudes:activas:*');
 
     res.status(201).json(solicitud);
   } catch (error) {

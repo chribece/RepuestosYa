@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan'); 
 const routes = require('./src/routes');
+const timingMiddleware = require('./src/middleware/timing');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -47,6 +48,9 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
+
+// Timing middleware
+app.use(timingMiddleware);
 
 // Routes
 app.use('/api', routes);

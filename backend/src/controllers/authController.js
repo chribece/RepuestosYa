@@ -159,14 +159,14 @@ const login = async (req, res) => {
     console.log('Login attempt for user ID:', userId);
     console.log('Login attempt for email:', authData.user.email);
 
-    // 2. BUSCAR PRIMERO EN LA TABLA 'PROFILES' por ID
+    // 2. BUSCAR PROFILE (solo campos necesarios - UNA sola consulta)
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, email, nombre_completo, rol')
       .eq('id', userId)
       .maybeSingle();
 
-    console.log('Profile query result by ID:', profile);
+    console.log('Profile query result:', profile);
     console.log('Profile query error:', profileError);
 
     if (profileError) {
@@ -177,87 +177,18 @@ const login = async (req, res) => {
       });
     }
 
-    // 3. SI NO SE ENCUENTRA POR ID, BUSCAR POR EMAIL (fallback)
-    let finalProfile = profile;
     if (!profile) {
-      console.log('Profile not found by ID, searching by email...');
-      const { data: profileByEmail, error: emailError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', authData.user.email)
-        .maybeSingle();
-
-      console.log('Profile query result by email:', profileByEmail);
-      console.log('Profile query error by email:', emailError);
-
-      if (profileByEmail) {
-        // Profile existe con diferente ID - usar el profile existente
-        console.log('Profile found by email with different ID, using existing profile...');
-        // No podemos actualizar el ID (es primary key), usamos el profile existente
-        finalProfile = profileByEmail;
-      } else if (!emailError) {
-        // Profile no existe por email ni por ID - crearlo
-        console.log('Profile not found by email either, creating new profile...');
-        
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            nombre_completo: authData.user.email?.split('@')[0] || 'Usuario',
-            email: authData.user.email,
-            rol: 'cliente',
-            tipo_membresia: 'Regular Member'
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Failed to create profile:', createError);
-          return res.status(500).json({ 
-            error: 'Profile not found and could not be created',
-            details: createError.message 
-          });
-        }
-
-        console.log('Profile created successfully:', newProfile);
-        finalProfile = newProfile;
-      } else {
-        console.error('Error searching profile by email:', emailError);
-        return res.status(500).json({ 
-          error: 'Error searching profile by email',
-          details: emailError.message 
-        });
-      }
+      return res.status(404).json({ error: 'Profile not found' });
     }
 
     // Extraemos el rol asignado en la base de datos
-    const userRole = finalProfile.rol || 'cliente';
-    let nombreAMostrar = finalProfile.nombre_completo;
+    const userRole = profile.rol || 'cliente';
 
-    // 3. SI EL ROL ES ALMACÉN, BUSCAMOS SU INFORMACIÓN COMERCIAL UTILIZANDO 'encargado_id'
-    if (userRole === 'almacen') {
-      const { data: almacen, error: almacenError } = await supabase
-        .from('almacenes')
-        .select('*')
-        .eq('encargado_id', userId) // <-- Corregido con el nombre real de tu columna
-        .maybeSingle();
-
-      if (almacenError) {
-        console.error('Almacen fetch error:', almacenError);
-      }
-
-      if (almacen) {
-        // Opcional: Usamos el nombre comercial del almacén para personalizar el Home
-        nombreAMostrar = almacen.nombre_comercial || finalProfile.nombre_completo;
-      }
-    }
-
-    // 4. Generar el Token JWT firmado con el rol real detectado
-    // Usar el ID del profile existente en lugar del ID de Supabase Auth
+    // 3. Generar el Token JWT firmado con el rol real detectado
     const token = jwt.sign(
       {
-        id: finalProfile.id, // Usar el ID del profile existente
-        email: authData.user.email,
+        id: profile.id,
+        email: profile.email,
         rol: userRole
       },
       process.env.JWT_SECRET,
@@ -268,9 +199,9 @@ const login = async (req, res) => {
     return res.json({
       token,
       user: {
-        id: finalProfile.id, // Usar el ID del profile existente
-        email: authData.user.email,
-        nombre_completo: nombreAMostrar,
+        id: profile.id,
+        email: profile.email,
+        nombre_completo: profile.nombre_completo,
         rol: userRole
       }
     });

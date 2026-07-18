@@ -1,6 +1,17 @@
 const supabase = require('../services/supabase');
 const { getOrSet, invalidatePattern } = require('../services/cache');
 
+/**
+ * ESTRATEGIA DE CARGA DE DATOS
+ * 
+ * EAGER loading (vehículo → marca, modelo): El feed del almacén SIEMPRE muestra estos datos
+ * para identificar qué pieza necesita cada cliente, así que vienen embebidos en la misma consulta.
+ * 
+ * LAZY loading (cotizaciones): En el listado solo traemos el CONTEO (cotizaciones(count)).
+ * El detalle completo de cotizaciones se consulta bajo demanda en endpoints específicos
+ * (getCotizacionesPorSolicitud, getMisCotizaciones) para evitar sobrecarga en el feed principal.
+ */
+
 // GET /requests (mis solicitudes - clientes)
 const getMisSolicitudes = async (req, res) => {
   try {
@@ -10,7 +21,7 @@ const getMisSolicitudes = async (req, res) => {
 
     let query = supabase
       .from('solicitudes_repuesto')
-      .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
+      .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))), cotizaciones(count)')
       .eq('cliente_id', req.user.id)
       .order('created_at', { ascending: false });
 
@@ -47,7 +58,8 @@ const getSolicitudesActivas = async (req, res) => {
         const { data, error } = await supabase
           .from('solicitudes_repuesto')
           .select(`*, profiles(nombre_completo, email),
-            vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))`)
+            vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))),
+            cotizaciones(count)`)
           .eq('estado', 'en_proceso')
           .order('created_at', { ascending: false });
 

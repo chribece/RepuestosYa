@@ -1,5 +1,6 @@
 const supabase = require('../services/supabase');
-const { invalidatePattern } = require('../services/cache');
+const { invalidatePattern, getOrSet } = require('../services/cache');
+const notificacionesQueue = require('../queues/notificaciones.queue');
 
 // POST /quotations (solo almacenes)
 const createCotizacion = async (req, res) => {
@@ -66,6 +67,28 @@ const createCotizacion = async (req, res) => {
 
     // Invalidar caché de solicitudes activas
     await invalidatePattern('solicitudes:activas:*');
+
+    // Encolar job de notificación (no espera a que se procese)
+    try {
+      await notificacionesQueue.add(
+        'cotizacion-creada',
+        { 
+          cotizacionId: cotizacion.id, 
+          solicitudId: solicitud_id 
+        },
+        {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000
+          },
+          removeOnComplete: 100
+        }
+      );
+    } catch (queueError) {
+      console.warn('[Queue] Error al encolar notificación:', queueError.message);
+      // No bloqueamos la respuesta si la cola falla
+    }
 
     res.status(201).json(cotizacion);
   } catch (error) {

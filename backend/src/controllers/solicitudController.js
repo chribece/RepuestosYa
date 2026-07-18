@@ -46,7 +46,8 @@ const getSolicitudesActivas = async (req, res) => {
       async () => {
         const { data, error } = await supabase
           .from('solicitudes_repuesto')
-          .select('*, profiles(nombre_completo, email), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
+          .select(`*, profiles(nombre_completo, email),
+            vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))`)
           .eq('estado', 'en_proceso')
           .order('created_at', { ascending: false });
 
@@ -115,7 +116,8 @@ const getSolicitudPorId = async (req, res) => {
 
     const { data: solicitud, error } = await supabase
       .from('solicitudes_repuesto')
-      .select('*, profiles(nombre_completo, email), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
+      .select(`*, profiles(nombre_completo, email), 
+        vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))`)
       .eq('id', id)
       .single();
 

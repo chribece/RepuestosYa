@@ -23,7 +23,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   static const Color surfaceContainerLow = Color(0xFF1C1B1B);
   static const Color surfaceVariant = Color(0xFF353534);
   static const Color cardBackground = Color(0xFF1E1E1E);
-  
+
   static const Color primaryContainer = Color(0xFFFF5722);
   static const Color onPrimaryContainer = Color(0xFF541200);
   static const Color primary = Color(0xFFFFB5A0);
@@ -40,7 +40,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   bool _isOpen = true;
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _solicitudes = [];
+  List<Map<String, dynamic>> _cotizacionesEnviadas = [];
   bool _isLoadingSolicitudes = false;
+  bool _isLoadingCotizaciones = false;
   String? _nombreAlmacen;
 
   // Variables dinámicas para el panel de estadísticas Bento
@@ -52,25 +54,49 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     super.initState();
     _cargarSolicitudes();
     _cargarAlmacen();
+    _cargarCotizacionesEnviadas();
   }
 
   Future<void> _cargarAlmacen() async {
-  try {
-    final almacen = await _almacenService.obtenerMiAlmacen();
-    if (mounted) {
-      setState(() {
-        _nombreAlmacen = almacen?['nombre_comercial'] ?? 'Mi Almacén';
-      });
-    }
-  } catch (e) {
-    print('Error al cargar almacén: $e'); // ← esto te habría mostrado el 404 de inmediato
-    if (mounted) {
-      setState(() {
-        _nombreAlmacen = 'Mi Almacén';
-      });
+    try {
+      final almacen = await _almacenService.obtenerMiAlmacen();
+      if (mounted) {
+        setState(() {
+          _nombreAlmacen = almacen?['nombre_comercial'] ?? 'Mi Almacén';
+        });
+      }
+    } catch (e) {
+      print(
+        'Error al cargar almacén: $e',
+      ); // ← esto te habría mostrado el 404 de inmediato
+      if (mounted) {
+        setState(() {
+          _nombreAlmacen = 'Mi Almacén';
+        });
+      }
     }
   }
-}
+
+  Future<void> _cargarCotizacionesEnviadas() async {
+    setState(() => _isLoadingCotizaciones = true);
+    try {
+      final cotizaciones = await _solicitudService.obtenerMisCotizaciones();
+      if (mounted) {
+        setState(() {
+          _cotizacionesEnviadas = List<Map<String, dynamic>>.from(
+            cotizaciones ?? [],
+          );
+          _isLoadingCotizaciones = false;
+        });
+      }
+    } catch (e) {
+      print('Error al cargar cotizaciones enviadas: $e');
+      if (mounted) {
+        setState(() => _isLoadingCotizaciones = false);
+      }
+    }
+  }
+
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
   Future<void> _cargarSolicitudes() async {
     setState(() {
@@ -78,12 +104,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     });
     try {
       final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+      print('Solicitudes cargadas: ${solicitudes?.length ?? 0}');
+      for (var sol in solicitudes ?? []) {
+        print('Solicitud ID: ${sol['id']}, Pieza: ${sol['pieza_nombre']}');
+      }
       setState(() {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
         _solicitudes = List<Map<String, dynamic>>.from(solicitudes ?? []);
         _isLoadingSolicitudes = false;
       });
     } catch (e) {
+      print('Error al cargar solicitudes: $e');
       setState(() {
         _isLoadingSolicitudes = false;
       });
@@ -100,7 +131,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: background,
-      
+
       drawer: Drawer(
         child: Container(
           color: background,
@@ -110,7 +141,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               DrawerHeader(
                 decoration: const BoxDecoration(
                   color: surfaceContainerHigh,
-                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                  border: Border(
+                    bottom: BorderSide(color: outlineVariant, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,12 +168,29 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ),
               ListTile(
                 leading: const Icon(Icons.dashboard, color: primaryContainer),
-                title: const Text('Panel Principal', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Panel Principal',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
+                leading: const Icon(Icons.send, color: primaryContainer),
+                title: const Text(
+                  'Cotizaciones Enviadas',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _selectedIndex = 2);
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.store, color: primaryContainer),
-                title: const Text('Mi Almacén', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Mi Almacén',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final almacen = await _almacenService.obtenerMiAlmacen();
@@ -148,12 +198,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     if (almacen != null) {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const PerfilAlmacenPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const PerfilAlmacenPage(),
+                        ),
                       );
                     } else {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const RegisterAlmacenPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const RegisterAlmacenPage(),
+                        ),
                       );
                     }
                   }
@@ -162,14 +216,19 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               const Divider(color: outlineVariant),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                title: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   await AuthService().signOut();
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
-                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
                       (route) => false,
                     );
                   }
@@ -179,117 +238,246 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ),
         ),
       ),
-      
+
       body: SafeArea(
         child: Column(
           children: [
             _buildTopAppBar(),
             Expanded(
-              child: RefreshIndicator(
-                onRefresh: _cargarSolicitudes,
-                color: primaryContainer,
-                backgroundColor: surfaceContainerHigh,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Dashboard Welcome
-                      Text(
-                        _nombreAlmacen ?? 'Cargando...',
-                        style: const TextStyle(
-                          color: onSurface,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Sora',
+              child: _selectedIndex == 0
+                  ? RefreshIndicator(
+                      onRefresh: _cargarSolicitudes,
+                      color: primaryContainer,
+                      backgroundColor: surfaceContainerHigh,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Gestión de inventario y pedidos en tiempo real.',
-                        style: TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      // Stats Grid (Bento Style)
-                      _buildBentoStatsGrid(),
-                      const SizedBox(height: 24),
-                      
-                      // Section Title
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Solicitudes Cercanas',
-                            style: TextStyle(
-                              color: onSurface,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Sora',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Dashboard Welcome
+                            Text(
+                              _nombreAlmacen ?? 'Cargando...',
+                              style: const TextStyle(
+                                color: onSurface,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Sora',
+                              ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: _cargarSolicitudes,
-                            child: const Text(
-                              'Ver todas',
-                              style: TextStyle(color: primary, fontSize: 14, fontWeight: FontWeight.w500),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Gestión de inventario y pedidos en tiempo real.',
+                              style: TextStyle(
+                                color: onSurfaceVariant,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Request Cards List
-                      _isLoadingSolicitudes
-                          ? const Center(child: CircularProgressIndicator(color: primaryContainer))
-                          : _solicitudes.isEmpty
-                              ? Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 16),
-                                  decoration: BoxDecoration(
-                                    color: surfaceContainerLow,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: outlineVariant),
+                            const SizedBox(height: 24),
+
+                            // Stats Grid (Bento Style)
+                            _buildBentoStatsGrid(),
+                            const SizedBox(height: 24),
+
+                            // Section Title
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Solicitudes Cercanas',
+                                  style: TextStyle(
+                                    color: onSurface,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'Sora',
                                   ),
-                                  child: const Column(
-                                    children: [
-                                      Icon(Icons.inbox, size: 48, color: onSurfaceVariant),
-                                      SizedBox(height: 12),
-                                      Text(
-                                        'No hay solicitudes activas',
-                                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        'Las nuevas peticiones de los clientes aparecerán aquí.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: onSurfaceVariant, fontSize: 12),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : ListView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: _solicitudes.length,
-                                  itemBuilder: (context, index) {
-                                    final solicitud = _solicitudes[index];
-                                    return Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
-                                      child: _buildRequestBentoCard(
-                                        solicitud: solicitud,
-                                      ),
-                                    );
-                                  },
                                 ),
-                    ],
-                  ),
-                ),
-              ),
+                                TextButton(
+                                  onPressed: _cargarSolicitudes,
+                                  child: const Text(
+                                    'Ver todas',
+                                    style: TextStyle(
+                                      color: primary,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Request Cards List
+                            _isLoadingSolicitudes
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: primaryContainer,
+                                    ),
+                                  )
+                                : _solicitudes.isEmpty
+                                ? Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 40,
+                                      horizontal: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: surfaceContainerLow,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: outlineVariant),
+                                    ),
+                                    child: const Column(
+                                      children: [
+                                        Icon(
+                                          Icons.inbox,
+                                          size: 48,
+                                          color: onSurfaceVariant,
+                                        ),
+                                        SizedBox(height: 12),
+                                        Text(
+                                          'No hay solicitudes activas',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Las nuevas peticiones de los clientes aparecerán aquí.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: onSurfaceVariant,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: _solicitudes.length,
+                                    itemBuilder: (context, index) {
+                                      final solicitud = _solicitudes[index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: _buildRequestBentoCard(
+                                          solicitud: solicitud,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _cargarCotizacionesEnviadas,
+                      color: primaryContainer,
+                      backgroundColor: surfaceContainerHigh,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Section Title
+                            const Text(
+                              'Cotizaciones Enviadas',
+                              style: TextStyle(
+                                color: onSurface,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Sora',
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Historial de cotizaciones enviadas a clientes.',
+                              style: TextStyle(
+                                color: onSurfaceVariant,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Quotations List
+                            _isLoadingCotizaciones
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: primaryContainer,
+                                    ),
+                                  )
+                                : _cotizacionesEnviadas.isEmpty
+                                ? Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 40,
+                                      horizontal: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: surfaceContainerLow,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: outlineVariant),
+                                    ),
+                                    child: const Column(
+                                      children: [
+                                        Icon(
+                                          Icons.send_outlined,
+                                          size: 48,
+                                          color: onSurfaceVariant,
+                                        ),
+                                        SizedBox(height: 12),
+                                        Text(
+                                          'No hay cotizaciones enviadas',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          'Las cotizaciones que envíes aparecerán aquí.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: onSurfaceVariant,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    itemCount: _cotizacionesEnviadas.length,
+                                    itemBuilder: (context, index) {
+                                      final cotizacion =
+                                          _cotizacionesEnviadas[index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: _buildQuotationCard(cotizacion),
+                                      );
+                                    },
+                                  ),
+                          ],
+                        ),
+                      ),
+                    ),
             ),
           ],
         ),
@@ -324,7 +512,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             ),
           ),
           const Spacer(),
-          
+
           // Status Toggle Simulation (Clickable)
           GestureDetector(
             onTap: () {
@@ -370,13 +558,45 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildBentoStatsGrid() {
     return Row(
       children: [
-        Expanded(child: _buildBentoStatCard('Ventas', '$_ventasCount', Colors.white)),
+        Expanded(
+          child: _buildBentoStatCard('Ventas', '$_ventasCount', Colors.white),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _buildBentoStatCard('Pendientes', '${_solicitudes.length}', primaryContainer)),
+        Expanded(
+          child: _buildBentoStatCard(
+            'Pendientes',
+            '${_solicitudes.length}',
+            primaryContainer,
+          ),
+        ),
         const SizedBox(width: 8),
-        Expanded(child: _buildBentoStatCard('Vistas', '$_vistasCount', Colors.white)),
+        Expanded(
+          child: _buildBentoStatCard('Vistas', '$_vistasCount', Colors.white),
+        ),
       ],
     );
+  }
+
+  String _formatTiempo(String? createdAt) {
+    if (createdAt == null) return 'Hace un momento';
+
+    try {
+      final dateTime = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) {
+        return 'Hace un momento';
+      } else if (difference.inMinutes < 60) {
+        return 'Hace ${difference.inMinutes} min';
+      } else if (difference.inHours < 24) {
+        return 'Hace ${difference.inHours} h';
+      } else {
+        return 'Hace ${difference.inDays} días';
+      }
+    } catch (e) {
+      return 'Hace un momento';
+    }
   }
 
   Widget _buildBentoStatCard(String label, String value, Color valueColor) {
@@ -392,7 +612,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             color: primaryContainer.withOpacity(0.05),
             blurRadius: 15,
             spreadRadius: 0,
-          )
+          ),
         ],
       ),
       child: Column(
@@ -417,31 +637,44 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
-  Widget _buildRequestBentoCard({
-    required Map<String, dynamic> solicitud,
-  }) {
+  Widget _buildRequestBentoCard({required Map<String, dynamic> solicitud}) {
     // Extracción e indexación segura de datos relacionales anidados (Vehículos)
     final String title = solicitud['pieza_nombre'] ?? 'Repuesto Desconocido';
-    
+
     // Armar el subtítulo dinámico con datos de la marca, modelo y año del vehículo
     final vehiculo = solicitud['vehiculos_cliente'];
     final modelo = vehiculo != null ? vehiculo['modelos_vehiculo'] : null;
     final marca = modelo != null ? modelo['marcas_vehiculo'] : null;
-    
+
     String detallesVehiculo = 'Vehículo no especificado';
     if (marca != null && modelo != null) {
-      detallesVehiculo = '${marca['nombre'] ?? ''} ${modelo['nombre'] ?? ''} • ${vehiculo['año'] ?? ''}';
+      detallesVehiculo =
+          '${marca['nombre'] ?? ''} ${modelo['nombre'] ?? ''} • ${vehiculo['año'] ?? ''}';
     }
 
-    final String subtitle = (solicitud['descripcion'] != null && solicitud['descripcion'].toString().trim().isNotEmpty)
+    final String subtitle =
+        (solicitud['descripcion'] != null &&
+            solicitud['descripcion'].toString().trim().isNotEmpty)
         ? solicitud['descripcion']
         : detallesVehiculo;
 
-    final String distance = '2.8 km'; 
-    final String time = 'Hace 10 min';
-    
+    final String distance = '2.8 km';
+
+    // Calcular tiempo real desde created_at
+    final createdAt = solicitud['created_at'];
+    final String time = _formatTiempo(createdAt);
+
     // Validamos el tag correcto desde la columna 'es_urgente' del backend en Node
-    final String? tagType = solicitud['es_urgente'] == true ? 'URGENTE' : 'ESTÁNDAR';
+    final String? tagType = solicitud['es_urgente'] == true
+        ? 'URGENTE'
+        : 'ESTÁNDAR';
+
+    // Extraer cantidad de cotizaciones (lazy loading)
+    final cotizaciones = solicitud['cotizaciones'];
+    final int cantidadCotizaciones =
+        (cotizaciones is List && cotizaciones.isNotEmpty)
+        ? (cotizaciones.first['count'] ?? 0)
+        : 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -473,7 +706,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     Text(
                       subtitle,
                       style: const TextStyle(
-                        color: onSurfaceVariant, 
+                        color: onSurfaceVariant,
                         fontSize: 12,
                         fontFamily: 'Inter',
                       ),
@@ -486,15 +719,18 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               if (tagType != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: tagType == 'URGENTE' 
-                        ? primary.withOpacity(0.1) 
+                    color: tagType == 'URGENTE'
+                        ? primary.withOpacity(0.1)
                         : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(100),
                     border: Border.all(
-                      color: tagType == 'URGENTE' 
-                          ? primary.withOpacity(0.3) 
+                      color: tagType == 'URGENTE'
+                          ? primary.withOpacity(0.3)
                           : Colors.green.withOpacity(0.3),
                     ),
                   ),
@@ -508,7 +744,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     ),
                   ),
                 ),
-              ]
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -519,7 +755,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               Text(
                 distance,
                 style: const TextStyle(
-                  color: secondary, 
+                  color: secondary,
                   fontSize: 14,
                   fontFamily: 'Inter',
                 ),
@@ -530,12 +766,57 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               Text(
                 time,
                 style: const TextStyle(
-                  color: onSurfaceVariant, 
+                  color: onSurfaceVariant,
                   fontSize: 14,
                   fontFamily: 'Inter',
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // Badge de cotizaciones
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: cantidadCotizaciones > 0
+                  ? primaryContainer.withOpacity(0.1)
+                  : surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: cantidadCotizaciones > 0
+                    ? primaryContainer.withOpacity(0.3)
+                    : outlineVariant,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  cantidadCotizaciones > 0
+                      ? Icons.receipt_long
+                      : Icons.receipt_long_outlined,
+                  size: 16,
+                  color: cantidadCotizaciones > 0
+                      ? primaryContainer
+                      : onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  cantidadCotizaciones > 0
+                      ? '$cantidadCotizaciones cotización${cantidadCotizaciones == 1 ? '' : 'es'}'
+                      : 'Sin cotizaciones aún',
+                  style: TextStyle(
+                    color: cantidadCotizaciones > 0
+                        ? primaryContainer
+                        : onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: cantidadCotizaciones > 0
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -545,17 +826,30 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               onPressed: () async {
                 final bool? vueltaConExito = await Navigator.push<bool>(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => CreateQuotationPage(solicitud: solicitud),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        CreateQuotationPage(solicitud: solicitud),
+                    transitionDuration: const Duration(milliseconds: 250),
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1.0, 0.0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          );
+                        },
                   ),
                 );
 
                 if (vueltaConExito == true && mounted) {
-                  _cargarSolicitudes(); 
+                  _cargarSolicitudes();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('¡La cotización ha sido enviada e indexada en el sistema!'),
+                      content: Text('¡Cotización enviada exitosamente!'),
                       backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
                     ),
                   );
                 }
@@ -571,7 +865,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               child: const Text(
                 'COTIZAR',
                 style: TextStyle(
-                  fontSize: 16, 
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   fontFamily: 'Sora',
                   letterSpacing: 0.5,
@@ -579,6 +873,138 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuotationCard(Map<String, dynamic> cotizacion) {
+    final solicitud =
+        cotizacion['solicitudes_repuesto'] as Map<String, dynamic>?;
+    final piezaNombre = solicitud?['pieza_nombre'] ?? 'Repuesto desconocido';
+
+    String clienteNombre = 'Cliente desconocido';
+    if (solicitud != null) {
+      final profiles = solicitud['profiles'] as Map<String, dynamic>?;
+      clienteNombre = profiles?['nombre_completo'] ?? 'Cliente desconocido';
+    }
+
+    final precio = (cotizacion['precio_venta'] as num?)?.toDouble() ?? 0.0;
+    final estado = cotizacion['estado'] ?? 'pendiente';
+    final createdAt = cotizacion['created_at'];
+    final tiempoEntrega =
+        cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
+
+    // Color según estado
+    Color estadoColor;
+    String estadoText;
+    switch (estado) {
+      case 'aceptada':
+        estadoColor = Colors.green;
+        estadoText = 'ACEPTADA';
+        break;
+      case 'rechazada':
+        estadoColor = Colors.red;
+        estadoText = 'RECHAZADA';
+        break;
+      default:
+        estadoColor = Colors.orange;
+        estadoText = 'PENDIENTE';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: outlineVariant, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      piezaNombre,
+                      style: const TextStyle(
+                        color: onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Sora',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Cliente: $clienteNombre',
+                      style: const TextStyle(
+                        color: onSurfaceVariant,
+                        fontSize: 12,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: estadoColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: estadoColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  estadoText,
+                  style: TextStyle(
+                    color: estadoColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Inter',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(Icons.attach_money, color: primaryContainer, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                '\$${precio.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: primaryContainer,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 24),
+              Icon(Icons.access_time, color: onSurfaceVariant, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                _formatTiempo(createdAt),
+                style: const TextStyle(color: onSurfaceVariant, fontSize: 14),
+              ),
+            ],
+          ),
+          if (tiempoEntrega != 'No especificado') ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.schedule, color: onSurfaceVariant, size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  'Entrega: $tiempoEntrega',
+                  style: const TextStyle(color: onSurfaceVariant, fontSize: 12),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -595,8 +1021,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildBottomNavItem(Icons.home, 'Home', 0),
-          _buildBottomNavItem(Icons.search, 'Search', 1),
-          _buildBottomNavItem(Icons.shopping_cart, 'Orders', 2),
+          _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
           _buildBottomNavItem(Icons.store, 'Mi Almacén', 3),
         ],
       ),
@@ -616,12 +1041,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             if (almacen != null) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const PerfilAlmacenPage()),
+                MaterialPageRoute(
+                  builder: (context) => const PerfilAlmacenPage(),
+                ),
               );
             } else {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const RegisterAlmacenPage()),
+                MaterialPageRoute(
+                  builder: (context) => const RegisterAlmacenPage(),
+                ),
               );
             }
           }

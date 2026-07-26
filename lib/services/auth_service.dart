@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'api_client.dart';
 
-
 // Clases compatibles con Supabase para mantener la misma interfaz
 class User {
   final String id;
@@ -10,22 +9,14 @@ class User {
   final String? nombreCompleto;
   final String? rol;
 
-  User({
-    required this.id,
-    required this.email,
-    this.nombreCompleto,
-    this.rol,
-  });
+  User({required this.id, required this.email, this.nombreCompleto, this.rol});
 }
 
 class AuthResponse {
   final User user;
   final String? token;
 
-  AuthResponse({
-    required this.user,
-    this.token,
-  });
+  AuthResponse({required this.user, this.token});
 }
 
 class AuthState {
@@ -37,7 +28,8 @@ class AuthState {
 class AuthService {
   final ApiClient _apiClient = ApiClient();
   User? _currentUser;
-  final StreamController<AuthState> _authStateController = StreamController<AuthState>.broadcast();
+  final StreamController<AuthState> _authStateController =
+      StreamController<AuthState>.broadcast();
   bool _isInitialized = false;
 
   // Constructor privado para singleton
@@ -59,7 +51,7 @@ class AuthService {
           final parts = token.split('.');
           if (parts.length == 3) {
             final payload = json.decode(
-              utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))
+              utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
             );
             _currentUser = User(
               id: payload['id'] as String,
@@ -90,7 +82,7 @@ class AuthService {
       print('AuthService: Email: $email');
       print('AuthService: Nombre: $nombreCompleto');
       print('AuthService: Rol: $rol');
-      
+
       final response = await _apiClient.post(
         '/auth/register',
         body: {
@@ -131,10 +123,7 @@ class AuthService {
     try {
       final response = await _apiClient.post(
         '/auth/login',
-        body: {
-          'email': email,
-          'password': password,
-        },
+        body: {'email': email, 'password': password},
         requireAuth: false,
       );
 
@@ -162,15 +151,12 @@ class AuthService {
     try {
       // Call backend logout endpoint (optional for JWT stateless)
       try {
-        await _apiClient.post(
-          '/auth/logout',
-          requireAuth: true,
-        );
+        await _apiClient.post('/auth/logout', requireAuth: true);
       } catch (e) {
         // Ignore backend errors - JWT is stateless, client-side logout is sufficient
         print('Backend logout call failed (non-critical): $e');
       }
-      
+
       // Clear local token and user data
       await _apiClient.clearToken();
       _currentUser = null;

@@ -17,7 +17,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _piezaNombreController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _vinController = TextEditingController();
   final _locationController = TextEditingController(); // Solo para mostrar
 
   File? _selectedImage;
@@ -26,6 +25,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   String? _selectedVehiculoId;
   String? _selectedDireccionId;
+  String? _selectedPrioridad = 'estándar'; // 'urgente' o 'estándar'
   List<Map<String, dynamic>> _vehiculos = [];
   List<Map<String, dynamic>> _direcciones = [];
   bool _isLoadingVehiculos = false;
@@ -62,7 +62,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   void dispose() {
     _piezaNombreController.dispose();
     _descriptionController.dispose();
-    _vinController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -130,7 +129,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: surfaceContainerHigh,
-        title: const Text('Seleccionar imagen', style: TextStyle(color: onSurface)),
+        title: const Text(
+          'Seleccionar imagen',
+          style: TextStyle(color: onSurface),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -165,7 +167,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       );
       if (image != null) {
         setState(() => _isUploading = true);
-        await Future.delayed(const Duration(milliseconds: 1500)); // Simular subida
+        await Future.delayed(
+          const Duration(milliseconds: 1500),
+        ); // Simular subida
         setState(() {
           _selectedImage = File(image.path);
           _isUploading = false;
@@ -175,7 +179,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     } catch (e) {
       setState(() => _isUploading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar imagen: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error al cargar imagen: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -234,7 +241,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 children: [
                   const Text(
                     'Agregar nueva dirección',
-                    style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -250,8 +261,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         borderSide: BorderSide(color: primaryContainer),
                       ),
                     ),
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? 'Ingresa un alias' : null,
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Ingresa un alias'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -267,8 +279,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         borderSide: BorderSide(color: primaryContainer),
                       ),
                     ),
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? 'Ingresa la calle principal' : null,
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Ingresa la calle principal'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -306,7 +319,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancelar', style: TextStyle(color: onSurfaceVariant)),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(color: onSurfaceVariant),
+                          ),
                         ),
                       ),
                       Expanded(
@@ -314,12 +330,18 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                           onPressed: () async {
                             if (formKey.currentState!.validate()) {
                               try {
-                                final nueva = await _direccionService.createDireccion(
-                                  alias: aliasController.text.trim(),
-                                  callePrincipal: callePrincipalController.text.trim(),
-                                  calleSecundaria: calleSecundariaController.text.trim(),
-                                  referencia: referenciaController.text.trim(),
-                                );
+                                final nueva = await _direccionService
+                                    .createDireccion(
+                                      alias: aliasController.text.trim(),
+                                      callePrincipal: callePrincipalController
+                                          .text
+                                          .trim(),
+                                      calleSecundaria: calleSecundariaController
+                                          .text
+                                          .trim(),
+                                      referencia: referenciaController.text
+                                          .trim(),
+                                    );
                                 // Cerrar modal con éxito
                                 Navigator.pop(context, true);
                                 // Recargar lista y seleccionar la nueva dirección
@@ -327,13 +349,17 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                 // Forzar selección de la nueva (por si no es principal)
                                 setState(() {
                                   _selectedDireccionId = nueva['id'] as String?;
-                                  _locationController.text = _formatDireccion(nueva);
+                                  _locationController.text = _formatDireccion(
+                                    nueva,
+                                  );
                                 });
                                 _showToast('Dirección agregada correctamente');
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Error al guardar dirección: $e'),
+                                    content: Text(
+                                      'Error al guardar dirección: $e',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );
@@ -373,73 +399,85 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         content: SizedBox(
           width: double.maxFinite,
           child: _isLoadingDirecciones
-              ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+              ? const Center(
+                  child: CircularProgressIndicator(color: primaryContainer),
+                )
               : _direcciones.isEmpty
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'No tienes direcciones registradas',
-                          style: TextStyle(color: onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _agregarDireccion();
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Agregar dirección'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryContainer,
-                            foregroundColor: onPrimaryContainer,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: _direcciones.length,
-                            itemBuilder: (context, index) {
-                              final direccion = _direcciones[index];
-                              final isSelected = direccion['id'] == _selectedDireccionId;
-                              return ListTile(
-                                title: Text(
-                                  _formatDireccion(direccion),
-                                  style: const TextStyle(color: onSurface),
-                                ),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle, color: primaryContainer)
-                                    : null,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedDireccionId = direccion['id'] as String?;
-                                    _locationController.text = _formatDireccion(direccion);
-                                  });
-                                  Navigator.pop(context);
-                                  _showToast('Dirección actualizada');
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                        const Divider(color: outlineVariant),
-                        ListTile(
-                          leading: const Icon(Icons.add_circle, color: primaryContainer),
-                          title: const Text(
-                            'Agregar nueva dirección',
-                            style: TextStyle(color: primaryContainer),
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            _agregarDireccion();
-                          },
-                        ),
-                      ],
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'No tienes direcciones registradas',
+                      style: TextStyle(color: onSurfaceVariant),
                     ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _agregarDireccion();
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Agregar dirección'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryContainer,
+                        foregroundColor: onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _direcciones.length,
+                        itemBuilder: (context, index) {
+                          final direccion = _direcciones[index];
+                          final isSelected =
+                              direccion['id'] == _selectedDireccionId;
+                          return ListTile(
+                            title: Text(
+                              _formatDireccion(direccion),
+                              style: const TextStyle(color: onSurface),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(
+                                    Icons.check_circle,
+                                    color: primaryContainer,
+                                  )
+                                : null,
+                            onTap: () {
+                              setState(() {
+                                _selectedDireccionId =
+                                    direccion['id'] as String?;
+                                _locationController.text = _formatDireccion(
+                                  direccion,
+                                );
+                              });
+                              Navigator.pop(context);
+                              _showToast('Dirección actualizada');
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(color: outlineVariant),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.add_circle,
+                        color: primaryContainer,
+                      ),
+                      title: const Text(
+                        'Agregar nueva dirección',
+                        style: TextStyle(color: primaryContainer),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        _agregarDireccion();
+                      },
+                    ),
+                  ],
+                ),
         ),
         actions: [
           TextButton(
@@ -501,9 +539,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         piezaNombre: _piezaNombreController.text,
         descripcion: _descriptionController.text,
         fotoUrl: fotoUrl,
-        vinBusqueda: _vinController.text.isNotEmpty ? _vinController.text : null,
         direccionEntregaId: _selectedDireccionId!,
-        esUrgente: false,
+        esUrgente: _selectedPrioridad == 'urgente',
       );
 
       setState(() => _isSubmitting = false);
@@ -530,7 +567,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   Navigator.pop(context); // Cerrar diálogo
                   Navigator.pop(context); // Volver a Home
                 },
-                child: const Text('OK', style: TextStyle(color: primaryContainer)),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(color: primaryContainer),
+                ),
               ),
             ],
           ),
@@ -564,7 +604,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         ),
         title: const Text(
           'Crear Solicitud',
-          style: TextStyle(color: primary, fontSize: 22, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: primary,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         actions: [
           Container(
@@ -623,7 +667,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                     border: Border.all(
                       color: primaryContainer,
                       width: 2,
-                      style: _selectedImage == null ? BorderStyle.solid : BorderStyle.none,
+                      style: _selectedImage == null
+                          ? BorderStyle.solid
+                          : BorderStyle.none,
                     ),
                   ),
                   padding: const EdgeInsets.all(24),
@@ -635,68 +681,80 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                               height: 48,
                               child: CircularProgressIndicator(
                                 strokeWidth: 4,
-                                valueColor: AlwaysStoppedAnimation<Color>(primaryContainer),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  primaryContainer,
+                                ),
                               ),
                             ),
                             SizedBox(height: 16),
-                            Text('Procesando imagen...', style: TextStyle(color: primaryContainer)),
+                            Text(
+                              'Procesando imagen...',
+                              style: TextStyle(color: primaryContainer),
+                            ),
                           ],
                         )
                       : _selectedImage != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Stack(
-                                children: [
-                                  Image.file(
-                                    _selectedImage!,
-                                    width: double.infinity,
-                                    height: 128,
-                                    fit: BoxFit.cover,
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            children: [
+                              Image.file(
+                                _selectedImage!,
+                                width: double.infinity,
+                                height: 128,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.4),
                                   ),
-                                  Positioned.fill(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.4),
-                                      ),
-                                      child: const Center(
-                                        child: Icon(Icons.edit, color: Colors.white, size: 32),
-                                      ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.edit,
+                                      color: Colors.white,
+                                      size: 32,
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
-                            )
-                          : Column(
-                              children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: primaryContainer.withOpacity(0.1),
-                                  ),
-                                  child: const Icon(
-                                    Icons.photo_camera,
-                                    size: 32,
-                                    color: primaryContainer,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'Subir foto del repuesto o VIN',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: onSurface,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Formatos aceptados: JPG, PNG • Max 10MB',
-                                  style: TextStyle(fontSize: 12, color: onSurfaceVariant),
-                                ),
-                              ],
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: primaryContainer.withOpacity(0.1),
+                              ),
+                              child: const Icon(
+                                Icons.photo_camera,
+                                size: 32,
+                                color: primaryContainer,
+                              ),
                             ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Subir foto del repuesto o VIN',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Formatos aceptados: JPG, PNG • Max 10MB',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -728,11 +786,19 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       children: [
                         TextSpan(
                           text: 'Selecciona tu vehículo',
-                          style: TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         TextSpan(
                           text: ' *',
-                          style: TextStyle(fontSize: 12, color: requiredAsterisk, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: requiredAsterisk,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -748,29 +814,52 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       child: DropdownButtonFormField<String>(
                         value: _selectedVehiculoId,
                         decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           border: InputBorder.none,
                         ),
                         dropdownColor: surfaceContainerHigh,
                         style: const TextStyle(color: onSurface),
-                        icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+                        icon: const Icon(
+                          Icons.expand_more,
+                          color: onSurfaceVariant,
+                        ),
                         items: _isLoadingVehiculos
-                            ? [const DropdownMenuItem(value: null, child: Text('Cargando vehículos...'))]
+                            ? [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('Cargando vehículos...'),
+                                ),
+                              ]
                             : _vehiculos.isEmpty
-                                ? [const DropdownMenuItem(value: null, child: Text('No hay vehículos registrados'))]
-                                : _vehiculos.map((vehiculo) {
-                                    final modelo = vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
-                                    final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
-                                    final vin = vehiculo['vin'] as String? ?? '';
-                                    final nombre = marca != null && modelo != null
-                                        ? '${marca['nombre']} ${modelo['nombre']}'
-                                        : 'Vehículo';
-                                    return DropdownMenuItem(
-                                      value: vehiculo['id'] as String?,
-                                      child: Text('$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})'),
-                                    );
-                                  }).toList(),
-                        onChanged: (value) => setState(() => _selectedVehiculoId = value),
+                            ? [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('No hay vehículos registrados'),
+                                ),
+                              ]
+                            : _vehiculos.map((vehiculo) {
+                                final modelo =
+                                    vehiculo['modelos_vehiculo']
+                                        as Map<String, dynamic>?;
+                                final marca =
+                                    modelo?['marcas_vehiculo']
+                                        as Map<String, dynamic>?;
+                                final vin = vehiculo['vin'] as String? ?? '';
+                                final nombre = marca != null && modelo != null
+                                    ? '${marca['nombre']} ${modelo['nombre']}'
+                                    : 'Vehículo';
+                                return DropdownMenuItem(
+                                  value: vehiculo['id'] as String?,
+                                  child: Text(
+                                    '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
+                                  ),
+                                );
+                              }).toList(),
+                        onChanged: (value) =>
+                            setState(() => _selectedVehiculoId = value),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return 'Selecciona un vehículo';
@@ -788,7 +877,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               _buildTextField(
                 label: 'Descripción del repuesto',
                 controller: _descriptionController,
-                hint: 'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad...',
+                hint:
+                    'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad...',
                 maxLines: 4,
                 isRequired: true,
                 validator: (v) {
@@ -803,12 +893,52 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               ),
               const SizedBox(height: 16),
 
-              // VIN opcional
-              _buildTextField(
-                label: 'Código VIN (opcional)',
-                controller: _vinController,
-                hint: 'Ej: 1HGBH41JXMN109186',
-                validator: null,
+              // Prioridad (Urgente/Estándar)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Prioridad de la solicitud',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title: const Text(
+                            'Estándar',
+                            style: TextStyle(color: onSurface, fontSize: 14),
+                          ),
+                          value: 'estándar',
+                          groupValue: _selectedPrioridad,
+                          onChanged: (value) =>
+                              setState(() => _selectedPrioridad = value),
+                          activeColor: primaryContainer,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<String>(
+                          title: const Text(
+                            'Urgente',
+                            style: TextStyle(color: onSurface, fontSize: 14),
+                          ),
+                          value: 'urgente',
+                          groupValue: _selectedPrioridad,
+                          onChanged: (value) =>
+                              setState(() => _selectedPrioridad = value),
+                          activeColor: Colors.red,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -829,7 +959,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         shape: BoxShape.circle,
                         color: secondaryContainer.withOpacity(0.2),
                       ),
-                      child: const Icon(Icons.location_on, color: secondaryContainer),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: secondaryContainer,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -838,11 +971,18 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         children: [
                           const Text(
                             'Ubicación de entrega',
-                            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariant,
+                            ),
                           ),
                           Text(
                             _locationController.text,
-                            style: const TextStyle(fontSize: 14, color: onSurface, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: onSurface,
+                              fontWeight: FontWeight.w500,
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -853,7 +993,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       onPressed: _changeLocation,
                       child: const Text(
                         'Cambiar',
-                        style: TextStyle(fontSize: 12, color: secondaryContainer, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: secondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -880,12 +1024,19 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         children: [
                           const Text(
                             'Consejo Pro',
-                            style: TextStyle(fontSize: 18, color: tertiaryContainer, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: tertiaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           const Text(
                             'Incluir el código VIN (Número de Chasis) garantiza una compatibilidad del 100% con tu motorización específica.',
-                            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
@@ -912,7 +1063,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryContainer,
               foregroundColor: onPrimaryContainer,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
             child: _isSubmitting
@@ -921,7 +1074,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(onPrimaryContainer),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        onPrimaryContainer,
+                      ),
                     ),
                   )
                 : const Row(
@@ -929,7 +1084,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                     children: [
                       Icon(Icons.search),
                       SizedBox(width: 8),
-                      Text('BUSCAR REPUESTO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      Text(
+                        'BUSCAR REPUESTO',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -955,12 +1116,20 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             children: [
               TextSpan(
                 text: label,
-                style: const TextStyle(fontSize: 12, color: onSurfaceVariant, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(fontSize: 12, color: requiredAsterisk, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: requiredAsterisk,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
             ],
           ),

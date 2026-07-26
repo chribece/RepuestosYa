@@ -7,7 +7,7 @@ enum UserRole { admin, cliente, almacen, unknown }
 class UserRoleProvider with ChangeNotifier {
   final ProfileService _profileService = ProfileService();
   final AuthService _authService = AuthService();
-  
+
   UserRole _currentRole = UserRole.unknown;
   bool _isLoading = false;
   String? _errorMessage;
@@ -15,7 +15,7 @@ class UserRoleProvider with ChangeNotifier {
   UserRole get currentRole => _currentRole;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  
+
   bool get isAdmin => _currentRole == UserRole.admin;
   bool get isCliente => _currentRole == UserRole.cliente;
   bool get isAlmacen => _currentRole == UserRole.almacen;
@@ -29,7 +29,7 @@ class UserRoleProvider with ChangeNotifier {
 
     try {
       final roleString = await _profileService.getUserRole(userId);
-      
+
       if (roleString == null) {
         _errorMessage = 'Perfil de usuario no encontrado';
         _currentRole = UserRole.unknown;

@@ -12,6 +12,7 @@ const cotizacionController = require('../controllers/cotizacionController');
 const marcaController = require('../controllers/marcaController');
 const modeloController = require('../controllers/modeloController');
 const almacenController = require('../controllers/almacenController');
+const ordenController = require('../controllers/ordenController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
@@ -57,5 +58,10 @@ router.post('/quotations', auth, requireRole('almacen'), cotizacionController.cr
 router.get('/quotations/my-quotations', auth, requireRole('almacen'), cotizacionController.getMisCotizaciones);
 router.get('/quotations/request/:solicitud_id', auth, cotizacionController.getCotizacionesPorSolicitud);
 router.put('/quotations/:id/status', auth, cotizacionController.updateCotizacionEstado);
+router.post('/quotations/:id/accept', auth, cotizacionController.aceptarCotizacion);
+router.post('/quotations/:id/reject', auth, cotizacionController.rechazarCotizacion);
+
+// Orden de compra routes (protected)
+router.get('/orders/:id', auth, ordenController.getOrdenDetalleController);
 
 module.exports = router;

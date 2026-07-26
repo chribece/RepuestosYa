@@ -15,12 +15,17 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _rucController = TextEditingController();
-  final TextEditingController _representanteController = TextEditingController();
+  final TextEditingController _representanteController =
+      TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
-  final TextEditingController _latController = TextEditingController(text: '0.0');
-  final TextEditingController _lonController = TextEditingController(text: '0.0');
-  
+  final TextEditingController _latController = TextEditingController(
+    text: '0.0',
+  );
+  final TextEditingController _lonController = TextEditingController(
+    text: '0.0',
+  );
+
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
   final AlmacenService _almacenService = AlmacenService();
@@ -110,10 +115,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           _isSubmitting = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -215,11 +217,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Nombre Comercial',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -227,7 +239,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _nombreController,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El nombre comercial es requerido';
@@ -242,10 +258,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -261,11 +289,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'RUC',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -275,7 +313,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _rucController,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El RUC es requerido';
@@ -290,10 +332,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -309,11 +363,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Representante Legal',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -321,7 +385,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El representante legal es requerido';
@@ -336,10 +404,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -355,11 +435,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Teléfono',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -369,7 +459,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _telefonoController,
           keyboardType: TextInputType.phone,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El teléfono es requerido';
@@ -384,10 +478,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -403,11 +509,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Dirección',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -416,7 +532,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         TextFormField(
           controller: _direccionController,
           maxLines: 3,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'La dirección es requerida';
@@ -431,9 +551,18 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
             contentPadding: const EdgeInsets.all(16),
           ),
         ),
@@ -450,7 +579,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Latitud',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -458,9 +592,18 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _latController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+'))],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
+          ],
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return null; // Optional field
@@ -479,10 +622,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -498,7 +653,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             children: [
               TextSpan(
                 text: 'Longitud',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -506,9 +666,18 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _lonController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+'))],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
+          ],
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return null; // Optional field
@@ -527,10 +696,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -547,15 +728,32 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           backgroundColor: primaryContainer,
           disabledBackgroundColor: primaryContainer.withOpacity(0.4),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: _isSubmitting
             ? const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: onPrimaryContainer)),
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: onPrimaryContainer,
+                    ),
+                  ),
                   SizedBox(width: 12),
-                  Text('PROCESANDO...', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'PROCESANDO...',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               )
             : const Row(
@@ -563,7 +761,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                 children: [
                   Icon(Icons.check_circle, color: onPrimaryContainer, size: 20),
                   SizedBox(width: 8),
-                  Text('COMPLETAR PERFIL', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'COMPLETAR PERFIL',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               ),
       ),
@@ -586,7 +792,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           Expanded(
             child: Text(
               'Las coordenadas son opcionales. Puedes actualizarlas más tarde desde tu perfil.',
-              style: TextStyle(color: onSurfaceVariant, fontSize: 12, height: 1.4, fontFamily: 'Inter'),
+              style: TextStyle(
+                color: onSurfaceVariant,
+                fontSize: 12,
+                height: 1.4,
+                fontFamily: 'Inter',
+              ),
             ),
           ),
         ],

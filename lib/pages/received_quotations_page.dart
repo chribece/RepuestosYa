@@ -21,7 +21,7 @@ class ReceivedQuotationsPage extends StatefulWidget {
 
 class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   final SolicitudService _solicitudService = SolicitudService();
-  
+
   // Paleta de colores industrial oscura
   static const Color background = Color(0xFF131313);
   static const Color surface = Color(0xFF131313);
@@ -41,6 +41,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   List<Map<String, dynamic>> _cotizaciones = [];
   bool _isLoading = true;
   String? _errorMessage;
+  final Map<String, bool> _loadingCotizaciones = {};
 
   @override
   void initState() {
@@ -55,7 +56,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     });
 
     try {
-      final cotizaciones = await _solicitudService.obtenerCotizacionesRecibidas(widget.solicitudId);
+      final cotizaciones = await _solicitudService.obtenerCotizacionesRecibidas(
+        widget.solicitudId,
+      );
       setState(() {
         _cotizaciones = _ordenarCotizaciones(cotizaciones, _selectedTabIndex);
         _isLoading = false;
@@ -68,18 +71,46 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     }
   }
 
-  List<Map<String, dynamic>> _ordenarCotizaciones(List<Map<String, dynamic>> cotizaciones, int tabIndex) {
+  List<Map<String, dynamic>> _ordenarCotizaciones(
+    List<Map<String, dynamic>> cotizaciones,
+    int tabIndex,
+  ) {
     switch (tabIndex) {
       case 0: // Todas
         return cotizaciones;
       case 1: // Más baratas
         final sorted = List<Map<String, dynamic>>.from(cotizaciones);
-        sorted.sort((a, b) => (a['precio_venta'] as num).compareTo(b['precio_venta'] as num));
+        sorted.sort(
+          (a, b) =>
+              (a['precio_venta'] as num).compareTo(b['precio_venta'] as num),
+        );
         return sorted;
       case 2: // Más cercanas (simulado por ahora)
         return cotizaciones;
       default:
         return cotizaciones;
+    }
+  }
+
+  String _formatTiempoEnvio(String? createdAt) {
+    if (createdAt == null) return 'Hace un momento';
+
+    try {
+      final dateTime = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) {
+        return 'Hace un momento';
+      } else if (difference.inMinutes < 60) {
+        return 'Hace ${difference.inMinutes} min';
+      } else if (difference.inHours < 24) {
+        return 'Hace ${difference.inHours} h';
+      } else {
+        return 'Hace ${difference.inDays} días';
+      }
+    } catch (e) {
+      return 'Hace un momento';
     }
   }
 
@@ -91,8 +122,13 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   }
 
   Future<void> _aceptarCotizacion(String cotizacionId) async {
+    setState(() {
+      _loadingCotizaciones[cotizacionId] = true;
+    });
+
     try {
-      await _solicitudService.aceptarCotizacion(cotizacionId);
+      print('Intentando aceptar cotización con ID: $cotizacionId');
+      final response = await _solicitudService.aceptarCotizacion(cotizacionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -100,9 +136,18 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true);
+
+        final ordenId = response['ordenId'] as String?;
+        if (ordenId != null) {
+          Navigator.of(
+            context,
+          ).pushReplacementNamed('/orden-compra', arguments: ordenId);
+        } else {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
+      print('Error al aceptar cotización: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -111,11 +156,18 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingCotizaciones[cotizacionId] = false;
+        });
+      }
     }
   }
 
   Future<void> _rechazarCotizacion(String cotizacionId) async {
     try {
+      print('Intentando rechazar cotización con ID: $cotizacionId');
       await _solicitudService.rechazarCotizacion(cotizacionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +179,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         _cargarCotizaciones();
       }
     } catch (e) {
+      print('Error al rechazar cotización: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -149,12 +202,14 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           _buildTabsBar(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+                ? const Center(
+                    child: CircularProgressIndicator(color: primaryContainer),
+                  )
                 : _errorMessage != null
-                    ? _buildErrorState()
-                    : _cotizaciones.isEmpty
-                        ? _buildEmptyState()
-                        : _buildQuotationsList(),
+                ? _buildErrorState()
+                : _cotizaciones.isEmpty
+                ? _buildEmptyState()
+                : _buildQuotationsList(),
           ),
         ],
       ),
@@ -207,7 +262,11 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                       widget.fotoUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32);
+                        return const Icon(
+                          Icons.image_not_supported,
+                          color: onSurfaceVariant,
+                          size: 32,
+                        );
                       },
                     ),
                   )
@@ -232,10 +291,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                 const SizedBox(height: 4),
                 Text(
                   '${widget.ofertasPendientes} ofertas pendientes',
-                  style: const TextStyle(
-                    color: secondary,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: secondary, fontSize: 14),
                 ),
               ],
             ),
@@ -247,7 +303,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
   Widget _buildTabsBar() {
     final tabs = ['Todas', 'Más baratas', 'Más cercanas'];
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
@@ -259,7 +315,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           final index = entry.key;
           final label = entry.value;
           final isSelected = _selectedTabIndex == index;
-          
+
           return Expanded(
             child: InkWell(
               onTap: () => _onTabChanged(index),
@@ -339,10 +395,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             const SizedBox(height: 8),
             const Text(
               'Los almacenes enviarán sus ofertas pronto',
-              style: TextStyle(
-                color: onSurfaceVariant,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: onSurfaceVariant, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ],
@@ -363,16 +416,20 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   }
 
   Widget _buildQuotationCard(Map<String, dynamic> cotizacion) {
-    final almacenNombre = cotizacion['almacen_nombre'] ?? 'Almacén desconocido';
+    final almacenes = cotizacion['almacenes'] as Map<String, dynamic>?;
+    final almacenNombre =
+        almacenes?['nombre_comercial'] ?? 'Almacén desconocido';
     final precio = (cotizacion['precio_venta'] as num?)?.toDouble() ?? 0.0;
-    final tiempoEntrega = cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
+    final tiempoEntrega =
+        cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
     final fotoEvidencia = cotizacion['foto_evidencia_url'];
     final notas = cotizacion['notas_adicionales'];
     final estado = cotizacion['estado'] ?? 'pendiente';
-    
+    final createdAt = cotizacion['created_at'];
+
     // Simular disponibilidad basado en tiempo de entrega
-    final disponibilidad = tiempoEntrega.toLowerCase().contains('hoy') 
-        ? 'Disponible hoy' 
+    final disponibilidad = tiempoEntrega.toLowerCase().contains('hoy')
+        ? 'Disponible hoy'
         : 'Mañana';
 
     return Container(
@@ -410,7 +467,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: disponibilidad == 'Disponible hoy'
                                   ? Colors.green.withOpacity(0.1)
@@ -438,17 +498,25 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.location_on, color: secondary, size: 16),
+                          const Icon(
+                            Icons.access_time,
+                            color: onSurfaceVariant,
+                            size: 16,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            '2.5 km', // Simulado
+                            _formatTiempoEnvio(createdAt),
                             style: const TextStyle(
                               color: onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
                           const SizedBox(width: 16),
-                          const Icon(Icons.access_time, color: onSurfaceVariant, size: 16),
+                          const Icon(
+                            Icons.schedule,
+                            color: onSurfaceVariant,
+                            size: 16,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             tiempoEntrega,
@@ -496,10 +564,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                     children: [
                       const Text(
                         'Precio Final',
-                        style: TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: onSurfaceVariant, fontSize: 12),
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -540,11 +605,19 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(16),
-                                  child: Image.network(
-                                    fotoEvidencia,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(Icons.error, color: Colors.red, size: 64);
-                                    },
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      fotoEvidencia,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.error,
+                                              color: Colors.red,
+                                              size: 64,
+                                            );
+                                          },
+                                    ),
                                   ),
                                 ),
                                 TextButton(
@@ -577,8 +650,21 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                   const SizedBox(width: 8),
                   // Botón Aceptar
                   ElevatedButton.icon(
-                    onPressed: () => _aceptarCotizacion(cotizacion['id']),
-                    icon: const Icon(Icons.check, size: 16),
+                    onPressed: _loadingCotizaciones[cotizacion['id']] == true
+                        ? null
+                        : () => _aceptarCotizacion(cotizacion['id']),
+                    icon: _loadingCotizaciones[cotizacion['id']] == true
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Icon(Icons.check, size: 16),
                     label: const Text('Aceptar'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryContainer,
@@ -588,7 +674,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                   ),
                 ] else if (estado == 'aceptada') ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -611,7 +700,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                   ),
                 ] else if (estado == 'rechazada') ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),

@@ -14,7 +14,7 @@ class VehiclesPage extends StatefulWidget {
 class _VehiclesPageState extends State<VehiclesPage> {
   final VehiculoService _vehiculoService = VehiculoService();
   final AuthService _authService = AuthService();
-  
+
   List<Map<String, dynamic>> _vehiculos = [];
   bool _isLoading = false;
 
@@ -79,10 +79,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: error),
-            ),
+            child: const Text('Eliminar', style: TextStyle(color: error)),
           ),
         ],
       ),
@@ -156,123 +153,122 @@ class _VehiclesPageState extends State<VehiclesPage> {
               child: CircularProgressIndicator(color: primaryContainer),
             )
           : _vehiculos.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.directions_car,
-                        size: 64,
-                        color: onSurfaceVariant.withOpacity(0.5),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No tienes vehículos registrados',
-                        style: TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Agrega tu primer vehículo',
-                        style: TextStyle(
-                          color: onSurfaceVariant.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.directions_car,
+                    size: 64,
+                    color: onSurfaceVariant.withOpacity(0.5),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _vehiculos.length,
-                  itemBuilder: (context, index) {
-                    final vehiculo = _vehiculos[index];
-                    final modelo = vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
-                    final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
-                    final vin = vehiculo['vin'] as String? ?? '';
-                    final anioRaw = vehiculo['anio'];
-    final anio = anioRaw != null ? anioRaw.toString() : null;
-                    final patente = vehiculo['placa'] as String?;
+                  const SizedBox(height: 16),
+                  Text(
+                    'No tienes vehículos registrados',
+                    style: TextStyle(color: onSurfaceVariant, fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Agrega tu primer vehículo',
+                    style: TextStyle(
+                      color: onSurfaceVariant.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _vehiculos.length,
+              itemBuilder: (context, index) {
+                final vehiculo = _vehiculos[index];
+                final modelo =
+                    vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
+                final marca =
+                    modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
+                final vin = vehiculo['vin'] as String? ?? '';
+                final anioRaw = vehiculo['anio'];
+                final anio = anioRaw != null ? anioRaw.toString() : null;
+                final patente = vehiculo['placa'] as String?;
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      color: surfaceContainerHigh,
-                      shape: RoundedRectangleBorder(
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  color: surfaceContainerHigh,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: outlineVariant),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    leading: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: primaryContainer.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: outlineVariant),
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        leading: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: primaryContainer.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.directions_car,
-                            color: primaryContainer,
-                            size: 32,
-                          ),
-                        ),
-                        title: Text(
-                          marca != null && modelo != null
-                              ? '${marca['nombre']} ${modelo['nombre']}'
-                              : 'Vehículo',
-                          style: const TextStyle(
-                            color: onSurface,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (anio != null)
-                              Text(
-                                'Año: $anio',
-                                style: TextStyle(
-                                  color: onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            if (patente != null && patente.isNotEmpty)
-                              Text(
-                                'Patente: $patente',
-                                style: TextStyle(
-                                  color: onSurfaceVariant,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            Text(
-                              'VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin}',
-                              style: TextStyle(
-                                color: onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: primary),
-                              onPressed: () => _mostrarFormularioVehiculo(vehiculo),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: error),
-                              onPressed: () => _eliminarVehiculo(vehiculo['id']),
-                            ),
-                          ],
-                        ),
+                      child: Icon(
+                        Icons.directions_car,
+                        color: primaryContainer,
+                        size: 32,
                       ),
-                    );
-                  },
-                ),
+                    ),
+                    title: Text(
+                      marca != null && modelo != null
+                          ? '${marca['nombre']} ${modelo['nombre']}'
+                          : 'Vehículo',
+                      style: const TextStyle(
+                        color: onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (anio != null)
+                          Text(
+                            'Año: $anio',
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        if (patente != null && patente.isNotEmpty)
+                          Text(
+                            'Patente: $patente',
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        Text(
+                          'VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin}',
+                          style: TextStyle(
+                            color: onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: primary),
+                          onPressed: () => _mostrarFormularioVehiculo(vehiculo),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: error),
+                          onPressed: () => _eliminarVehiculo(vehiculo['id']),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -281,11 +277,7 @@ class VehicleFormDialog extends StatefulWidget {
   final Map<String, dynamic>? vehiculo;
   final VoidCallback onSave;
 
-  const VehicleFormDialog({
-    super.key,
-    this.vehiculo,
-    required this.onSave,
-  });
+  const VehicleFormDialog({super.key, this.vehiculo, required this.onSave});
 
   @override
   State<VehicleFormDialog> createState() => _VehicleFormDialogState();
@@ -320,15 +312,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   void initState() {
     super.initState();
     _cargarMarcas();
-    
+
     if (widget.vehiculo != null) {
       _vinController.text = widget.vehiculo!['vin'] ?? '';
       _anioController.text = widget.vehiculo!['anio']?.toString() ?? '';
       _patenteController.text = widget.vehiculo!['placa'] ?? '';
-      
+
       // Extraer marca y modelo del vehículo existente
       try {
-        final modelo = widget.vehiculo!['modelos_vehiculo'] as Map<String, dynamic>?;
+        final modelo =
+            widget.vehiculo!['modelos_vehiculo'] as Map<String, dynamic>?;
         if (modelo != null) {
           final modeloId = modelo['id'];
           if (modeloId != null) {
@@ -430,7 +423,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
 
       try {
         final vehiculoService = VehiculoService();
-        
+
         if (widget.vehiculo != null) {
           // Actualizar
           await vehiculoService.updateVehiculo(
@@ -439,7 +432,9 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             modeloId: _selectedModeloId,
             vin: _vinController.text.isNotEmpty ? _vinController.text : null,
             anio: _anioController.text.isNotEmpty ? _anioController.text : null,
-            patente: _patenteController.text.isNotEmpty ? _patenteController.text : null,
+            patente: _patenteController.text.isNotEmpty
+                ? _patenteController.text
+                : null,
           );
         } else {
           // Crear
@@ -448,7 +443,9 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             modeloId: _selectedModeloId!,
             vin: _vinController.text.isNotEmpty ? _vinController.text : null,
             anio: _anioController.text.isNotEmpty ? _anioController.text : null,
-            patente: _patenteController.text.isNotEmpty ? _patenteController.text : null,
+            patente: _patenteController.text.isNotEmpty
+                ? _patenteController.text
+                : null,
           );
         }
 
@@ -457,7 +454,11 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
           widget.onSave();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(widget.vehiculo != null ? 'Vehículo actualizado' : 'Vehículo creado'),
+              content: Text(
+                widget.vehiculo != null
+                    ? 'Vehículo actualizado'
+                    : 'Vehículo creado',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -465,10 +466,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -500,11 +498,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                         children: [
                           const TextSpan(
                             text: 'Marca',
-                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _VehiclesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -534,10 +539,15 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                               child: DropdownButton<int>(
                                 value: _selectedMarcaId,
                                 isExpanded: true,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 dropdownColor: surfaceContainerHigh,
                                 style: const TextStyle(color: onSurface),
-                                icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+                                icon: const Icon(
+                                  Icons.expand_more,
+                                  color: onSurfaceVariant,
+                                ),
                                 hint: const Text(
                                   'Selecciona una marca',
                                   style: TextStyle(color: onSurfaceVariant),
@@ -545,13 +555,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                 items: _marcas
                                     .where((marca) {
                                       final id = marca['id'];
-                                      return id != null && int.tryParse(id.toString()) != null;
+                                      return id != null &&
+                                          int.tryParse(id.toString()) != null;
                                     })
                                     .map((marca) {
-                                      final idInt = int.parse(marca['id'].toString());
+                                      final idInt = int.parse(
+                                        marca['id'].toString(),
+                                      );
                                       return DropdownMenuItem<int>(
                                         value: idInt,
-                                        child: Text(marca['nombre']?.toString() ?? ''),
+                                        child: Text(
+                                          marca['nombre']?.toString() ?? '',
+                                        ),
                                       );
                                     })
                                     .toList(),
@@ -569,7 +584,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Dropdown de Modelo
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -579,11 +594,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                         children: [
                           TextSpan(
                             text: 'Modelo',
-                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _VehiclesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -613,26 +635,38 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                               child: DropdownButton<int>(
                                 value: _selectedModeloId,
                                 isExpanded: true,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
                                 dropdownColor: surfaceContainerHigh,
                                 style: const TextStyle(color: onSurface),
-                                icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+                                icon: const Icon(
+                                  Icons.expand_more,
+                                  color: onSurfaceVariant,
+                                ),
                                 hint: Text(
-                                  _selectedMarcaId == null 
+                                  _selectedMarcaId == null
                                       ? 'Selecciona primero una marca'
                                       : 'Selecciona un modelo',
-                                  style: const TextStyle(color: onSurfaceVariant),
+                                  style: const TextStyle(
+                                    color: onSurfaceVariant,
+                                  ),
                                 ),
                                 items: _modelos
                                     .where((modelo) {
                                       final id = modelo['id'];
-                                      return id != null && int.tryParse(id.toString()) != null;
+                                      return id != null &&
+                                          int.tryParse(id.toString()) != null;
                                     })
                                     .map((modelo) {
-                                      final idInt = int.parse(modelo['id'].toString());
+                                      final idInt = int.parse(
+                                        modelo['id'].toString(),
+                                      );
                                       return DropdownMenuItem<int>(
                                         value: idInt,
-                                        child: Text(modelo['nombre']?.toString() ?? ''),
+                                        child: Text(
+                                          modelo['nombre']?.toString() ?? '',
+                                        ),
                                       );
                                     })
                                     .toList(),
@@ -657,11 +691,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                         children: [
                           const TextSpan(
                             text: 'Número VIN (Chasis)',
-                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _VehiclesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -699,11 +740,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                         children: [
                           const TextSpan(
                             text: 'Año',
-                            style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _VehiclesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _VehiclesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),

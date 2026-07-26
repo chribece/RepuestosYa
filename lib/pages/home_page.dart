@@ -7,11 +7,12 @@ import 'perfil_almacen_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
-import 'todas_solicitudes_page.dart'; 
+import 'todas_solicitudes_page.dart';
 import 'login_page.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_role_provider.dart';
 import 'received_quotations_page.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -38,7 +39,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _solicitudes = [];
   bool _isLoadingSolicitudes = false;
-  
+
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
   final AlmacenService _almacenService = AlmacenService();
@@ -98,7 +99,9 @@ class _HomePageState extends State<HomePage> {
               DrawerHeader(
                 decoration: const BoxDecoration(
                   color: surfaceContainerHigh,
-                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                  border: Border(
+                    bottom: BorderSide(color: outlineVariant, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,25 +125,55 @@ class _HomePageState extends State<HomePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.home, color: primary),
-                title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Inicio',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () {
                   Navigator.pop(context); // Cierra el drawer
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.person, color: primary),
-                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Mi Perfil',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () {
                   Navigator.pop(context); // Cierra el drawer
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const ProfilePage()),
+                    MaterialPageRoute(
+                      builder: (context) => const ProfilePage(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: primary,
+                ),
+                title: const Text(
+                  'Mis Órdenes',
+                  style: TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(context); // Cierra el drawer
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Próximamente: Lista de órdenes de compra'),
+                      duration: Duration(seconds: 2),
+                    ),
                   );
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                title: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: () async {
                   // 1. Cerrar el menú lateral visualmente
                   Navigator.pop(context);
@@ -149,15 +182,13 @@ class _HomePageState extends State<HomePage> {
                     context: context,
                     barrierDismissible: false,
                     builder: (context) => const Center(
-                      child: CircularProgressIndicator(
-                        color: primaryContainer,
-                      ),
+                      child: CircularProgressIndicator(color: primaryContainer),
                     ),
                   );
 
                   try {
                     // 2. Ejecutamos el método correcto de tu auth_service.dart
-                    await _authService.signOut(); 
+                    await _authService.signOut();
                     // 3. Quitamos el diálogo de carga
                     if (context.mounted) Navigator.pop(context);
 
@@ -165,8 +196,11 @@ class _HomePageState extends State<HomePage> {
                     if (context.mounted) {
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginPage()),
-                        (route) => false, // Borra todas las páginas anteriores del historial
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
+                        (route) =>
+                            false, // Borra todas las páginas anteriores del historial
                       );
                     }
                   } catch (e) {
@@ -175,7 +209,10 @@ class _HomePageState extends State<HomePage> {
                     print('Error al cerrar sesión: $e');
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al cerrar sesión: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Error al cerrar sesión: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                     // Opcional: Puedes mostrar un SnackBar si algo falla
@@ -230,21 +267,15 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: surface,
-        border: Border(
-          bottom: BorderSide(color: outlineVariant, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
-             IconButton(
-                icon: const Icon(
-                  Icons.menu,
-                  color: primary,
-                  size: 24,
-                ),
+              IconButton(
+                icon: const Icon(Icons.menu, color: primary, size: 24),
                 onPressed: () {
                   // Abre el drawer de forma segura usando la GlobalKey
                   _scaffoldKey.currentState?.openDrawer();
@@ -265,32 +296,32 @@ class _HomePageState extends State<HomePage> {
           ),
 
           InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfilePage()),
-            );
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: surfaceVariant,
-              shape: BoxShape.circle,
-              border: Border.all(color: outlineVariant),
-            ),
-            child: const Icon(
-              Icons.person,
-              color: onSurfaceVariant,
-              size: 24,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: surfaceVariant,
+                shape: BoxShape.circle,
+                border: Border.all(color: outlineVariant),
+              ),
+              child: const Icon(
+                Icons.person,
+                color: onSurfaceVariant,
+                size: 24,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildNewSearchButton() {
     return Container(
@@ -305,23 +336,22 @@ class _HomePageState extends State<HomePage> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-          // Agregamos async/await para refrescar al volver
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateRequestPage()),
-          );
-          // Esta línea se ejecuta en cuanto se cierra "CreateRequestPage"
-          _cargarSolicitudes();
-        },
-        borderRadius: BorderRadius.circular(12),
+            // Agregamos async/await para refrescar al volver
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateRequestPage(),
+              ),
+            );
+            // Esta línea se ejecuta en cuanto se cierra "CreateRequestPage"
+            _cargarSolicitudes();
+          },
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               gradient: RadialGradient(
-                colors: [
-                  primaryContainer.withOpacity(0.1),
-                  Colors.transparent,
-                ],
+                colors: [primaryContainer.withOpacity(0.1), Colors.transparent],
               ),
             ),
             child: Column(
@@ -354,10 +384,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 8),
                 Text(
                   'Sube una foto',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: onSurfaceVariant, fontSize: 12),
                 ),
               ],
             ),
@@ -368,104 +395,108 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildStatsRow() {
-  // Calculamos dinámicamente según los estados de tu BD
-  final int buscandoCount = _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
-  final int cotizadasCount = _solicitudes.where((s) => s['estado'] == 'completado').length; 
+    // Calculamos dinámicamente según los estados de tu BD
+    final int buscandoCount = _solicitudes
+        .where((s) => s['estado'] == 'en_proceso')
+        .length;
+    final int cotizadasCount = _solicitudes
+        .where((s) => s['estado'] == 'completado')
+        .length;
 
-  // Si necesitas formatear a dos dígitos (ej: 03, 05)
-  final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
-  final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
+    // Si necesitas formatear a dos dígitos (ej: 03, 05)
+    final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
+    final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
 
-  return Row(
-    children: [
-      Expanded(
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: outlineVariant),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Buscando',
-                style: TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Buscando',
+                  style: TextStyle(
+                    color: onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    buscandoTxt, // CAMBIO: Variable dinámica
-                    style: const TextStyle(
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      buscandoTxt, // CAMBIO: Variable dinámica
+                      style: const TextStyle(
+                        color: primaryContainer,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.history,
                       color: primaryContainer,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
+                      size: 24,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.history,
-                    color: primaryContainer,
-                    size: 24,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(width: 16),
-      Expanded(
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: outlineVariant),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Cotizadas',
-                style: TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    cotizadasTxt, // CAMBIO: Variable dinámica
-                    style: const TextStyle(
-                      color: secondaryContainer,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.request_quote,
-                    color: secondaryContainer,
-                    size: 24,
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    ],
-  );
-}
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Cotizadas',
+                  style: TextStyle(
+                    color: onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      cotizadasTxt, // CAMBIO: Variable dinámica
+                      style: const TextStyle(
+                        color: secondaryContainer,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.request_quote,
+                      color: secondaryContainer,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _buildRequestsSection() {
     return Column(
@@ -486,7 +517,9 @@ class _HomePageState extends State<HomePage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const TodasSolicitudesPage()),
+                  MaterialPageRoute(
+                    builder: (context) => const TodasSolicitudesPage(),
+                  ),
                 ).then((_) {
                   _cargarSolicitudes();
                 });
@@ -505,9 +538,7 @@ class _HomePageState extends State<HomePage> {
         const SizedBox(height: 16),
         if (_isLoadingSolicitudes)
           const Center(
-            child: CircularProgressIndicator(
-              color: primaryContainer,
-            ),
+            child: CircularProgressIndicator(color: primaryContainer),
           )
         else if (_solicitudes.isEmpty)
           Container(
@@ -519,18 +550,11 @@ class _HomePageState extends State<HomePage> {
             ),
             child: Column(
               children: [
-                const Icon(
-                  Icons.inbox,
-                  size: 48,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.inbox, size: 48, color: onSurfaceVariant),
                 const SizedBox(height: 16),
                 const Text(
                   'No tienes solicitudes aún',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: onSurfaceVariant, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -548,7 +572,7 @@ class _HomePageState extends State<HomePage> {
             final estado = solicitud['estado'] as String? ?? 'en_proceso';
             Color statusColor;
             String statusText;
-            
+
             switch (estado) {
               case 'en_proceso':
                 statusColor = primaryContainer;
@@ -573,7 +597,7 @@ class _HomePageState extends State<HomePage> {
               final date = DateTime.parse(createdAt);
               final now = DateTime.now();
               final difference = now.difference(date);
-              
+
               if (difference.inHours < 1) {
                 timeText = 'Hace ${difference.inMinutes} min';
               } else if (difference.inHours < 24) {
@@ -585,15 +609,20 @@ class _HomePageState extends State<HomePage> {
               }
             }
 
-            final int cantidadCotizaciones = solicitud['cotizaciones_count'] ?? 
-                (solicitud['cotizaciones'] != null ? (solicitud['cotizaciones'] as List).length : 0);
-            
-            final String quotesText = cantidadCotizaciones == 1 
-                ? '1 Cotización nueva' 
+            final int cantidadCotizaciones =
+                solicitud['cotizaciones_count'] ??
+                (solicitud['cotizaciones'] != null
+                    ? (solicitud['cotizaciones'] as List).length
+                    : 0);
+
+            final String quotesText = cantidadCotizaciones == 1
+                ? '1 Cotización nueva'
                 : '$cantidadCotizaciones Cotizaciones';
 
-            final String urlFinal = solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-            final String piezaNombreFinal = solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+            final String urlFinal =
+                solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+            final String piezaNombreFinal =
+                solicitud['pieza_nombre'] as String? ?? 'Repuesto';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
@@ -612,7 +641,8 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: _buildRequestCard(
                   title: piezaNombreFinal,
-                  subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
+                  subtitle:
+                      solicitud['descripcion'] as String? ?? 'Sin descripción',
                   status: statusText,
                   statusColor: statusColor,
                   quotes: quotesText,
@@ -650,8 +680,14 @@ class _HomePageState extends State<HomePage> {
             color: tieneCotizaciones ? primaryContainer : outlineVariant,
             width: tieneCotizaciones ? 1.5 : 1.0,
           ),
-          boxShadow: tieneCotizaciones 
-              ? [BoxShadow(color: primaryContainer.withOpacity(0.15), blurRadius: 8, spreadRadius: 1)]
+          boxShadow: tieneCotizaciones
+              ? [
+                  BoxShadow(
+                    color: primaryContainer.withOpacity(0.15),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
               : null,
         ),
         child: Row(
@@ -667,18 +703,35 @@ class _HomePageState extends State<HomePage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: imageUrl.isEmpty
-                    ? const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32)
-                    : (imageUrl.startsWith('http') || imageUrl.startsWith('https')
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32),
-                          )
-                        : Image.file(
-                            File(imageUrl), // ¡Restaura la lectura de archivos locales!
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32),
-                          )),
+                    ? const Icon(
+                        Icons.image_not_supported,
+                        color: onSurfaceVariant,
+                        size: 32,
+                      )
+                    : (imageUrl.startsWith('http') ||
+                              imageUrl.startsWith('https')
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Icons.image_not_supported,
+                                    color: onSurfaceVariant,
+                                    size: 32,
+                                  ),
+                            )
+                          : Image.file(
+                              File(
+                                imageUrl,
+                              ), // ¡Restaura la lectura de archivos locales!
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Icons.image_not_supported,
+                                    color: onSurfaceVariant,
+                                    size: 32,
+                                  ),
+                            )),
               ),
             ),
             const SizedBox(width: 12),
@@ -693,19 +746,32 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: Text(
                           title,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: statusColor.withOpacity(0.2)),
+                          border: Border.all(
+                            color: statusColor.withOpacity(0.2),
+                          ),
                         ),
                         child: Text(
                           status,
-                          style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ],
@@ -713,7 +779,10 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14),
+                    style: const TextStyle(
+                      color: Color(0xFFB0B0B0),
+                      fontSize: 14,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -725,21 +794,31 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Icon(
                             Icons.receipt_long,
-                            color: tieneCotizaciones ? primaryContainer : secondaryContainer,
+                            color: tieneCotizaciones
+                                ? primaryContainer
+                                : secondaryContainer,
                             size: 20,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             quotes,
                             style: TextStyle(
-                              color: tieneCotizaciones ? primaryContainer : secondaryContainer,
+                              color: tieneCotizaciones
+                                  ? primaryContainer
+                                  : secondaryContainer,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
-                      Text(time, style: const TextStyle(color: onSurfaceVariant, fontSize: 14)),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          color: onSurfaceVariant,
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -749,8 +828,8 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }  
-  
+  }
+
   Widget _buildTrendingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,20 +848,14 @@ class _HomePageState extends State<HomePage> {
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
-              _buildTrendingItem(
-                icon: Icons.tire_repair,
-                label: 'Neumáticos',
-              ),
+              _buildTrendingItem(icon: Icons.tire_repair, label: 'Neumáticos'),
               const SizedBox(width: 16),
               _buildTrendingItem(
                 icon: Icons.battery_charging_full,
                 label: 'Baterías',
               ),
               const SizedBox(width: 16),
-              _buildTrendingItem(
-                icon: Icons.minor_crash,
-                label: 'Carrocería',
-              ),
+              _buildTrendingItem(icon: Icons.minor_crash, label: 'Carrocería'),
             ],
           ),
         ),
@@ -790,10 +863,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTrendingItem({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _buildTrendingItem({required IconData icon, required String label}) {
     return Container(
       width: 140,
       padding: const EdgeInsets.all(12),
@@ -805,11 +875,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: primary,
-            size: 32,
-          ),
+          Icon(icon, color: primary, size: 32),
           const SizedBox(height: 8),
           Text(
             label,
@@ -830,9 +896,7 @@ class _HomePageState extends State<HomePage> {
       height: 64,
       decoration: BoxDecoration(
         color: surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: outlineVariant, width: 1),
-        ),
+        border: Border(top: BorderSide(color: outlineVariant, width: 1)),
         boxShadow: [
           BoxShadow(
             color: primaryContainer.withOpacity(0.15),

@@ -38,7 +38,8 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
     // Listener para detectar el scroll infinito
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.85) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent * 0.85) {
         _cargarMasSolicitudes();
       }
     });
@@ -81,11 +82,12 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
       final user = _authService.currentUser;
       if (user != null) {
         final siguientePagina = _paginaActual + 1;
-        final nuevasSolicitudes = await _solicitudService.obtenerSolicitudesPaginadas(
-          clienteId: user.id,
-          page: siguientePagina,
-          limit: _limitePorPagina,
-        );
+        final nuevasSolicitudes = await _solicitudService
+            .obtenerSolicitudesPaginadas(
+              clienteId: user.id,
+              page: siguientePagina,
+              limit: _limitePorPagina,
+            );
 
         setState(() {
           if (nuevasSolicitudes.isEmpty) {
@@ -115,79 +117,96 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
         elevation: 0,
         title: const Text(
           'Todas mis Solicitudes',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
-        shape: const Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+        shape: const Border(
+          bottom: BorderSide(color: outlineVariant, width: 1),
+        ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+          ? const Center(
+              child: CircularProgressIndicator(color: primaryContainer),
+            )
           : _solicitudes.isEmpty
-              ? const Center(
-                  child: Text('No tienes solicitudes registradas', style: TextStyle(color: onSurfaceVariant)),
-                )
-              : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _solicitudes.length + (_cargandoMas ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == _solicitudes.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(child: CircularProgressIndicator(color: primaryContainer)),
-                      );
-                    }
+          ? const Center(
+              child: Text(
+                'No tienes solicitudes registradas',
+                style: TextStyle(color: onSurfaceVariant),
+              ),
+            )
+          : ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _solicitudes.length + (_cargandoMas ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _solicitudes.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: CircularProgressIndicator(color: primaryContainer),
+                    ),
+                  );
+                }
 
-                    final solicitud = _solicitudes[index];
-                    final estado = solicitud['estado'] as String? ?? 'en_proceso';
-                    Color statusColor = primaryContainer;
-                    String statusText = estado;
+                final solicitud = _solicitudes[index];
+                final estado = solicitud['estado'] as String? ?? 'en_proceso';
+                Color statusColor = primaryContainer;
+                String statusText = estado;
 
-                    switch (estado) {
-                      case 'en_proceso':
-                        statusColor = primaryContainer;
-                        statusText = 'En Proceso';
-                        break;
-                      case 'completado':
-                        statusColor = Colors.green;
-                        statusText = 'Completado';
-                        break;
-                      case 'expirado':
-                        statusColor = onSurfaceVariant;
-                        statusText = 'Expirado';
-                        break;
-                    }
+                switch (estado) {
+                  case 'en_proceso':
+                    statusColor = primaryContainer;
+                    statusText = 'En Proceso';
+                    break;
+                  case 'completado':
+                    statusColor = Colors.green;
+                    statusText = 'Completado';
+                    break;
+                  case 'expirado':
+                    statusColor = onSurfaceVariant;
+                    statusText = 'Expirado';
+                    break;
+                }
 
-                    final createdAt = solicitud['created_at'] as String?;
-                    String timeText = 'Reciente';
-                    if (createdAt != null) {
-                      final date = DateTime.parse(createdAt);
-                      final difference = DateTime.now().difference(date);
-                      if (difference.inHours < 1) {
-                        timeText = 'Hace ${difference.inMinutes} min';
-                      } else if (difference.inHours < 24) {
-                        timeText = 'Hace ${difference.inHours}h';
-                      } else if (difference.inDays == 1) {
-                        timeText = 'Ayer';
-                      } else {
-                        timeText = 'Hace ${difference.inDays} días';
-                      }
-                    }
+                final createdAt = solicitud['created_at'] as String?;
+                String timeText = 'Reciente';
+                if (createdAt != null) {
+                  final date = DateTime.parse(createdAt);
+                  final difference = DateTime.now().difference(date);
+                  if (difference.inHours < 1) {
+                    timeText = 'Hace ${difference.inMinutes} min';
+                  } else if (difference.inHours < 24) {
+                    timeText = 'Hace ${difference.inHours}h';
+                  } else if (difference.inDays == 1) {
+                    timeText = 'Ayer';
+                  } else {
+                    timeText = 'Hace ${difference.inDays} días';
+                  }
+                }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: _buildRequestCard(
-                        title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
-                        subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
-                        status: statusText,
-                        statusColor: statusColor,
-                        quotes: '0 Cotizaciones',
-                        time: timeText,
-                        imageUrl: solicitud['foto_url'] as String? ?? 'https://via.placeholder.com/96',
-                      ),
-                    );
-                  },
-                ),
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: _buildRequestCard(
+                    title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
+                    subtitle:
+                        solicitud['descripcion'] as String? ??
+                        'Sin descripción',
+                    status: statusText,
+                    statusColor: statusColor,
+                    quotes: '0 Cotizaciones',
+                    time: timeText,
+                    imageUrl:
+                        solicitud['foto_url'] as String? ??
+                        'https://via.placeholder.com/96',
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -221,8 +240,24 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: imageUrl.startsWith('http') || imageUrl.startsWith('https')
-                  ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32))
-                  : Image.file(File(imageUrl), fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.image_not_supported, color: onSurfaceVariant, size: 32)),
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => const Icon(
+                        Icons.image_not_supported,
+                        color: onSurfaceVariant,
+                        size: 32,
+                      ),
+                    )
+                  : Image.file(
+                      File(imageUrl),
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => const Icon(
+                        Icons.image_not_supported,
+                        color: onSurfaceVariant,
+                        size: 32,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 12),
@@ -234,29 +269,76 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(100), border: Border.all(color: statusColor.withOpacity(0.2))),
-                      child: Text(status, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w700)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(color: statusColor.withOpacity(0.2)),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Color(0xFFB0B0B0), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFFB0B0B0),
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.receipt_long, color: secondaryContainer, size: 20),
+                        const Icon(
+                          Icons.receipt_long,
+                          color: secondaryContainer,
+                          size: 20,
+                        ),
                         const SizedBox(width: 4),
-                        Text(quotes, style: const TextStyle(color: secondaryContainer, fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text(
+                          quotes,
+                          style: const TextStyle(
+                            color: secondaryContainer,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
-                    Text(time, style: const TextStyle(color: onSurfaceVariant, fontSize: 14)),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        color: onSurfaceVariant,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ],

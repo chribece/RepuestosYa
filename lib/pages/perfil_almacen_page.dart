@@ -15,12 +15,12 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lonController = TextEditingController();
-  
+
   bool _isEditing = false;
   bool _isSubmitting = false;
   bool _isLoading = true;
   Map<String, dynamic>? _almacenData;
-  
+
   final AlmacenService _almacenService = AlmacenService();
 
   // Sistema de Diseño Industrial
@@ -170,10 +170,19 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                         _isEditing = !_isEditing;
                       });
                     },
-              icon: Icon(_isEditing ? Icons.close : Icons.edit, color: primary, size: 20),
+              icon: Icon(
+                _isEditing ? Icons.close : Icons.edit,
+                color: primary,
+                size: 20,
+              ),
               label: Text(
                 _isEditing ? 'Cancelar' : 'Editar',
-                style: const TextStyle(color: primary, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: const TextStyle(
+                  color: primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ),
         ],
@@ -183,52 +192,60 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
               child: CircularProgressIndicator(color: primaryContainer),
             )
           : _almacenData == null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.store, color: onSurfaceVariant, size: 64),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No tienes un almacén registrado',
-                        style: TextStyle(color: onSurface, fontSize: 18, fontFamily: 'Sora'),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Regístrate para comenzar',
-                        style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontFamily: 'Inter'),
-                      ),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildStatusCard(),
-                        const SizedBox(height: 24),
-                        _buildNombreField(),
-                        const SizedBox(height: 24),
-                        _buildDireccionField(),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Expanded(child: _buildLatField()),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildLonField()),
-                          ],
-                        ),
-                        if (_isEditing) ...[
-                          const SizedBox(height: 32),
-                          _buildSaveButton(),
-                        ],
-                      ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.store, color: onSurfaceVariant, size: 64),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No tienes un almacén registrado',
+                    style: TextStyle(
+                      color: onSurface,
+                      fontSize: 18,
+                      fontFamily: 'Sora',
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Regístrate para comenzar',
+                    style: TextStyle(
+                      color: onSurfaceVariant,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatusCard(),
+                    const SizedBox(height: 24),
+                    _buildNombreField(),
+                    const SizedBox(height: 24),
+                    _buildDireccionField(),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(child: _buildLatField()),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildLonField()),
+                      ],
+                    ),
+                    if (_isEditing) ...[
+                      const SizedBox(height: 32),
+                      _buildSaveButton(),
+                    ],
+                  ],
                 ),
+              ),
+            ),
     );
   }
 
@@ -248,7 +265,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: verificado ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              color: verificado
+                  ? Colors.green.withOpacity(0.1)
+                  : Colors.orange.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -304,13 +323,22 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       children: [
         const Text(
           'Nombre Comercial',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          style: TextStyle(
+            color: onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter',
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _nombreController,
           enabled: _isEditing,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El nombre comercial es requerido';
@@ -319,12 +347,29 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           },
           decoration: InputDecoration(
             filled: true,
-            fillColor: _isEditing ? surfaceContainerLow : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: outlineVariant.withOpacity(0.3))),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            fillColor: _isEditing
+                ? surfaceContainerLow
+                : surfaceContainerLow.withOpacity(0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -337,14 +382,23 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       children: [
         const Text(
           'Dirección',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          style: TextStyle(
+            color: onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter',
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _direccionController,
           enabled: _isEditing,
           maxLines: 3,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'La dirección es requerida';
@@ -353,11 +407,25 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           },
           decoration: InputDecoration(
             filled: true,
-            fillColor: _isEditing ? surfaceContainerLow : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: outlineVariant.withOpacity(0.3))),
+            fillColor: _isEditing
+                ? surfaceContainerLow
+                : surfaceContainerLow.withOpacity(0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
+            ),
             contentPadding: const EdgeInsets.all(16),
           ),
         ),
@@ -371,23 +439,54 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       children: [
         const Text(
           'Latitud',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          style: TextStyle(
+            color: onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter',
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _latController,
           enabled: _isEditing,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+'))],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
+          ],
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _isEditing ? surfaceContainerLow : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: outlineVariant.withOpacity(0.3))),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            fillColor: _isEditing
+                ? surfaceContainerLow
+                : surfaceContainerLow.withOpacity(0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -400,23 +499,54 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       children: [
         const Text(
           'Longitud',
-          style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+          style: TextStyle(
+            color: onSurfaceVariant,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Inter',
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: _lonController,
           enabled: _isEditing,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+'))],
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          keyboardType: const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
+          ],
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: _isEditing ? surfaceContainerLow : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: outlineVariant.withOpacity(0.3))),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            fillColor: _isEditing
+                ? surfaceContainerLow
+                : surfaceContainerLow.withOpacity(0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -433,15 +563,32 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           backgroundColor: primaryContainer,
           disabledBackgroundColor: primaryContainer.withOpacity(0.4),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: _isSubmitting
             ? const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: onPrimaryContainer)),
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: onPrimaryContainer,
+                    ),
+                  ),
                   SizedBox(width: 12),
-                  Text('GUARDANDO...', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'GUARDANDO...',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               )
             : const Row(
@@ -449,7 +596,15 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 children: [
                   Icon(Icons.save, color: onPrimaryContainer, size: 20),
                   SizedBox(width: 8),
-                  Text('GUARDAR CAMBIOS', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'GUARDAR CAMBIOS',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               ),
       ),

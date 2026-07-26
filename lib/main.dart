@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'pages/welcome_page.dart';
+import 'pages/orden_compra_page.dart';
 import 'providers/user_role_provider.dart';
+import 'providers/orden_compra_provider.dart';
 import 'services/api_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Inicializar ApiClient (carga el token desde SharedPreferences)
   await ApiClient().init();
-  
+
   runApp(const MyApp());
 }
 
@@ -21,6 +23,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserRoleProvider()),
+        ChangeNotifierProvider(create: (_) => OrdenCompraProvider()),
       ],
       child: MaterialApp(
         title: 'RepuestosYa',
@@ -33,6 +36,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: const WelcomePage(),
+        routes: {'/orden-compra': (context) => const OrdenCompraPage()},
       ),
     );
   }

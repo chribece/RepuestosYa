@@ -21,10 +21,7 @@ class DireccionService {
     String? referencia,
   }) async {
     try {
-      final data = {
-        'alias': alias,
-        'callePrincipal': callePrincipal,
-      };
+      final data = {'alias': alias, 'callePrincipal': callePrincipal};
 
       if (calleSecundaria != null && calleSecundaria.trim().isNotEmpty) {
         data['calleSecundaria'] = calleSecundaria;
@@ -33,10 +30,7 @@ class DireccionService {
         data['referencia'] = referencia;
       }
 
-      final response = await _apiClient.post(
-        '/addresses',
-        body: data,
-      );
+      final response = await _apiClient.post('/addresses', body: data);
 
       return response;
     } catch (e) {
@@ -60,10 +54,7 @@ class DireccionService {
       if (calleSecundaria != null) data['calleSecundaria'] = calleSecundaria;
       if (referencia != null) data['referencia'] = referencia;
 
-      final response = await _apiClient.put(
-        '/addresses/$id',
-        body: data,
-      );
+      final response = await _apiClient.put('/addresses/$id', body: data);
 
       return response;
     } catch (e) {

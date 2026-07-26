@@ -12,11 +12,13 @@ class RegisterAlmacenPage extends StatefulWidget {
 
 class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _representanteController = TextEditingController();
+  final TextEditingController _representanteController =
+      TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
 
@@ -81,10 +83,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           _isSubmitting = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -174,11 +173,21 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             children: [
               TextSpan(
                 text: 'Nombre Completo',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -186,7 +195,11 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El nombre completo es requerido';
@@ -201,10 +214,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -220,11 +245,21 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             children: [
               TextSpan(
                 text: 'Email',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -233,7 +268,11 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El email es requerido';
@@ -249,10 +288,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -268,11 +319,21 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             children: [
               TextSpan(
                 text: 'Contraseña',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -281,7 +342,11 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _passwordController,
           obscureText: true,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'La contraseña es requerida';
@@ -296,10 +361,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
@@ -315,11 +392,21 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             children: [
               TextSpan(
                 text: 'Confirmar Contraseña',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: onSurfaceVariant,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: requiredAsterisk, fontSize: 14, fontWeight: FontWeight.bold, fontFamily: 'Inter'),
+                style: TextStyle(
+                  color: requiredAsterisk,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Inter',
+                ),
               ),
             ],
           ),
@@ -328,7 +415,11 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: true,
-          style: const TextStyle(color: onSurface, fontSize: 16, fontFamily: 'Inter'),
+          style: const TextStyle(
+            color: onSurface,
+            fontSize: 16,
+            fontFamily: 'Inter',
+          ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Por favor confirme su contraseña';
@@ -343,16 +434,27 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: outlineVariant)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryContainer, width: 1.5)),
-            contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: outlineVariant),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
           ),
         ),
       ],
     );
   }
-
 
   Widget _buildRegisterButton() {
     return SizedBox(
@@ -364,15 +466,32 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           backgroundColor: primaryContainer,
           disabledBackgroundColor: primaryContainer.withOpacity(0.4),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         child: _isSubmitting
             ? const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: onPrimaryContainer)),
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: onPrimaryContainer,
+                    ),
+                  ),
                   SizedBox(width: 12),
-                  Text('PROCESANDO...', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'PROCESANDO...',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               )
             : const Row(
@@ -380,7 +499,15 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                 children: [
                   Icon(Icons.person_add, color: onPrimaryContainer, size: 20),
                   SizedBox(width: 8),
-                  Text('CREAR CUENTA', style: TextStyle(color: onPrimaryContainer, fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Sora')),
+                  Text(
+                    'CREAR CUENTA',
+                    style: TextStyle(
+                      color: onPrimaryContainer,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Sora',
+                    ),
+                  ),
                 ],
               ),
       ),

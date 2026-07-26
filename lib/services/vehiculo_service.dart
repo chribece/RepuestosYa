@@ -22,19 +22,13 @@ class VehiculoService {
     String? patente,
   }) async {
     try {
-      final data = <String, dynamic>{
-        'marcaId': marcaId,
-        'modeloId': modeloId,
-      };
+      final data = <String, dynamic>{'marcaId': marcaId, 'modeloId': modeloId};
 
       if (vin != null && vin.isNotEmpty) data['vin'] = vin;
       if (anio != null && anio.isNotEmpty) data['anio'] = anio;
       if (patente != null && patente.isNotEmpty) data['patente'] = patente;
 
-      final response = await _apiClient.post(
-        '/vehicles',
-        body: data,
-      );
+      final response = await _apiClient.post('/vehicles', body: data);
 
       return response;
     } catch (e) {
@@ -60,10 +54,7 @@ class VehiculoService {
       if (anio != null && anio.isNotEmpty) data['anio'] = anio;
       if (patente != null && patente.isNotEmpty) data['patente'] = patente;
 
-      final response = await _apiClient.put(
-        '/vehicles/$id',
-        body: data,
-      );
+      final response = await _apiClient.put('/vehicles/$id', body: data);
 
       return response;
     } catch (e) {

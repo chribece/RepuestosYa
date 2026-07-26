@@ -18,9 +18,13 @@ class AlmacenService {
   }
 
   // Obtener almacén por ID del encargado
-  Future<Map<String, dynamic>?> obtenerAlmacenPorEncargado(String encargadoId) async {
+  Future<Map<String, dynamic>?> obtenerAlmacenPorEncargado(
+    String encargadoId,
+  ) async {
     try {
-      final response = await _apiClient.get('/warehouses/encargado/$encargadoId');
+      final response = await _apiClient.get(
+        '/warehouses/encargado/$encargadoId',
+      );
       return response.isNotEmpty ? response : null;
     } catch (e) {
       throw Exception('Error al obtener almacén por encargado: $e');
@@ -39,7 +43,10 @@ class AlmacenService {
   }
 
   // Actualizar almacén existente
-  Future<Map<String, dynamic>> actualizarAlmacen(String id, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> actualizarAlmacen(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await _apiClient.put(
         '/warehouses/$id',

@@ -1,0 +1,232 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../models/cotizacion.dart';
+
+class BadRequestException implements Exception {
+  final String message;
+  BadRequestException(this.message);
+
+  @override
+  String toString() => 'BadRequestException: $message';
+}
+
+class ForbiddenException implements Exception {
+  final String message;
+  ForbiddenException(this.message);
+
+  @override
+  String toString() => 'ForbiddenException: $message';
+}
+
+class NotFoundException implements Exception {
+  final String message;
+  NotFoundException(this.message);
+
+  @override
+  String toString() => 'NotFoundException: $message';
+}
+
+class ServerException implements Exception {
+  final String message;
+  ServerException(this.message);
+
+  @override
+  String toString() => 'ServerException: $message';
+}
+
+class CotizacionService {
+  static const String baseUrl = 'http://192.168.100.2:3000/api';
+
+  Future<String> _getToken() async {
+    // TODO: Conectar con tu AuthProvider existente
+    // Ejemplo: final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    // return authProvider.token;
+    // Por ahora, usa SharedPreferences o tu método actual:
+    // final prefs = await SharedPreferences.getInstance();
+    // return prefs.getString('auth_token') ?? '';
+    throw UnimplementedError('Conectar _getToken() con AuthProvider');
+  }
+
+  Future<List<Cotizacion>> obtenerCotizacionesPorSolicitud(
+    String solicitudId,
+  ) async {
+    try {
+      final token = await _getToken();
+      if (token.isEmpty) {
+        throw Exception('No hay token de autenticación');
+      }
+
+      final uri = Uri.parse('$baseUrl/quotations/request/$solicitudId');
+
+      final response = await http
+          .get(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('La conexión está lenta. Intenta nuevamente.');
+            },
+          );
+
+      switch (response.statusCode) {
+        case 200:
+          if (response.body.isEmpty) {
+            return [];
+          }
+          final List<dynamic> jsonData =
+              json.decode(response.body) as List<dynamic>;
+          return jsonData
+              .map((json) => Cotizacion.fromJson(json as Map<String, dynamic>))
+              .toList();
+        case 400:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw BadRequestException(
+            body['error'] as String? ?? 'Solicitud inválida',
+          );
+        case 403:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw ForbiddenException(
+            body['error'] as String? ?? 'No tienes permiso',
+          );
+        case 404:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw NotFoundException(
+            body['error'] as String? ?? 'Recurso no encontrado',
+          );
+        default:
+          throw ServerException('Error del servidor: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is BadRequestException ||
+          e is ForbiddenException ||
+          e is NotFoundException ||
+          e is ServerException) {
+        rethrow;
+      }
+      throw Exception('Error al obtener cotizaciones: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> aceptarCotizacion(String cotizacionId) async {
+    try {
+      final token = await _getToken();
+      if (token.isEmpty) {
+        throw Exception('No hay token de autenticación');
+      }
+
+      final uri = Uri.parse('$baseUrl/quotations/$cotizacionId/accept');
+
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('La conexión está lenta. Intenta nuevamente.');
+            },
+          );
+
+      switch (response.statusCode) {
+        case 200:
+          if (response.body.isEmpty) {
+            return {};
+          }
+          return json.decode(response.body) as Map<String, dynamic>;
+        case 400:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw BadRequestException(
+            body['error'] as String? ?? 'Solicitud inválida',
+          );
+        case 403:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw ForbiddenException(
+            body['error'] as String? ?? 'No tienes permiso',
+          );
+        case 404:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw NotFoundException(
+            body['error'] as String? ?? 'Recurso no encontrado',
+          );
+        default:
+          throw ServerException('Error del servidor: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is BadRequestException ||
+          e is ForbiddenException ||
+          e is NotFoundException ||
+          e is ServerException) {
+        rethrow;
+      }
+      throw Exception('Error al aceptar cotización: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> rechazarCotizacion(String cotizacionId) async {
+    try {
+      final token = await _getToken();
+      if (token.isEmpty) {
+        throw Exception('No hay token de autenticación');
+      }
+
+      final uri = Uri.parse('$baseUrl/quotations/$cotizacionId/reject');
+
+      final response = await http
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('La conexión está lenta. Intenta nuevamente.');
+            },
+          );
+
+      switch (response.statusCode) {
+        case 200:
+          if (response.body.isEmpty) {
+            return {};
+          }
+          return json.decode(response.body) as Map<String, dynamic>;
+        case 400:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw BadRequestException(
+            body['error'] as String? ?? 'Solicitud inválida',
+          );
+        case 403:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw ForbiddenException(
+            body['error'] as String? ?? 'No tienes permiso',
+          );
+        case 404:
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          throw NotFoundException(
+            body['error'] as String? ?? 'Recurso no encontrado',
+          );
+        default:
+          throw ServerException('Error del servidor: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is BadRequestException ||
+          e is ForbiddenException ||
+          e is NotFoundException ||
+          e is ServerException) {
+        rethrow;
+      }
+      throw Exception('Error al rechazar cotización: $e');
+    }
+  }
+}

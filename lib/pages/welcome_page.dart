@@ -25,9 +25,7 @@ class _WelcomePageState extends State<WelcomePage> {
     return Scaffold(
       backgroundColor: background,
       body: Container(
-        decoration: const BoxDecoration(
-          color: background,
-        ),
+        decoration: const BoxDecoration(color: background),
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -67,11 +65,7 @@ class _WelcomePageState extends State<WelcomePage> {
               width: 2,
             ),
           ),
-          child: const Icon(
-            Icons.build,
-            size: 60,
-            color: primary,
-          ),
+          child: const Icon(Icons.build, size: 60, color: primary),
         ),
         const SizedBox(height: 32),
         const Text(
@@ -104,11 +98,7 @@ class _WelcomePageState extends State<WelcomePage> {
         const SizedBox(height: 16),
         const Text(
           'Conectamos clientes y almacenes con\nprecisión, velocidad y confianza.',
-          style: TextStyle(
-            fontSize: 16,
-            color: onSurfaceVariant,
-            height: 1.5,
-          ),
+          style: TextStyle(fontSize: 16, color: onSurfaceVariant, height: 1.5),
           textAlign: TextAlign.center,
         ),
       ],
@@ -166,7 +156,9 @@ class _WelcomePageState extends State<WelcomePage> {
               // Navigate to role selection for registration
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
+                MaterialPageRoute(
+                  builder: (context) => const RoleSelectionPage(),
+                ),
               );
             },
             style: OutlinedButton.styleFrom(
@@ -205,11 +197,7 @@ class _WelcomePageState extends State<WelcomePage> {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 6),
                 const Text(
                   'Certificado ISO 9001',
@@ -222,19 +210,11 @@ class _WelcomePageState extends State<WelcomePage> {
               ],
             ),
             const SizedBox(width: 24),
-            Container(
-              width: 1,
-              height: 16,
-              color: outlineVariant,
-            ),
+            Container(width: 1, height: 16, color: outlineVariant),
             const SizedBox(width: 24),
             Row(
               children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 6),
                 const Text(
                   'SSL Secure',
@@ -253,10 +233,7 @@ class _WelcomePageState extends State<WelcomePage> {
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
-            style: TextStyle(
-              fontSize: 12,
-              color: onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ),

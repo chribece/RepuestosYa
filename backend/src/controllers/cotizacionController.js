@@ -1,6 +1,7 @@
 const supabase = require('../services/supabase');
 const { invalidatePattern, getOrSet } = require('../services/cache');
 const notificacionesQueue = require('../queues/notificaciones.queue');
+const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError } = require('../services/cotizacionService');
 
 // POST /quotations (solo almacenes)
 const createCotizacion = async (req, res) => {
@@ -152,7 +153,7 @@ const getCotizacionesPorSolicitud = async (req, res) => {
       .from('cotizaciones')
       .select('*, almacenes(nombre_comercial, direccion_texto, latitude, longitude)')
       .eq('solicitud_id', solicitud_id)
-      .order('precio_venta', { ascending: true });
+      .order('created_at', { ascending: false });
 
     if (error) {
       return res.status(400).json({ error: error.message });
@@ -241,4 +242,82 @@ const getMiAlmacen = async (req, res) => {
   }
 };
 
-module.exports = { createCotizacion, getMisCotizaciones, getCotizacionesPorSolicitud, updateCotizacionEstado, getMiAlmacen };
+// POST /quotations/:id/accept (solo clientes)
+const aceptarCotizacionController = async (req, res) => {
+  try {
+    // Validar rol 'cliente'
+    if (req.user.rol !== 'cliente') {
+      return res.status(403).json({ error: 'Solo los clientes pueden aceptar cotizaciones' });
+    }
+
+    const { id } = req.params;
+
+    // Validar UUID con regex estricto
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ error: 'ID de cotización inválido' });
+    }
+
+    const result = await aceptarCotizacion(id, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      ordenId: result.ordenId,
+      solicitudId: result.solicitudId,
+      cotizacionGanadoraId: result.cotizacionGanadoraId
+    });
+  } catch (error) {
+    // Mapeo explícito de errores a códigos HTTP
+    if (error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof ForbiddenError) {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error instanceof BadRequestError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Aceptar cotizacion error:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// POST /quotations/:id/reject (solo clientes)
+const rechazarCotizacionController = async (req, res) => {
+  try {
+    // Validar rol 'cliente'
+    if (req.user.rol !== 'cliente') {
+      return res.status(403).json({ error: 'Solo los clientes pueden rechazar cotizaciones' });
+    }
+
+    const { id } = req.params;
+
+    // Validar UUID con regex estricto
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ error: 'ID de cotización inválido' });
+    }
+
+    const result = await rechazarCotizacion(id, req.user.id);
+
+    res.status(200).json({
+      success: true,
+      solicitudCerrada: result.solicitudCerrada
+    });
+  } catch (error) {
+    // Mapeo explícito de errores a códigos HTTP
+    if (error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof ForbiddenError) {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error instanceof BadRequestError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Rechazar cotizacion error:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { createCotizacion, getMisCotizaciones, getCotizacionesPorSolicitud, updateCotizacionEstado, getMiAlmacen, aceptarCotizacion: aceptarCotizacionController, rechazarCotizacion: rechazarCotizacionController };

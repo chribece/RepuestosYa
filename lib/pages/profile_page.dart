@@ -112,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // Función inteligente para redireccionar dinámicamente según el Rol del usuario
   void _navigateToHomeBasedOnRole() {
     final user = _authService.currentUser;
-    
+
     if (user?.rol == 'almacen' || user?.rol == 'warehouse') {
       Navigator.pushAndRemoveUntil(
         context,
@@ -134,7 +134,10 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: surfaceVariant,
-          title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.white)),
+          title: const Text(
+            'Cerrar Sesión',
+            style: TextStyle(color: Colors.white),
+          ),
           content: const Text(
             '¿Estás seguro de que deseas salir de la aplicación?',
             style: TextStyle(color: onSurfaceVariant),
@@ -171,7 +174,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       key: _scaffoldKey, // Vinculación de la llave limpia para el menú
       backgroundColor: background,
-      
+
       // MENÚ LATERAL (DRAWER) CON REDIRECCIÓN INTELIGENTE
       drawer: Drawer(
         child: Container(
@@ -182,7 +185,9 @@ class _ProfilePageState extends State<ProfilePage> {
               DrawerHeader(
                 decoration: const BoxDecoration(
                   color: surfaceContainerHigh,
-                  border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+                  border: Border(
+                    bottom: BorderSide(color: outlineVariant, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +211,10 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.home, color: primaryContainer),
-                title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Inicio',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () {
                   Navigator.pop(context); // Cierra el menú lateral visualmente
                   _navigateToHomeBasedOnRole(); // Llama a la redirección dinámica por rol
@@ -214,14 +222,22 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               ListTile(
                 leading: const Icon(Icons.person, color: primaryContainer),
-                title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+                title: const Text(
+                  'Mi Perfil',
+                  style: TextStyle(color: Colors.white),
+                ),
                 onTap: () {
-                  Navigator.pop(context); // Solo cierra el drawer porque ya está aquí
+                  Navigator.pop(
+                    context,
+                  ); // Solo cierra el drawer porque ya está aquí
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent)),
+                title: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
                 onTap: () {
                   Navigator.pop(context); // Cierra el drawer lateral
                   _showLogoutDialog(); // Llama a tu función nativa de confirmación
@@ -231,7 +247,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
       ),
-      
+
       body: SafeArea(
         child: Column(
           children: [
@@ -240,7 +256,9 @@ class _ProfilePageState extends State<ProfilePage> {
             // Main Content
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+                  ? const Center(
+                      child: CircularProgressIndicator(color: primaryContainer),
+                    )
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -278,9 +296,7 @@ class _ProfilePageState extends State<ProfilePage> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: surface,
-        border: Border(
-          bottom: BorderSide(color: outlineVariant, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -288,11 +304,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(
-                  Icons.menu,
-                  color: primaryContainer,
-                  size: 24,
-                ),
+                icon: const Icon(Icons.menu, color: primaryContainer, size: 24),
                 onPressed: () {
                   // Abre de manera segura el Drawer lateral de esta pantalla
                   _scaffoldKey.currentState?.openDrawer();
@@ -320,9 +332,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileHeader(User? user) {
-    final displayName = _profile?['nombre_completo'] ?? user?.nombreCompleto ?? 'Usuario';
+    final displayName =
+        _profile?['nombre_completo'] ?? user?.nombreCompleto ?? 'Usuario';
     final email = user?.email ?? 'Sin correo registrado';
-    final roleDisplay = (user?.rol == 'almacen' || user?.rol == 'warehouse') ? 'Rol: Almacén / Vendedor' : 'Rol: Cliente';
+    final roleDisplay = (user?.rol == 'almacen' || user?.rol == 'warehouse')
+        ? 'Rol: Almacén / Vendedor'
+        : 'Rol: Cliente';
 
     return Row(
       children: [
@@ -341,11 +356,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.person,
-            size: 40,
-            color: primary,
-          ),
+          child: const Icon(Icons.person, size: 40, color: primary),
         ),
         const SizedBox(width: 20),
         Expanded(
@@ -363,10 +374,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 4),
               Text(
                 email,
-                style: const TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: onSurfaceVariant, fontSize: 14),
               ),
               const SizedBox(height: 4),
               Text(
@@ -469,6 +477,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 MaterialPageRoute(builder: (context) => const AddressesPage()),
               );
             },
+          ),
+          _buildMenuItem(
+            icon: Icons.shopping_cart_outlined,
+            title: 'Mis Órdenes',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Próximamente: Lista de órdenes de compra'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
             isLast: true,
           ),
         ],
@@ -541,11 +561,7 @@ class _ProfilePageState extends State<ProfilePage> {
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.logout,
-                color: Colors.white,
-                size: 24,
-              ),
+              Icon(Icons.logout, color: Colors.white, size: 24),
               const SizedBox(width: 8),
               Text(
                 'Cerrar Sesión',
@@ -566,10 +582,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return const Center(
       child: Text(
         'Versión 2.1.0 • Built for Performance',
-        style: TextStyle(
-          color: outlineVariant,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: outlineVariant, fontSize: 12),
         textAlign: TextAlign.center,
       ),
     );

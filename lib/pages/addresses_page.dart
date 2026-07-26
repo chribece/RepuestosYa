@@ -12,7 +12,7 @@ class AddressesPage extends StatefulWidget {
 class _AddressesPageState extends State<AddressesPage> {
   final DireccionService _direccionService = DireccionService();
   final AuthService _authService = AuthService();
-  
+
   List<Map<String, dynamic>> _direcciones = [];
   bool _isLoading = false;
 
@@ -106,109 +106,125 @@ class _AddressesPageState extends State<AddressesPage> {
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryContainer))
+          ? const Center(
+              child: CircularProgressIndicator(color: primaryContainer),
+            )
           : _direcciones.isEmpty
-              ? Center(
-                  child: Text(
-                    'No tienes direcciones registradas',
-                    style: TextStyle(color: onSurfaceVariant, fontSize: 16),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _direcciones.length,
-                  itemBuilder: (context, index) {
-                    final direccion = _direcciones[index];
-                    
-                    // Mapeo seguro con tipos explícitos usando snake_case de Supabase
-                    final id = direccion['id'] as String;
-                    final alias = direccion['alias'] as String? ?? 'Dirección';
-                    final callePrincipal = direccion['calle_principal'] as String? ?? '';
-                    final calleSecundaria = direccion['calle_secundaria'] as String? ?? '';
-                    final referencia = direccion['referencia'] as String? ?? '';
+          ? Center(
+              child: Text(
+                'No tienes direcciones registradas',
+                style: TextStyle(color: onSurfaceVariant, fontSize: 16),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _direcciones.length,
+              itemBuilder: (context, index) {
+                final direccion = _direcciones[index];
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      color: surfaceContainerHigh,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // Mapeo seguro con tipos explícitos usando snake_case de Supabase
+                final id = direccion['id'] as String;
+                final alias = direccion['alias'] as String? ?? 'Dirección';
+                final callePrincipal =
+                    direccion['calle_principal'] as String? ?? '';
+                final calleSecundaria =
+                    direccion['calle_secundaria'] as String? ?? '';
+                final referencia = direccion['referencia'] as String? ?? '';
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  color: surfaceContainerHigh,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.all(16),
+                    title: Text(
+                      alias,
+                      style: const TextStyle(
+                        color: onSurface,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        title: Text(
-                          alias,
-                          style: const TextStyle(
-                            color: onSurface,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Principal: $callePrincipal',
+                            style: const TextStyle(color: onSurfaceVariant),
                           ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Principal: $callePrincipal',
-                                style: const TextStyle(color: onSurfaceVariant),
-                              ),
-                              if (calleSecundaria.isNotEmpty)
-                                Text(
-                                  'Secundaria: $calleSecundaria',
-                                  style: const TextStyle(color: onSurfaceVariant),
-                                ),
-                              if (referencia.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Ref: $referencia',
-                                  style: TextStyle(color: primary.withOpacity(0.8), fontSize: 13),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: primary),
-                              onPressed: () => _mostrarFormulario(direccion),
+                          if (calleSecundaria.isNotEmpty)
+                            Text(
+                              'Secundaria: $calleSecundaria',
+                              style: const TextStyle(color: onSurfaceVariant),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: error),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: surfaceContainerHigh,
-                                    title: const Text('Confirmar', style: TextStyle(color: onSurface)),
-                                    content: const Text(
-                                      '¿Estás seguro de eliminar esta dirección?',
-                                      style: TextStyle(color: onSurfaceVariant),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('Cancelar', style: TextStyle(color: onSurfaceVariant)),
-                                      ),
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          _eliminarDireccion(id);
-                                        },
-                                        child: const Text('Eliminar', style: TextStyle(color: error)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                          if (referencia.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Ref: $referencia',
+                              style: TextStyle(
+                                color: primary.withOpacity(0.8),
+                                fontSize: 13,
+                              ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: primary),
+                          onPressed: () => _mostrarFormulario(direccion),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: error),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: surfaceContainerHigh,
+                                title: const Text(
+                                  'Confirmar',
+                                  style: TextStyle(color: onSurface),
+                                ),
+                                content: const Text(
+                                  '¿Estás seguro de eliminar esta dirección?',
+                                  style: TextStyle(color: onSurfaceVariant),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text(
+                                      'Cancelar',
+                                      style: TextStyle(color: onSurfaceVariant),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      _eliminarDireccion(id);
+                                    },
+                                    child: const Text(
+                                      'Eliminar',
+                                      style: TextStyle(color: error),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _mostrarFormulario(),
         backgroundColor: primaryContainer,
@@ -236,18 +252,26 @@ class _AddressDialogState extends State<AddressDialog> {
   late TextEditingController _callePrincipalController;
   late TextEditingController _calleSecundariaController;
   late TextEditingController _referenciaController;
-  
+
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Asignación correcta desde las nuevas llaves en la base de datos
-    _aliasController = TextEditingController(text: widget.direccion?['alias'] ?? '');
-    _callePrincipalController = TextEditingController(text: widget.direccion?['calle_principal'] ?? '');
-    _calleSecundariaController = TextEditingController(text: widget.direccion?['calle_secundaria'] ?? '');
-    _referenciaController = TextEditingController(text: widget.direccion?['referencia'] ?? '');
+    _aliasController = TextEditingController(
+      text: widget.direccion?['alias'] ?? '',
+    );
+    _callePrincipalController = TextEditingController(
+      text: widget.direccion?['calle_principal'] ?? '',
+    );
+    _calleSecundariaController = TextEditingController(
+      text: widget.direccion?['calle_secundaria'] ?? '',
+    );
+    _referenciaController = TextEditingController(
+      text: widget.direccion?['referencia'] ?? '',
+    );
   }
 
   @override
@@ -332,11 +356,18 @@ class _AddressDialogState extends State<AddressDialog> {
                         children: [
                           TextSpan(
                             text: 'Alias (Ej. Casa, Trabajo)',
-                            style: TextStyle(color: _AddressesPageState.onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: _AddressesPageState.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _AddressesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _AddressesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -344,13 +375,18 @@ class _AddressDialogState extends State<AddressDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _aliasController,
-                      style: const TextStyle(color: _AddressesPageState.onSurface),
+                      style: const TextStyle(
+                        color: _AddressesPageState.onSurface,
+                      ),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                        fillColor: _AddressesPageState.onSurfaceVariant
+                            .withOpacity(0.1),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                          borderSide: const BorderSide(
+                            color: _AddressesPageState.outlineVariant,
+                          ),
                         ),
                       ),
                       validator: (v) {
@@ -376,11 +412,18 @@ class _AddressDialogState extends State<AddressDialog> {
                         children: [
                           TextSpan(
                             text: 'Calle Principal',
-                            style: TextStyle(color: _AddressesPageState.onSurfaceVariant, fontSize: 12),
+                            style: TextStyle(
+                              color: _AddressesPageState.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(color: _AddressesPageState.requiredAsterisk, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: _AddressesPageState.requiredAsterisk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -388,13 +431,18 @@ class _AddressDialogState extends State<AddressDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _callePrincipalController,
-                      style: const TextStyle(color: _AddressesPageState.onSurface),
+                      style: const TextStyle(
+                        color: _AddressesPageState.onSurface,
+                      ),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                        fillColor: _AddressesPageState.onSurfaceVariant
+                            .withOpacity(0.1),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                          borderSide: const BorderSide(
+                            color: _AddressesPageState.outlineVariant,
+                          ),
                         ),
                       ),
                       validator: (v) {
@@ -417,12 +465,18 @@ class _AddressDialogState extends State<AddressDialog> {
                   style: const TextStyle(color: _AddressesPageState.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Calle Secundaria (Opcional)',
-                    labelStyle: const TextStyle(color: _AddressesPageState.onSurfaceVariant),
+                    labelStyle: const TextStyle(
+                      color: _AddressesPageState.onSurfaceVariant,
+                    ),
                     filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(
+                      0.1,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                      borderSide: const BorderSide(
+                        color: _AddressesPageState.outlineVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -435,12 +489,18 @@ class _AddressDialogState extends State<AddressDialog> {
                   style: const TextStyle(color: _AddressesPageState.onSurface),
                   decoration: InputDecoration(
                     labelText: 'Referencia / Indicaciones (Opcional)',
-                    labelStyle: const TextStyle(color: _AddressesPageState.onSurfaceVariant),
+                    labelStyle: const TextStyle(
+                      color: _AddressesPageState.onSurfaceVariant,
+                    ),
                     filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(0.1),
+                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(
+                      0.1,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _AddressesPageState.outlineVariant),
+                      borderSide: const BorderSide(
+                        color: _AddressesPageState.outlineVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -463,8 +523,15 @@ class _AddressDialogState extends State<AddressDialog> {
             backgroundColor: _AddressesPageState.primaryContainer,
             foregroundColor: _AddressesPageState.onPrimaryContainer,
           ),
-          child: _isSaving 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
               : const Text('Guardar'),
         ),
       ],

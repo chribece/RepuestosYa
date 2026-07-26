@@ -61,34 +61,63 @@ class _LoginPageState extends State<LoginPage> {
         }
 
         // Cargar el rol del usuario desde la base de datos
-        final userRoleProvider = Provider.of<UserRoleProvider>(context, listen: false);
+        final userRoleProvider = Provider.of<UserRoleProvider>(
+          context,
+          listen: false,
+        );
         await userRoleProvider.loadUserRole(user.id);
 
         // Verificar si se obtuvo el rol correctamente
         if (userRoleProvider.isUnknown) {
-          throw Exception('No se pudo determinar el rol del usuario. Contacte al administrador.');
+          throw Exception(
+            'No se pudo determinar el rol del usuario. Contacte al administrador.',
+          );
         }
 
         setState(() {
           _isLoading = false;
         });
 
-        // Navegar según el rol del usuario
+        // Navegar según el rol del usuario con animación suave
         if (userRoleProvider.isCliente) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const HomePage(),
+              transitionDuration: const Duration(milliseconds: 250),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+            ),
           );
         } else if (userRoleProvider.isAlmacen) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const WarehouseDashboard(),
+              transitionDuration: const Duration(milliseconds: 250),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+            ),
           );
         } else if (userRoleProvider.isAdmin) {
           // Para admin, también navegar al dashboard de almacén por ahora
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const WarehouseDashboard(),
+              transitionDuration: const Duration(milliseconds: 250),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
+            ),
           );
         }
       } catch (e) {
@@ -113,9 +142,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: background,
       body: Container(
-        decoration: const BoxDecoration(
-          color: background,
-        ),
+        decoration: const BoxDecoration(color: background),
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -148,11 +175,7 @@ class _LoginPageState extends State<LoginPage> {
             shape: BoxShape.circle,
             color: primaryContainer.withOpacity(0.2),
           ),
-          child: const Icon(
-            Icons.build,
-            size: 50,
-            color: primary,
-          ),
+          child: const Icon(Icons.build, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
         const Text(
@@ -167,10 +190,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 8),
         const Text(
           'Performance y precisión en cada pieza.',
-          style: TextStyle(
-            fontSize: 16,
-            color: onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -280,10 +300,7 @@ class _LoginPageState extends State<LoginPage> {
               },
               child: const Text(
                 '¿Olvidó su clave?',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: tertiaryContainer,
-                ),
+                style: TextStyle(fontSize: 12, color: tertiaryContainer),
               ),
             ),
           ],
@@ -346,10 +363,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const Text(
           'Recordar sesión en este equipo',
-          style: TextStyle(
-            fontSize: 14,
-            color: onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 14, color: onSurfaceVariant),
         ),
       ],
     );
@@ -377,7 +391,9 @@ class _LoginPageState extends State<LoginPage> {
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(onPrimaryContainer),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        onPrimaryContainer,
+                      ),
                     ),
                   )
                 : const Row(
@@ -403,7 +419,9 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
+                MaterialPageRoute(
+                  builder: (context) => const RoleSelectionPage(),
+                ),
               );
             },
             child: const Text(
@@ -428,11 +446,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'Certificado ISO 9001',
@@ -445,19 +459,11 @@ class _LoginPageState extends State<LoginPage> {
               ],
             ),
             const SizedBox(width: 16),
-            Container(
-              width: 1,
-              height: 16,
-              color: outlineVariant,
-            ),
+            Container(width: 1, height: 16, color: outlineVariant),
             const SizedBox(width: 16),
             Row(
               children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'SSL Secure',
@@ -476,10 +482,7 @@ class _LoginPageState extends State<LoginPage> {
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
-            style: TextStyle(
-              fontSize: 12,
-              color: onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ),

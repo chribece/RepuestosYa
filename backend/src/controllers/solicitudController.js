@@ -49,12 +49,26 @@ const getMisSolicitudes = async (req, res) => {
 const getSolicitudesActivas = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const cacheKey = `solicitudes:activas:page:${page}`;
+
+    // Get warehouse ID for this user
+    const { data: almacen, error: almacenError } = await supabase
+      .from('almacenes')
+      .select('id')
+      .eq('encargado_id', req.user.id)
+      .single();
+
+    if (almacenError || !almacen) {
+      return res.status(404).json({ error: 'Warehouse not found for this user' });
+    }
+
+    // Cache key específica por almacén para no mezclar datos
+    const cacheKey = `solicitudes:activas:almacen:${almacen.id}:page:${page}`;
 
     const { data: solicitudes, fromCache } = await getOrSet(
       cacheKey,
       60, // 60 segundos TTL
       async () => {
+        // Obtener solicitudes activas
         const { data, error } = await supabase
           .from('solicitudes_repuesto')
           .select(`*, profiles(nombre_completo, email),
@@ -67,7 +81,27 @@ const getSolicitudesActivas = async (req, res) => {
           throw new Error(error.message);
         }
 
-        return data || [];
+        // Filtrar solicitudes que ya tienen cotización de este almacén
+        console.log(`[DEBUG] Filtrando solicitudes para almacén ${almacen.id}, total: ${(data || []).length}`);
+        const solicitudesSinCotizar = await Promise.all(
+          (data || []).map(async (solicitud) => {
+            const { data: cotizacionesExistentes } = await supabase
+              .from('cotizaciones')
+              .select('id')
+              .eq('solicitud_id', solicitud.id)
+              .eq('almacen_id', almacen.id);
+            
+            const tieneCotizacion = cotizacionesExistentes && cotizacionesExistentes.length > 0;
+            if (tieneCotizacion) {
+              console.log(`[DEBUG] Solicitud ${solicitud.id} ya tiene cotización, excluyendo`);
+            }
+            return tieneCotizacion ? null : solicitud;
+          })
+        );
+
+        const resultado = solicitudesSinCotizar.filter(s => s !== null);
+        console.log(`[DEBUG] Solicitudes después de filtrar: ${resultado.length}`);
+        return resultado;
       }
     );
 

@@ -29,9 +29,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     return Scaffold(
       backgroundColor: background,
       body: Container(
-        decoration: const BoxDecoration(
-          color: background,
-        ),
+        decoration: const BoxDecoration(color: background),
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -64,11 +62,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             shape: BoxShape.circle,
             color: primaryContainer.withOpacity(0.2),
           ),
-          child: const Icon(
-            Icons.build,
-            size: 50,
-            color: primary,
-          ),
+          child: const Icon(Icons.build, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
         const Text(
@@ -83,10 +77,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         const SizedBox(height: 8),
         const Text(
           'Selecciona tu tipo de cuenta para continuar',
-          style: TextStyle(
-            fontSize: 16,
-            color: onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -158,7 +149,10 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             child: DropdownButtonFormField<String>(
               value: _selectedRole,
               decoration: const InputDecoration(
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 border: InputBorder.none,
               ),
               dropdownColor: surfaceContainerHigh,
@@ -213,9 +207,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryContainer,
           foregroundColor: onPrimaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
         child: const Row(
@@ -245,10 +237,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         },
         child: const Text(
           'Volver',
-          style: TextStyle(
-            fontSize: 16,
-            color: onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
         ),
       ),
     );
@@ -278,11 +267,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'Certificado ISO 9001',
@@ -295,19 +280,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
               ],
             ),
             const SizedBox(width: 16),
-            Container(
-              width: 1,
-              height: 16,
-              color: outlineVariant,
-            ),
+            Container(width: 1, height: 16, color: outlineVariant),
             const SizedBox(width: 16),
             Row(
               children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'SSL Secure',
@@ -326,10 +303,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
-            style: TextStyle(
-              fontSize: 12,
-              color: onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ),

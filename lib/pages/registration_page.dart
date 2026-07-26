@@ -61,7 +61,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('¡Cuenta creada exitosamente! Por favor verifica tu email.'),
+            content: Text(
+              '¡Cuenta creada exitosamente! Por favor verifica tu email.',
+            ),
             backgroundColor: primaryContainer,
             duration: Duration(seconds: 3),
           ),
@@ -94,9 +96,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
     return Scaffold(
       backgroundColor: background,
       body: Container(
-        decoration: const BoxDecoration(
-          color: background,
-        ),
+        decoration: const BoxDecoration(color: background),
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -129,11 +129,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             shape: BoxShape.circle,
             color: primaryContainer.withOpacity(0.2),
           ),
-          child: const Icon(
-            Icons.build,
-            size: 50,
-            color: primary,
-          ),
+          child: const Icon(Icons.build, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
         const Text(
@@ -148,10 +144,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         const SizedBox(height: 8),
         const Text(
           'Performance y precisión en cada pieza.',
-          style: TextStyle(
-            fontSize: 16,
-            color: onSurfaceVariant,
-          ),
+          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -481,10 +474,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             },
             child: const Text(
               'Acepto los términos y condiciones de uso',
-              style: TextStyle(
-                fontSize: 14,
-                color: onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 14, color: onSurfaceVariant),
             ),
           ),
         ),
@@ -514,7 +504,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(onPrimaryContainer),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        onPrimaryContainer,
+                      ),
                     ),
                   )
                 : const Row(
@@ -542,10 +534,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             },
             child: const Text(
               '¿Ya tienes cuenta? Inicia sesión',
-              style: TextStyle(
-                fontSize: 16,
-                color: secondaryContainer,
-              ),
+              style: TextStyle(fontSize: 16, color: secondaryContainer),
             ),
           ),
         ),
@@ -561,11 +550,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'Certificado ISO 9001',
@@ -578,19 +563,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
               ],
             ),
             const SizedBox(width: 16),
-            Container(
-              width: 1,
-              height: 16,
-              color: outlineVariant,
-            ),
+            Container(width: 1, height: 16, color: outlineVariant),
             const SizedBox(width: 16),
             Row(
               children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: onSurfaceVariant,
-                ),
+                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
                 const Text(
                   'SSL Secure',
@@ -609,10 +586,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
-            style: TextStyle(
-              fontSize: 12,
-              color: onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
         ),

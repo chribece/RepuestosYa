@@ -63,5 +63,6 @@ router.post('/quotations/:id/reject', auth, cotizacionController.rechazarCotizac
 
 // Orden de compra routes (protected)
 router.get('/orders/:id', auth, ordenController.getOrdenDetalleController);
+router.patch('/orders/:id/status', auth, requireRole('almacen'), ordenController.updateOrdenEstadoController);
 
 module.exports = router;

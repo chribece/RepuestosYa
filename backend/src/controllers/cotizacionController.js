@@ -114,7 +114,7 @@ const getMisCotizaciones = async (req, res) => {
 
     const { data: cotizaciones, error } = await supabase
       .from('cotizaciones')
-      .select('*, solicitudes_repuesto(pieza_nombre, estado, profiles(nombre_completo))')
+      .select('*, solicitudes_repuesto(pieza_nombre, estado, profiles(nombre_completo)), ordenes_compra(id, estado)')
       .eq('almacen_id', almacen.id)
       .order('created_at', { ascending: false });
 

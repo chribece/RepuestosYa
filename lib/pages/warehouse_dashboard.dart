@@ -7,6 +7,7 @@ import '../services/almacen_service.dart';
 import 'create_quotation_page.dart';
 import 'perfil_almacen_page.dart';
 import 'register_almacen_page.dart';
+import 'almacen_orden_detalle_page.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -44,6 +45,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   bool _isLoadingSolicitudes = false;
   bool _isLoadingCotizaciones = false;
   String? _nombreAlmacen;
+  String _filtroActual = 'todas';
 
   // Variables dinámicas para el panel de estadísticas Bento
   final int _ventasCount = 42;
@@ -410,6 +412,72 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                               ),
                             ),
                             const SizedBox(height: 24),
+
+                            // Filter Chips
+                            Row(
+                              children: [
+                                FilterChip(
+                                  label: const Text('Todas'),
+                                  selected: _filtroActual == 'todas',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _filtroActual = 'todas';
+                                    });
+                                  },
+                                  selectedColor: primaryContainer.withOpacity(
+                                    0.2,
+                                  ),
+                                  checkmarkColor: primaryContainer,
+                                  labelStyle: TextStyle(
+                                    color: _filtroActual == 'todas'
+                                        ? primaryContainer
+                                        : onSurfaceVariant,
+                                  ),
+                                  backgroundColor: surfaceContainerLow,
+                                ),
+                                const SizedBox(width: 8),
+                                FilterChip(
+                                  label: const Text('Pendientes'),
+                                  selected: _filtroActual == 'pendientes',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _filtroActual = 'pendientes';
+                                    });
+                                  },
+                                  selectedColor: primaryContainer.withOpacity(
+                                    0.2,
+                                  ),
+                                  checkmarkColor: primaryContainer,
+                                  labelStyle: TextStyle(
+                                    color: _filtroActual == 'pendientes'
+                                        ? primaryContainer
+                                        : onSurfaceVariant,
+                                  ),
+                                  backgroundColor: surfaceContainerLow,
+                                ),
+                                const SizedBox(width: 8),
+                                FilterChip(
+                                  label: const Text('Ganadas'),
+                                  selected: _filtroActual == 'ganadas',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _filtroActual = 'ganadas';
+                                    });
+                                  },
+                                  selectedColor: primaryContainer.withOpacity(
+                                    0.2,
+                                  ),
+                                  checkmarkColor: primaryContainer,
+                                  labelStyle: TextStyle(
+                                    color: _filtroActual == 'ganadas'
+                                        ? primaryContainer
+                                        : onSurfaceVariant,
+                                  ),
+                                  backgroundColor: surfaceContainerLow,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
 
                             // Quotations List
                             _isLoadingCotizaciones
@@ -895,13 +963,25 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final tiempoEntrega =
         cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
 
+    // Extract ordenId from ordenes_compra relation
+    final ordenesCompra = cotizacion['ordenes_compra'] as Map<String, dynamic>?;
+    final String? ordenId = ordenesCompra?['id'] as String?;
+
+    // Apply filter
+    if (_filtroActual == 'pendientes' && estado != 'pendiente') {
+      return const SizedBox.shrink();
+    }
+    if (_filtroActual == 'ganadas' && estado != 'aceptada') {
+      return const SizedBox.shrink();
+    }
+
     // Color según estado
     Color estadoColor;
     String estadoText;
     switch (estado) {
       case 'aceptada':
         estadoColor = Colors.green;
-        estadoText = 'ACEPTADA';
+        estadoText = 'GANADA';
         break;
       case 'rechazada':
         estadoColor = Colors.red;
@@ -912,12 +992,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         estadoText = 'PENDIENTE';
     }
 
-    return Container(
+    final cardContent = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        border: Border.all(
+          color: estado == 'aceptada'
+              ? Colors.green.withOpacity(0.3)
+              : outlineVariant,
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1005,9 +1090,44 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ],
             ),
           ],
+          if (estado == 'aceptada' && ordenId != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.arrow_forward, color: primaryContainer, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  'Ver orden de compra',
+                  style: TextStyle(
+                    color: primaryContainer,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
+
+    // Wrap in InkWell if accepted and has ordenId
+    if (estado == 'aceptada' && ordenId != null) {
+      return InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AlmacenOrdenDetallePage(ordenId: ordenId),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: cardContent,
+      );
+    }
+
+    return cardContent;
   }
 
   Widget _buildBottomNavBar() {

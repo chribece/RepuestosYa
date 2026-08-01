@@ -475,6 +475,24 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                   ),
                                   backgroundColor: surfaceContainerLow,
                                 ),
+                                const SizedBox(width: 8),
+                                FilterChip(
+                                  label: const Text('Rechazadas'),
+                                  selected: _filtroActual == 'rechazadas',
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      _filtroActual = 'rechazadas';
+                                    });
+                                  },
+                                  selectedColor: Colors.red.withOpacity(0.2),
+                                  checkmarkColor: Colors.red,
+                                  labelStyle: TextStyle(
+                                    color: _filtroActual == 'rechazadas'
+                                        ? Colors.red
+                                        : onSurfaceVariant,
+                                  ),
+                                  backgroundColor: surfaceContainerLow,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -709,6 +727,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     // Extracción e indexación segura de datos relacionales anidados (Vehículos)
     final String title = solicitud['pieza_nombre'] ?? 'Repuesto Desconocido';
 
+    // Extraer nombre del cliente
+    final profiles = solicitud['profiles'] as Map<String, dynamic>?;
+    final String clienteNombre =
+        profiles?['nombre_completo'] ?? 'Cliente desconocido';
+
     // Armar el subtítulo dinámico con datos de la marca, modelo y año del vehículo
     final vehiculo = solicitud['vehiculos_cliente'];
     final modelo = vehiculo != null ? vehiculo['modelos_vehiculo'] : null;
@@ -780,6 +803,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Cliente: $clienteNombre',
+                      style: const TextStyle(
+                        color: primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'Inter',
+                      ),
                     ),
                   ],
                 ),
@@ -963,33 +996,88 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final tiempoEntrega =
         cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
 
-    // Extract ordenId from ordenes_compra relation
+    // Extract ordenId and estado from ordenes_compra relation
     final ordenesCompra = cotizacion['ordenes_compra'] as Map<String, dynamic>?;
     final String? ordenId = ordenesCompra?['id'] as String?;
+    final String? ordenEstado = ordenesCompra?['estado'] as String?;
 
     // Apply filter
+    print(
+      '[FILTER] Filtro actual: $_filtroActual, Estado cotización: $estado, Estado orden: $ordenEstado',
+    );
+
     if (_filtroActual == 'pendientes' && estado != 'pendiente') {
+      print('[FILTER] Filtrando cotización (no es pendiente)');
       return const SizedBox.shrink();
     }
-    if (_filtroActual == 'ganadas' && estado != 'aceptada') {
+    if (_filtroActual == 'ganadas') {
+      // Solo mostrar cotizaciones aceptadas con estados de orden específicos
+      if (estado != 'aceptada') {
+        print('[FILTER] Filtrando cotización (no es aceptada)');
+        return const SizedBox.shrink();
+      }
+      // Verificar que el estado de la orden sea uno de los permitidos
+      if (ordenEstado == null ||
+          ![
+            'confirmada',
+            'pendiente_pago',
+            'entregada',
+          ].contains(ordenEstado)) {
+        print(
+          '[FILTER] Filtrando cotización (estado de orden no válido: $ordenEstado)',
+        );
+        return const SizedBox.shrink();
+      }
+      print(
+        '[FILTER] Mostrando cotización ganada (estado orden: $ordenEstado)',
+      );
+    }
+    if (_filtroActual == 'rechazadas' && estado != 'rechazada') {
+      print('[FILTER] Filtrando cotización (no es rechazada)');
       return const SizedBox.shrink();
     }
 
-    // Color según estado
+    // Color según estado (usar estado de orden si la cotización está aceptada)
     Color estadoColor;
     String estadoText;
-    switch (estado) {
-      case 'aceptada':
-        estadoColor = Colors.green;
-        estadoText = 'GANADA';
-        break;
-      case 'rechazada':
-        estadoColor = Colors.red;
-        estadoText = 'RECHAZADA';
-        break;
-      default:
-        estadoColor = Colors.orange;
-        estadoText = 'PENDIENTE';
+    if (estado == 'aceptada' && ordenEstado != null) {
+      // Mostrar estado de la orden
+      switch (ordenEstado) {
+        case 'pendiente_pago':
+          estadoColor = Colors.orange;
+          estadoText = 'PENDIENTE DE PAGO';
+          break;
+        case 'confirmada':
+          estadoColor = Colors.blue;
+          estadoText = 'CONFIRMADA';
+          break;
+        case 'entregada':
+          estadoColor = Colors.green;
+          estadoText = 'ENTREGADA';
+          break;
+        case 'cancelada':
+          estadoColor = Colors.red;
+          estadoText = 'CANCELADA';
+          break;
+        default:
+          estadoColor = Colors.green;
+          estadoText = 'GANADA';
+      }
+    } else {
+      // Mostrar estado de la cotización
+      switch (estado) {
+        case 'aceptada':
+          estadoColor = Colors.green;
+          estadoText = 'GANADA';
+          break;
+        case 'rechazada':
+          estadoColor = Colors.red;
+          estadoText = 'RECHAZADA';
+          break;
+        default:
+          estadoColor = Colors.orange;
+          estadoText = 'PENDIENTE';
+      }
     }
 
     final cardContent = Container(
@@ -997,12 +1085,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       decoration: BoxDecoration(
         color: surfaceContainerLow,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: estado == 'aceptada'
-              ? Colors.green.withOpacity(0.3)
-              : outlineVariant,
-          width: 1,
-        ),
+        border: Border.all(color: estadoColor.withOpacity(0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
 
 class AlmacenOrdenDetallePage extends StatefulWidget {
@@ -458,34 +459,25 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              fotoUrl,
+            child: CachedNetworkImage(
+              imageUrl: fotoUrl,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.broken_image,
-                        color: onSurfaceVariant,
-                        size: 32,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'No se pudo cargar la imagen',
-                        style: TextStyle(color: onSurfaceVariant, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(
-                  child: CircularProgressIndicator(color: primaryContainer),
-                );
-              },
+              placeholder: (context, url) => const Center(
+                child: CircularProgressIndicator(color: primaryContainer),
+              ),
+              errorWidget: (context, url, error) => const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.broken_image, color: onSurfaceVariant, size: 32),
+                    SizedBox(height: 8),
+                    Text(
+                      'No se pudo cargar la imagen',
+                      style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

@@ -481,7 +481,7 @@ class _LoginPageState extends State<LoginPage> {
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 32),
           child: Text(
-            '© 2024 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
+            '© 2026 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
             style: TextStyle(fontSize: 12, color: onSurfaceVariant),
             textAlign: TextAlign.center,
           ),

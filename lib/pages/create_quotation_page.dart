@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -235,6 +236,65 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     }
   }
 
+  Future<String?> _uploadImageToSupabase(File imageFile) async {
+    try {
+      print('[UPLOAD] 🚀 Iniciando subida de imagen...');
+
+      final supabase = Supabase.instance.client;
+
+      // Verificar sesión de autenticación
+      final session = supabase.auth.currentSession;
+      if (session == null) {
+        print('[UPLOAD] ❌ No hay sesión activa. Intentando refrescar...');
+        try {
+          await supabase.auth.refreshSession();
+          print('[UPLOAD] ✅ Sesión refrescada');
+        } catch (e) {
+          print('[UPLOAD] ❌ Error al refrescar sesión: $e');
+          return null;
+        }
+      } else {
+        print('[UPLOAD] ✅ Usuario autenticado: ${session.user.id}');
+      }
+
+      // Generar nombre único
+      final fileName =
+          'cotizacion_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = 'evidencias/$fileName';
+      print('[UPLOAD] 📁 FilePath: $filePath');
+      print('[UPLOAD] 📦 Tamaño: ${await imageFile.length()} bytes');
+
+      // Subir al bucket
+      print('[UPLOAD] ⬆️ Subiendo imagen...');
+      final response = await supabase.storage
+          .from('Repuestosya')
+          .upload(
+            filePath,
+            imageFile,
+            fileOptions: FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      print('[UPLOAD] ✅ Upload response: $response');
+
+      // Obtener URL pública
+      final publicUrl = supabase.storage
+          .from('Repuestosya')
+          .getPublicUrl(filePath);
+
+      print('[UPLOAD] 🔗 URL pública: $publicUrl');
+
+      return publicUrl;
+    } catch (e, stackTrace) {
+      print('[UPLOAD] ❌ ERROR DETALLADO: $e');
+      print('[UPLOAD] Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
   Future<void> _enviarCotizacion() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -262,8 +322,16 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
       String? uploadedImageUrl;
       if (_selectedImage != null) {
-        uploadedImageUrl =
-            "https://tu-proyecto.supabase.co/storage/v1/object/public/cotizaciones/repuesto_verificado.jpg";
+        setState(() => _isSubmitting = true);
+
+        uploadedImageUrl = await _uploadImageToSupabase(_selectedImage!);
+
+        if (uploadedImageUrl == null) {
+          throw Exception(
+            'La subida de imagen falló. Revisa la consola de Flutter para ver el error detallado. '
+            'Posibles causas: 1) Bucket no existe, 2) Políticas de INSERT faltantes, 3) Usuario no autenticado',
+          );
+        }
       }
 
       final almacen = await _almacenService.obtenerMiAlmacen();

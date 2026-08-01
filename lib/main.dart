@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/welcome_page.dart';
 import 'pages/orden_compra_page.dart';
 import 'providers/user_role_provider.dart';
@@ -8,6 +9,19 @@ import 'services/api_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar Supabase
+  try {
+    await Supabase.initialize(
+      url: 'https://vpgnasrlgdgkxpggorxl.supabase.co',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZ25hc3JsZ2Rna3hwZ2dvcnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4Njg0MzgsImV4cCI6MjA5NjQ0NDQzOH0.iENx5XVTyvr2-GLqOKqPzxwsekThJu1PNGDDpDfrOOE',
+    );
+    print('[SUPABASE] ✅ Inicializado correctamente');
+    print('[SUPABASE] URL: https://vpgnasrlgdgkxpggorxl.supabase.co');
+  } catch (e) {
+    print('[SUPABASE] ❌ Error de inicialización: $e');
+  }
 
   // Inicializar ApiClient (carga el token desde SharedPreferences)
   await ApiClient().init();

@@ -66,7 +66,7 @@ const getSolicitudesActivas = async (req, res) => {
 
     const { data: solicitudes, fromCache } = await getOrSet(
       cacheKey,
-      60, // 60 segundos TTL
+      10, // 10 segundos TTL para mantener datos más actualizados
       async () => {
         // Obtener solicitudes activas
         const { data, error } = await supabase

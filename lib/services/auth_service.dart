@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'api_client.dart';
 
 // Clases compatibles con Supabase para mantener la misma interfaz
@@ -108,6 +109,9 @@ class AuthService {
 
       _authStateController.add(AuthState(user: _currentUser!));
 
+      // Sincronizar sesión con Supabase para permitir subida de imágenes
+      await _syncSupabaseSession(email, password);
+
       return AuthResponse(user: _currentUser!, token: token);
     } catch (e) {
       print('AuthService: Error en registro: $e');
@@ -140,9 +144,31 @@ class AuthService {
 
       _authStateController.add(AuthState(user: _currentUser));
 
+      // Sincronizar sesión con Supabase para permitir subida de imágenes
+      await _syncSupabaseSession(email, password);
+
       return AuthResponse(user: _currentUser!, token: token);
     } catch (e) {
       throw Exception('Error al iniciar sesión: $e');
+    }
+  }
+
+  // Sincronizar sesión con Supabase para permitir subida de imágenes
+  Future<void> _syncSupabaseSession(String email, String password) async {
+    try {
+      print('[AUTH] Sincronizando sesión con Supabase...');
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      if (response.user != null) {
+        print('[AUTH] ✅ Sesión Supabase sincronizada: ${response.user!.id}');
+      } else {
+        print('[AUTH] ⚠️ No se pudo sincronizar sesión con Supabase');
+      }
+    } catch (e) {
+      print('[AUTH] ❌ Error al sincronizar con Supabase: $e');
+      // No fallar el login si Supabase falla - el login del backend es el principal
     }
   }
 

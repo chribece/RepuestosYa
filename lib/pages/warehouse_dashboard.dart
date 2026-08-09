@@ -4,6 +4,7 @@ import 'login_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../services/realtime_notification_service.dart';
 import 'create_quotation_page.dart';
 import 'perfil_almacen_page.dart';
 import 'register_almacen_page.dart';
@@ -66,6 +67,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         setState(() {
           _nombreAlmacen = almacen?['nombre_comercial'] ?? 'Mi Almacén';
         });
+        if (almacen != null && almacen['id'] != null) {
+          final almacenId = almacen['id'].toString();
+          await RealtimeNotificationService().subscribeToOrdenes(almacenId);
+          RealtimeNotificationService().subscribeToNuevasSolicitudes();
+        }
       }
     } catch (e) {
       print(
@@ -126,6 +132,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    RealtimeNotificationService().unsubscribe();
+    super.dispose();
   }
 
   @override

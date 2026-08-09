@@ -303,10 +303,18 @@ class _AddressDialogState extends State<AddressDialog> {
         // Actualizar dirección pasando el ID correspondiente
         await _direccionService.updateDireccion(
           id: widget.direccion!['id'],
-          alias: _aliasController.text.trim(),
-          callePrincipal: _callePrincipalController.text.trim(),
-          calleSecundaria: _calleSecundariaController.text.trim(),
-          referencia: _referenciaController.text.trim(),
+          alias: _aliasController.text.trim().isEmpty
+              ? null
+              : _aliasController.text.trim(),
+          callePrincipal: _callePrincipalController.text.trim().isEmpty
+              ? null
+              : _callePrincipalController.text.trim(),
+          calleSecundaria: _calleSecundariaController.text.trim().isEmpty
+              ? null
+              : _calleSecundariaController.text.trim(),
+          referencia: _referenciaController.text.trim().isEmpty
+              ? null
+              : _referenciaController.text.trim(),
         );
       }
 

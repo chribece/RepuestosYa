@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
+import '../services/realtime_notification_service.dart';
 
 class TodasSolicitudesPage extends StatefulWidget {
   const TodasSolicitudesPage({super.key});
@@ -43,11 +44,37 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
         _cargarMasSolicitudes();
       }
     });
+
+    // Suscribirse a notificaciones de cotizaciones para solicitudes activas
+    _suscribirANotificaciones();
+  }
+
+  Future<void> _suscribirANotificaciones() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+        if (solicitudes != null && solicitudes.isNotEmpty) {
+          final solicitudIds = solicitudes
+              .map((s) => s['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList();
+          if (solicitudIds.isNotEmpty) {
+            await RealtimeNotificationService().subscribeToAllMyRequests(
+              solicitudIds,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      print('Error al suscribir a notificaciones: $e');
+    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    RealtimeNotificationService().unsubscribeMultiple();
     super.dispose();
   }
 

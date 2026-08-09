@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/solicitud_service.dart';
+import '../services/realtime_notification_service.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
   final String solicitudId;
@@ -47,6 +48,13 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   void initState() {
     super.initState();
     _cargarCotizaciones();
+    RealtimeNotificationService().subscribeToCotizaciones(widget.solicitudId);
+  }
+
+  @override
+  void dispose() {
+    RealtimeNotificationService().unsubscribe();
+    super.dispose();
   }
 
   Future<void> _cargarCotizaciones() async {

@@ -85,7 +85,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   Future<void> _cargarDirecciones() async {
     setState(() => _isLoadingDirecciones = true);
     try {
+      print('[DIRECCIONES] Iniciando carga de direcciones...');
       final direcciones = await _direccionService.getDirecciones();
+      print('[DIRECCIONES] Direcciones cargadas: ${direcciones.length}');
+      print('[DIRECCIONES] Datos: $direcciones');
+
       setState(() {
         _direcciones = direcciones;
         // Seleccionar la dirección principal (si existe) o la primera
@@ -96,13 +100,23 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           );
           _selectedDireccionId = principal['id'] as String?;
           _locationController.text = _formatDireccion(principal);
+          print('[DIRECCIONES] Dirección seleccionada: $_selectedDireccionId');
         } else {
           _selectedDireccionId = null;
           _locationController.text = 'Selecciona o agrega una dirección';
+          print('[DIRECCIONES] No hay direcciones disponibles');
         }
       });
     } catch (e) {
-      print('Error al cargar direcciones: $e');
+      print('[DIRECCIONES] Error al cargar direcciones: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar direcciones: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoadingDirecciones = false);
     }
@@ -110,8 +124,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   String _formatDireccion(Map<String, dynamic> direccion) {
     final alias = direccion['alias'] as String? ?? '';
-    final callePrincipal = direccion['callePrincipal'] as String? ?? '';
-    final calleSecundaria = direccion['calleSecundaria'] as String? ?? '';
+    final callePrincipal = direccion['calle_principal'] as String? ?? '';
+    final calleSecundaria = direccion['calle_secundaria'] as String? ?? '';
     final referencia = direccion['referencia'] as String? ?? '';
 
     String texto = '';

@@ -49,10 +49,20 @@ class DireccionService {
     try {
       final data = <String, dynamic>{};
 
-      if (alias != null) data['alias'] = alias;
-      if (callePrincipal != null) data['callePrincipal'] = callePrincipal;
-      if (calleSecundaria != null) data['calleSecundaria'] = calleSecundaria;
-      if (referencia != null) data['referencia'] = referencia;
+      if (alias != null && alias.trim().isNotEmpty) {
+        data['alias'] = alias.trim();
+      }
+      if (callePrincipal != null && callePrincipal.trim().isNotEmpty) {
+        data['callePrincipal'] = callePrincipal.trim();
+      }
+      if (calleSecundaria != null) {
+        data['calleSecundaria'] = calleSecundaria.trim().isEmpty
+            ? ''
+            : calleSecundaria.trim();
+      }
+      if (referencia != null) {
+        data['referencia'] = referencia.trim().isEmpty ? '' : referencia.trim();
+      }
 
       final response = await _apiClient.put('/addresses/$id', body: data);
 

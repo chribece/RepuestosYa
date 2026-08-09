@@ -7,6 +7,7 @@ import 'perfil_almacen_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../services/realtime_notification_service.dart';
 import 'todas_solicitudes_page.dart';
 import 'login_page.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +49,64 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _cargarSolicitudes();
+    _suscribirANotificaciones();
+  }
+
+  Future<void> _suscribirANotificaciones() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final clienteId = user.id;
+        print(
+          '[NOTIFICACIONES] Suscribiendo a estado de órdenes para cliente: $clienteId',
+        );
+        RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
+
+        // Usar el endpoint correcto para clientes
+        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(
+          clienteId,
+        );
+        print(
+          '[NOTIFICACIONES] Solicitudes del cliente obtenidas: ${solicitudes.length}',
+        );
+        if (solicitudes.isNotEmpty) {
+          print('[NOTIFICACIONES] Detalle de solicitudes:');
+          for (var sol in solicitudes) {
+            print(
+              '[NOTIFICACIONES] - ID: ${sol['id']}, Estado: ${sol['estado']}',
+            );
+          }
+
+          // Filtrar solo solicitudes activas (en_proceso)
+          final solicitudesActivas = solicitudes
+              .where((s) => s['estado'] == 'en_proceso')
+              .toList();
+          print(
+            '[NOTIFICACIONES] Solicitudes activas (en_proceso): ${solicitudesActivas.length}',
+          );
+
+          final solicitudIds = solicitudesActivas
+              .map((s) => s['id']?.toString() ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList();
+          print(
+            '[NOTIFICACIONES] IDs de solicitudes para suscripción: $solicitudIds',
+          );
+          if (solicitudIds.isNotEmpty) {
+            await RealtimeNotificationService().subscribeToAllMyRequests(
+              solicitudIds,
+            );
+            print('[NOTIFICACIONES] Suscripción a cotizaciones completada');
+          }
+        } else {
+          print('[NOTIFICACIONES] No hay solicitudes para suscribir');
+        }
+      } else {
+        print('[NOTIFICACIONES] No hay usuario autenticado');
+      }
+    } catch (e) {
+      print('[NOTIFICACIONES] Error al suscribir a notificaciones: $e');
+    }
   }
 
   @override
@@ -82,6 +141,13 @@ class _HomePageState extends State<HomePage> {
         _isLoadingSolicitudes = false;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    RealtimeNotificationService().unsubscribe();
+    RealtimeNotificationService().unsubscribeMultiple();
+    super.dispose();
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/orden_compra.dart';
 import '../providers/orden_compra_provider.dart';
+import 'home_page.dart';
 
 class OrdenCompraPage extends StatefulWidget {
   const OrdenCompraPage({super.key});
@@ -327,7 +328,11 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                 // Botón Volver al Inicio
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
+                    // Navegar directamente al HomePage
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const HomePage()),
+                      (route) => false,
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[700],

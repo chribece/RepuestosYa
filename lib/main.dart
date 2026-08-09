@@ -6,6 +6,7 @@ import 'pages/orden_compra_page.dart';
 import 'providers/user_role_provider.dart';
 import 'providers/orden_compra_provider.dart';
 import 'services/api_client.dart';
+import 'services/realtime_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,10 @@ void main() async {
 
   // Inicializar ApiClient (carga el token desde SharedPreferences)
   await ApiClient().init();
+
+  // Inicializar servicio de notificaciones en tiempo real
+  await RealtimeNotificationService().init();
+  await RealtimeNotificationService().requestPermissions();
 
   runApp(const MyApp());
 }
@@ -50,7 +55,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: const WelcomePage(),
-        routes: {'/orden-compra': (context) => const OrdenCompraPage()},
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const WelcomePage(),
+          '/orden-compra': (context) => const OrdenCompraPage(),
+        },
       ),
     );
   }

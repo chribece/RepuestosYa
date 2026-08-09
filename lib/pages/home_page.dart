@@ -22,7 +22,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Color scheme from HTML
+  // Color scheme from HTML / Design System
   static const Color primary = Color(0xFFFFB5A0);
   static const Color primaryContainer = Color(0xFFFF5722);
   static const Color onPrimaryContainer = Color(0xFF541200);
@@ -45,6 +45,7 @@ class _HomePageState extends State<HomePage> {
   final AuthService _authService = AuthService();
   final AlmacenService _almacenService = AlmacenService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -57,55 +58,23 @@ class _HomePageState extends State<HomePage> {
       final user = _authService.currentUser;
       if (user != null) {
         final clienteId = user.id;
-        print(
-          '[NOTIFICACIONES] Suscribiendo a estado de órdenes para cliente: $clienteId',
-        );
         RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
 
-        // Usar el endpoint correcto para clientes
-        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(
-          clienteId,
-        );
-        print(
-          '[NOTIFICACIONES] Solicitudes del cliente obtenidas: ${solicitudes.length}',
-        );
-        if (solicitudes.isNotEmpty) {
-          print('[NOTIFICACIONES] Detalle de solicitudes:');
-          for (var sol in solicitudes) {
-            print(
-              '[NOTIFICACIONES] - ID: ${sol['id']}, Estado: ${sol['estado']}',
-            );
-          }
-
-          // Filtrar solo solicitudes activas (en_proceso)
-          final solicitudesActivas = solicitudes
-              .where((s) => s['estado'] == 'en_proceso')
-              .toList();
-          print(
-            '[NOTIFICACIONES] Solicitudes activas (en_proceso): ${solicitudesActivas.length}',
-          );
-
-          final solicitudIds = solicitudesActivas
+        final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+        if (solicitudes != null && solicitudes.isNotEmpty) {
+          final solicitudIds = solicitudes
               .map((s) => s['id']?.toString() ?? '')
               .where((id) => id.isNotEmpty)
               .toList();
-          print(
-            '[NOTIFICACIONES] IDs de solicitudes para suscripción: $solicitudIds',
-          );
           if (solicitudIds.isNotEmpty) {
             await RealtimeNotificationService().subscribeToAllMyRequests(
               solicitudIds,
             );
-            print('[NOTIFICACIONES] Suscripción a cotizaciones completada');
           }
-        } else {
-          print('[NOTIFICACIONES] No hay solicitudes para suscribir');
         }
-      } else {
-        print('[NOTIFICACIONES] No hay usuario autenticado');
       }
     } catch (e) {
-      print('[NOTIFICACIONES] Error al suscribir a notificaciones: $e');
+      print('Error al suscribir a notificaciones: $e');
     }
   }
 
@@ -122,14 +91,12 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final user = _authService.currentUser;
-      print('Cargando solicitudes para usuario: ${user?.id}');
       if (user != null) {
         final solicitudes = await _solicitudService.obtenerSolicitudesPaginadas(
           clienteId: user.id,
           page: 1,
           limit: 20,
         );
-        print('Solicitudes cargadas: ${solicitudes.length}');
         setState(() {
           _solicitudes = solicitudes;
         });
@@ -155,166 +122,27 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: background,
-      // 2. AGREGA EL MENU LATERAL (DRAWER) AQUÍ
-      drawer: Drawer(
-        child: Container(
-          color: background, // Mantiene tu fondo oscuro
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  color: surfaceContainerHigh,
-                  border: Border(
-                    bottom: BorderSide(color: outlineVariant, width: 1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'RepuestosYa',
-                      style: TextStyle(
-                        color: primaryContainer,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Menú de Opciones',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.home, color: primary),
-                title: const Text(
-                  'Inicio',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context); // Cierra el drawer
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.person, color: primary),
-                title: const Text(
-                  'Mi Perfil',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context); // Cierra el drawer
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfilePage(),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.shopping_cart_outlined,
-                  color: primary,
-                ),
-                title: const Text(
-                  'Mis Órdenes',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: () {
-                  Navigator.pop(context); // Cierra el drawer
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Próximamente: Lista de órdenes de compra'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
-                onTap: () async {
-                  // 1. Cerrar el menú lateral visualmente
-                  Navigator.pop(context);
-                  // 2. Mostramos un diálogo de carga rápido por si la petición tarda
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(
-                      child: CircularProgressIndicator(color: primaryContainer),
-                    ),
-                  );
-
-                  try {
-                    // 2. Ejecutamos el método correcto de tu auth_service.dart
-                    await _authService.signOut();
-                    // 3. Quitamos el diálogo de carga
-                    if (context.mounted) Navigator.pop(context);
-
-                    // 4. Redirigir al usuario al Login y limpiar el historial de navegación
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
-                        ),
-                        (route) =>
-                            false, // Borra todas las páginas anteriores del historial
-                      );
-                    }
-                  } catch (e) {
-                    // Si algo falla quitamos la carga y reportamos el error
-                    if (context.mounted) Navigator.pop(context);
-                    print('Error al cerrar sesión: $e');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error al cerrar sesión: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                    // Opcional: Puedes mostrar un SnackBar si algo falla
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-
+      drawer: _buildNavigationDrawer(context),
       body: SafeArea(
         child: Column(
           children: [
-            // TopAppBar
             _buildTopAppBar(),
-            // Main Content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
-                    // Main Action: NUEVA BÚSQUEDA
+                    const SizedBox(height: 12),
                     _buildNewSearchButton(),
-                    const SizedBox(height: 16),
-                    // Stats Bento Row
+                    const SizedBox(height: 20),
                     _buildStatsRow(),
-                    const SizedBox(height: 16),
-                    // List: Mis Solicitudes
+                    const SizedBox(height: 24),
                     _buildRequestsSection(),
-                    const SizedBox(height: 16),
-                    // Recommended / Trending Section
+                    const SizedBox(height: 24),
                     _buildTrendingSection(),
-                    const SizedBox(height: 80), // Space for bottom nav
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -322,11 +150,105 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      // BottomNavBar
       bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
+  // --- DRAWER MODERNO Y LIMPIO ---
+  Widget _buildNavigationDrawer(BuildContext context) {
+    return Drawer(
+      backgroundColor: background,
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(
+              color: surfaceContainerHigh,
+              border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'RepuestosYa',
+                  style: TextStyle(
+                    color: primaryContainer,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Menú de Opciones',
+                  style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.home_rounded, color: primary),
+            title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+            onTap: () => Navigator.pop(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person_rounded, color: primary),
+            title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.shopping_cart_outlined, color: primary),
+            title: const Text('Mis Órdenes', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Próximamente: Lista de órdenes de compra'), duration: Duration(seconds: 2)),
+              );
+            },
+          ),
+          const Divider(color: outlineVariant, height: 32),
+          ListTile(
+            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500)),
+            onTap: () async {
+              Navigator.pop(context);
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(color: primaryContainer),
+                ),
+              );
+
+              try {
+                await _authService.signOut();
+                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) Navigator.pop(context);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error al cerrar sesión: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- APPBAR SUPERIOR ---
   Widget _buildTopAppBar() {
     return Container(
       height: 64,
@@ -341,32 +263,24 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.menu, color: primary, size: 24),
-                onPressed: () {
-                  // Abre el drawer de forma segura usando la GlobalKey
-                  _scaffoldKey.currentState?.openDrawer();
-                },
+                icon: const Icon(Icons.menu_rounded, color: primary, size: 24),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               Text(
                 'RepuestosYa',
                 style: TextStyle(
                   color: primaryContainer,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1,
-                  textBaseline: TextBaseline.alphabetic,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
-
           InkWell(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
             },
             borderRadius: BorderRadius.circular(20),
             child: Container(
@@ -377,11 +291,7 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
                 border: Border.all(color: outlineVariant),
               ),
-              child: const Icon(
-                Icons.person,
-                color: onSurfaceVariant,
-                size: 24,
-              ),
+              child: const Icon(Icons.person, color: onSurfaceVariant, size: 22),
             ),
           ),
         ],
@@ -389,67 +299,73 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // --- BOTÓN PRINCIPAL DE BÚSQUEDA (HERO ELEMENT) ---
   Widget _buildNewSearchButton() {
     return Container(
       width: double.infinity,
-      height: 192,
+      height: 180,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant),
+        color: surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: primaryContainer.withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: primaryContainer.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () async {
-            // Agregamos async/await para refrescar al volver
             await Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const CreateRequestPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const CreateRequestPage()),
             );
-            // Esta línea se ejecuta en cuanto se cierra "CreateRequestPage"
             _cargarSolicitudes();
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               gradient: RadialGradient(
-                colors: [primaryContainer.withOpacity(0.1), Colors.transparent],
+                center: Alignment.center,
+                radius: 0.8,
+                colors: [primaryContainer.withOpacity(0.15), Colors.transparent],
               ),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: primaryContainer.withOpacity(0.1),
+                    color: primaryContainer.withOpacity(0.15),
                     shape: BoxShape.circle,
                     border: Border.all(color: primaryContainer, width: 2),
                   ),
-                  child: Icon(
-                    Icons.photo_camera,
+                  child: const Icon(
+                    Icons.photo_camera_rounded,
                     color: primaryContainer,
-                    size: 48,
+                    size: 38,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 14),
+                const Text(
                   'NUEVA BÚSQUEDA',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Sube una foto',
+                const SizedBox(height: 4),
+                const Text(
+                  'Sube una foto y encuentra tu repuesto al instante',
                   style: TextStyle(color: onSurfaceVariant, fontSize: 12),
                 ),
               ],
@@ -460,110 +376,76 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // --- FILA DE ESTADÍSTICAS (BENTO GRID) ---
   Widget _buildStatsRow() {
-    // Calculamos dinámicamente según los estados de tu BD
-    final int buscandoCount = _solicitudes
-        .where((s) => s['estado'] == 'en_proceso')
-        .length;
-    final int cotizadasCount = _solicitudes
-        .where((s) => s['estado'] == 'completado')
-        .length;
+    final int buscandoCount = _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
+    final int cotizadasCount = _solicitudes.where((s) => s['estado'] == 'completado').length;
 
-    // Si necesitas formatear a dos dígitos (ej: 03, 05)
     final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
     final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
 
     return Row(
       children: [
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Buscando',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      buscandoTxt, // CAMBIO: Variable dinámica
-                      style: const TextStyle(
-                        color: primaryContainer,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.history,
-                      color: primaryContainer,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          child: _buildStatCard(
+            title: 'Buscando',
+            value: buscandoTxt,
+            icon: Icons.history_rounded,
+            color: primaryContainer,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Cotizadas',
-                  style: TextStyle(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      cotizadasTxt, // CAMBIO: Variable dinámica
-                      style: const TextStyle(
-                        color: secondaryContainer,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(
-                      Icons.request_quote,
-                      color: secondaryContainer,
-                      size: 24,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          child: _buildStatCard(
+            title: 'Cotizadas',
+            value: cotizadasTxt,
+            icon: Icons.request_quote_rounded,
+            color: secondaryContainer,
           ),
         ),
       ],
     );
   }
 
+  Widget _buildStatCard({required String title, required String value, required IconData icon, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(color: onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                value,
+                style: TextStyle(color: color, fontSize: 26, fontWeight: FontWeight.w800),
+              ),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- SECCIÓN DE SOLICITUDES ---
   Widget _buildRequestsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,63 +455,47 @@ class _HomePageState extends State<HomePage> {
           children: [
             const Text(
               'Mis Solicitudes',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
             ),
             TextButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const TodasSolicitudesPage(),
-                  ),
-                ).then((_) {
-                  _cargarSolicitudes();
-                });
+                  MaterialPageRoute(builder: (context) => const TodasSolicitudesPage()),
+                ).then((_) => _cargarSolicitudes());
               },
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
               child: const Text(
                 'Ver todas',
-                style: TextStyle(
-                  color: primary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: primary, fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (_isLoadingSolicitudes)
           const Center(
-            child: CircularProgressIndicator(color: primaryContainer),
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: CircularProgressIndicator(color: primaryContainer),
+            ),
           )
         else if (_solicitudes.isEmpty)
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: outlineVariant),
             ),
             child: Column(
               children: [
-                const Icon(Icons.inbox, size: 48, color: onSurfaceVariant),
-                const SizedBox(height: 16),
-                const Text(
-                  'No tienes solicitudes aún',
-                  style: TextStyle(color: onSurfaceVariant, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Crea tu primera solicitud de repuesto',
-                  style: TextStyle(
-                    color: onSurfaceVariant.withOpacity(0.7),
-                    fontSize: 14,
-                  ),
-                ),
+                const Icon(Icons.inbox_rounded, size: 42, color: onSurfaceVariant),
+                const SizedBox(height: 12),
+                const Text('No tienes solicitudes aún', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                const Text('Crea tu primera solicitud de repuesto', style: TextStyle(color: onSurfaceVariant, fontSize: 13)),
               ],
             ),
           )
@@ -645,7 +511,7 @@ class _HomePageState extends State<HomePage> {
                 statusText = 'En Proceso';
                 break;
               case 'completado':
-                statusColor = Colors.green;
+                statusColor = Colors.greenAccent;
                 statusText = 'Completado';
                 break;
               case 'expirado':
@@ -661,40 +527,27 @@ class _HomePageState extends State<HomePage> {
             String timeText = 'Reciente';
             if (createdAt != null) {
               final date = DateTime.parse(createdAt);
-              final now = DateTime.now();
-              final difference = now.difference(date);
-
+              final difference = DateTime.now().difference(date);
               if (difference.inHours < 1) {
                 timeText = 'Hace ${difference.inMinutes} min';
               } else if (difference.inHours < 24) {
                 timeText = 'Hace ${difference.inHours}h';
-              } else if (difference.inDays == 1) {
-                timeText = 'Ayer';
               } else {
-                timeText = 'Hace ${difference.inDays} días';
+                timeText = 'Hace ${difference.inDays}d';
               }
             }
 
-            final int cantidadCotizaciones =
-                solicitud['cotizaciones_count'] ??
-                (solicitud['cotizaciones'] != null
-                    ? (solicitud['cotizaciones'] as List).length
-                    : 0);
+            final int cantidadCotizaciones = solicitud['cotizaciones_count'] ??
+                (solicitud['cotizaciones'] != null ? (solicitud['cotizaciones'] as List).length : 0);
 
-            final String quotesText = cantidadCotizaciones == 1
-                ? '1 Cotización nueva'
-                : '$cantidadCotizaciones Cotizaciones';
-
-            final String urlFinal =
-                solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-            final String piezaNombreFinal =
-                solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+            final String quotesText = cantidadCotizaciones == 1 ? '1 Cotización nueva' : '$cantidadCotizaciones Cotizaciones';
+            final String urlFinal = solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+            final String piezaNombreFinal = solicitud['pieza_nombre'] as String? ?? 'Repuesto';
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.only(bottom: 12),
               child: GestureDetector(
                 onTap: () {
-                  // CORRECCIÓN: Se añaden todos los parámetros que exige tu ReceivedQuotationsPage
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -707,8 +560,7 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: _buildRequestCard(
                   title: piezaNombreFinal,
-                  subtitle:
-                      solicitud['descripcion'] as String? ?? 'Sin descripción',
+                  subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
                   status: statusText,
                   statusColor: statusColor,
                   quotes: quotesText,
@@ -718,7 +570,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             );
-          }).toList(),
+          }),
       ],
     );
   }
@@ -732,196 +584,119 @@ class _HomePageState extends State<HomePage> {
     required bool tieneCotizaciones,
     required String time,
     required String imageUrl,
-    bool showSuccessBorder = false,
-    double opacity = 1.0,
   }) {
-    return Opacity(
-      opacity: opacity,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: tieneCotizaciones ? primaryContainer : outlineVariant,
-            width: tieneCotizaciones ? 1.5 : 1.0,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: tieneCotizaciones ? primaryContainer : outlineVariant,
+          width: tieneCotizaciones ? 1.5 : 1.0,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: surfaceVariant,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: outlineVariant),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: imageUrl.isEmpty
+                  ? const Icon(Icons.image_not_supported_rounded, color: onSurfaceVariant, size: 28)
+                  : (imageUrl.startsWith('http')
+                      ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.error, color: onSurfaceVariant))
+                      : Image.file(File(imageUrl), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.error, color: onSurfaceVariant))),
+            ),
           ),
-          boxShadow: tieneCotizaciones
-              ? [
-                  BoxShadow(
-                    color: primaryContainer.withOpacity(0.15),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: surfaceVariant,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: outlineVariant),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: imageUrl.isEmpty
-                    ? const Icon(
-                        Icons.image_not_supported,
-                        color: onSurfaceVariant,
-                        size: 32,
-                      )
-                    : (imageUrl.startsWith('http') ||
-                              imageUrl.startsWith('https')
-                          ? Image.network(
-                              imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.image_not_supported,
-                                    color: onSurfaceVariant,
-                                    size: 32,
-                                  ),
-                            )
-                          : Image.file(
-                              File(
-                                imageUrl,
-                              ), // ¡Restaura la lectura de archivos locales!
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.image_not_supported,
-                                    color: onSurfaceVariant,
-                                    size: 32,
-                                  ),
-                            )),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(
-                            color: statusColor.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFFB0B0B0),
-                      fontSize: 14,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.receipt_long,
-                            color: tieneCotizaciones
-                                ? primaryContainer
-                                : secondaryContainer,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            quotes,
-                            style: TextStyle(
-                              color: tieneCotizaciones
-                                  ? primaryContainer
-                                  : secondaryContainer,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusColor.withOpacity(0.3)),
                       ),
-                      Text(
-                        time,
-                        style: const TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 14,
+                      child: Text(
+                        status,
+                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: onSurfaceVariant, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.receipt_long_rounded, color: tieneCotizaciones ? primaryContainer : secondaryContainer, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          quotes,
+                          style: TextStyle(color: tieneCotizaciones ? primaryContainer : secondaryContainer, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                      ],
+                    ),
+                    Text(time, style: const TextStyle(color: onSurfaceVariant, fontSize: 12)),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
+  // --- SECCIÓN DE TENDENCIAS ---
   Widget _buildTrendingSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Lo más buscado',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         SizedBox(
-          height: 100,
+          height: 96,
           child: ListView(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             children: [
-              _buildTrendingItem(icon: Icons.tire_repair, label: 'Neumáticos'),
-              const SizedBox(width: 16),
-              _buildTrendingItem(
-                icon: Icons.battery_charging_full,
-                label: 'Baterías',
-              ),
-              const SizedBox(width: 16),
-              _buildTrendingItem(icon: Icons.minor_crash, label: 'Carrocería'),
+              _buildTrendingItem(icon: Icons.tire_repair_rounded, label: 'Neumáticos'),
+              const SizedBox(width: 12),
+              _buildTrendingItem(icon: Icons.battery_charging_full_rounded, label: 'Baterías'),
+              const SizedBox(width: 12),
+              _buildTrendingItem(icon: Icons.car_crash_rounded, label: 'Carrocería'),
             ],
           ),
         ),
@@ -931,25 +706,21 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildTrendingItem({required IconData icon, required String label}) {
     return Container(
-      width: 140,
+      width: 130,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: outlineVariant),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: primary, size: 32),
+          Icon(icon, color: primary, size: 28),
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
         ],
@@ -957,62 +728,26 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // --- BARRA DE NAVEGACIÓN INFERIOR ---
   Widget _buildBottomNavBar() {
     return Container(
       height: 64,
       decoration: BoxDecoration(
         color: surfaceContainerHigh,
         border: Border(top: BorderSide(color: outlineVariant, width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: primaryContainer.withOpacity(0.15),
-            blurRadius: 12,
-            offset: const Offset(0, -4),
-          ),
-        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          _buildNavItem(icon: Icons.home_rounded, label: 'Home', isSelected: _selectedIndex == 0, onTap: () => setState(() => _selectedIndex = 0)),
+          _buildNavItem(icon: Icons.search_rounded, label: 'Search', isSelected: _selectedIndex == 1, onTap: () => setState(() => _selectedIndex = 1)),
+          _buildNavItem(icon: Icons.shopping_cart_rounded, label: 'Orders', isSelected: _selectedIndex == 2, onTap: () => setState(() => _selectedIndex = 2)),
           _buildNavItem(
-            icon: Icons.home,
-            label: 'Home',
-            isSelected: _selectedIndex == 0,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 0;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.search,
-            label: 'Search',
-            isSelected: _selectedIndex == 1,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 1;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.shopping_cart,
-            label: 'Orders',
-            isSelected: _selectedIndex == 2,
-            onTap: () {
-              setState(() {
-                _selectedIndex = 2;
-              });
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.person,
+            icon: Icons.person_rounded,
             label: 'Profile',
             isSelected: _selectedIndex == 3,
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
             },
           ),
         ],
@@ -1020,29 +755,17 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildNavItem({required IconData icon, required String label, required bool isSelected, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: isSelected ? primaryContainer : onSurfaceVariant,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
+          Icon(icon, color: isSelected ? primaryContainer : onSurfaceVariant, size: 22),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              color: isSelected ? primaryContainer : onSurfaceVariant,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: isSelected ? primaryContainer : onSurfaceVariant, fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400),
           ),
         ],
       ),

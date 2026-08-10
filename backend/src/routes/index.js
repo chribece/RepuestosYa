@@ -13,11 +13,13 @@ const marcaController = require('../controllers/marcaController');
 const modeloController = require('../controllers/modeloController');
 const almacenController = require('../controllers/almacenController');
 const ordenController = require('../controllers/ordenController');
+const adminController = require('../controllers/adminController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
 router.post('/auth/logout', auth, authController.logout);
+router.get('/auth/me', auth, authController.getMe);
 
 // Profile routes (protected)
 router.get('/profile', auth, profileController.getProfile);
@@ -64,5 +66,13 @@ router.post('/quotations/:id/reject', auth, cotizacionController.rechazarCotizac
 // Orden de compra routes (protected)
 router.get('/orders/:id', auth, ordenController.getOrdenDetalleController);
 router.patch('/orders/:id/status', auth, requireRole('almacen'), ordenController.updateOrdenEstadoController);
+
+// Admin routes (solo admin)
+router.get('/admin/metrics', auth, requireRole('admin'), adminController.getDashboardMetricsController);
+router.get('/admin/orders', auth, requireRole('admin'), adminController.getAllOrdenesController);
+router.get('/admin/users', auth, requireRole('admin'), adminController.getAllUsuariosController);
+router.patch('/admin/users/:id/role', auth, requireRole('admin'), adminController.updateUsuarioRolController);
+router.get('/admin/warehouses/pending', auth, requireRole('admin'), adminController.getAlmacenesPendientesController);
+router.patch('/admin/warehouses/:id/verify', auth, requireRole('admin'), adminController.actualizarEstadoAlmacenController);
 
 module.exports = router;

@@ -26,7 +26,7 @@ app.use(helmet());
 
 // CORS (abierto para desarrollo)
 app.use(cors({
-  origin: '*', // 👈 En desarrollo, permitir cualquier origen
+  origin: ['http://localhost:3002', 'http://127.0.0.1:3002', 'http://192.168.100.2:3002', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.2:3000'], // Admin panel (3002) y móvil (3000)
   credentials: true
 }));
 

@@ -141,25 +141,30 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log('Login request received for email:', email);
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     // 1. Autenticar credenciales en Supabase Auth
+    console.log('Authenticating with Supabase...');
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
     if (authError) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      console.error('Supabase auth error:', authError);
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     const userId = authData.user.id;
-    console.log('Login attempt for user ID:', userId);
-    console.log('Login attempt for email:', authData.user.email);
+    console.log('Login successful for user ID:', userId);
+    console.log('User email:', authData.user.email);
 
     // 2. BUSCAR PROFILE (solo campos necesarios - UNA sola consulta)
+    console.log('Fetching profile from database...');
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, email, nombre_completo, rol')
@@ -172,17 +177,19 @@ const login = async (req, res) => {
     if (profileError) {
       console.error('Profile fetch error:', profileError);
       return res.status(500).json({ 
-        error: 'Error fetching profile', 
+        error: 'Error al obtener perfil de usuario', 
         details: profileError.message 
       });
     }
 
     if (!profile) {
-      return res.status(404).json({ error: 'Profile not found' });
+      console.error('Profile not found for user ID:', userId);
+      return res.status(404).json({ error: 'Perfil de usuario no encontrado' });
     }
 
     // Extraemos el rol asignado en la base de datos
     const userRole = profile.rol || 'cliente';
+    console.log('User role:', userRole);
 
     // 3. Generar el Token JWT firmado con el rol real detectado
     const token = jwt.sign(
@@ -195,8 +202,11 @@ const login = async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
 
+    console.log('JWT token generated successfully');
+
     // Respuesta unificada que Flutter interpretará perfectamente
     return res.json({
+      success: true,
       token,
       user: {
         id: profile.id,
@@ -208,7 +218,7 @@ const login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 
@@ -222,4 +232,24 @@ const logout = async (req, res) => {
   }
 };
 
-module.exports = { register, login, logout };
+// GET /auth/me - Obtener usuario actual
+const getMe = async (req, res) => {
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, email, nombre_completo, rol, telefono')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: 'Error fetching profile' });
+    }
+
+    res.json({ success: true, data: profile });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { register, login, logout, getMe };

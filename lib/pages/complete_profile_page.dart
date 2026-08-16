@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
@@ -132,13 +133,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           icon: const Icon(Icons.arrow_back, color: primary, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Completar Perfil',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Sora',
+
           ),
         ),
       ),
@@ -186,22 +187,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           '¡Bienvenido!',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: primary,
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Sora',
+
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Completa la información de tu almacén para comenzar.',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: onSurfaceVariant,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
         ),
       ],
@@ -213,24 +213,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Nombre Comercial',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -239,10 +237,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _nombreController,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -255,7 +252,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: RepuestosYa Central',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -285,24 +282,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'RUC',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -313,10 +308,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _rucController,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -329,7 +323,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: 20123456789',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -359,24 +353,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Representante Legal',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -385,10 +377,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -401,7 +392,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Juan Pérez',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -431,24 +422,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Teléfono',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -459,10 +448,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _telefonoController,
           keyboardType: TextInputType.phone,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -475,7 +463,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: 999123456',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -505,24 +493,22 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Dirección',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -532,10 +518,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         TextFormField(
           controller: _direccionController,
           maxLines: 3,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -548,7 +533,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Av. Principal 123, Ciudad',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -575,15 +560,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Latitud',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -599,10 +583,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
           ],
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -619,7 +602,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: '0.0',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -649,15 +632,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Longitud',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -673,10 +655,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
           ],
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -693,7 +674,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: '0.0',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -733,7 +714,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           ),
         ),
         child: _isSubmitting
-            ? const Row(
+            ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
@@ -747,27 +728,27 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   SizedBox(width: 12),
                   Text(
                     'PROCESANDO...',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+
                     ),
                   ),
                 ],
               )
-            : const Row(
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.check_circle, color: onPrimaryContainer, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'COMPLETAR PERFIL',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+                      
                     ),
                   ),
                 ],
@@ -784,7 +765,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: outlineVariant.withOpacity(0.3)),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.info_outline, color: primary, size: 20),
@@ -792,11 +773,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           Expanded(
             child: Text(
               'Las coordenadas son opcionales. Puedes actualizarlas más tarde desde tu perfil.',
-              style: TextStyle(
+              style: GoogleFonts.sora(
                 color: onSurfaceVariant,
                 fontSize: 12,
                 height: 1.4,
-                fontFamily: 'Inter',
               ),
             ),
           ),

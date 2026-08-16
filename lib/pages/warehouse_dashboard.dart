@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'profile_page.dart';
 import 'login_page.dart';
 import '../services/solicitud_service.dart';
@@ -163,36 +164,36 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
+                    Text(
                       'RepuestosYa',
-                      style: TextStyle(
+                      style: GoogleFonts.sora(
                         color: primaryContainer,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
-                        fontFamily: 'Sora',
+
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Panel de Control (Almacén)',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                      style: GoogleFonts.sora(color: onSurfaceVariant, fontSize: 14),
                     ),
                   ],
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.dashboard, color: primaryContainer),
-                title: const Text(
+                title: Text(
                   'Panel Principal',
-                  style: TextStyle(color: Colors.white),
+                  style: GoogleFonts.sora(color: Colors.white),
                 ),
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
                 leading: const Icon(Icons.send, color: primaryContainer),
-                title: const Text(
+                title: Text(
                   'Cotizaciones Enviadas',
-                  style: TextStyle(color: Colors.white),
+                  style: GoogleFonts.sora(color: Colors.white),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -201,9 +202,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ),
               ListTile(
                 leading: const Icon(Icons.store, color: primaryContainer),
-                title: const Text(
+                title: Text(
                   'Mi Almacén',
-                  style: TextStyle(color: Colors.white),
+                  style: GoogleFonts.sora(color: Colors.white),
                 ),
                 onTap: () async {
                   Navigator.pop(context);
@@ -230,9 +231,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               const Divider(color: outlineVariant),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text(
+                title: Text(
                   'Cerrar Sesión',
-                  style: TextStyle(color: Colors.redAccent),
+                  style: GoogleFonts.sora(color: Colors.redAccent),
                 ),
                 onTap: () async {
                   Navigator.pop(context);
@@ -275,17 +276,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                             // Dashboard Welcome
                             Text(
                               _nombreAlmacen ?? 'Cargando...',
-                              style: const TextStyle(
+                              style: GoogleFonts.sora(
                                 color: onSurface,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
-                                fontFamily: 'Sora',
+
                               ),
                             ),
                             const SizedBox(height: 4),
-                            const Text(
+                            Text(
                               'Gestión de inventario y pedidos en tiempo real.',
-                              style: TextStyle(
+                              style: GoogleFonts.sora(
                                 color: onSurfaceVariant,
                                 fontSize: 14,
                               ),
@@ -300,20 +301,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Solicitudes Cercanas',
-                                  style: TextStyle(
+                                  style: GoogleFonts.sora(
                                     color: onSurface,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    fontFamily: 'Sora',
+
                                   ),
                                 ),
                                 TextButton(
                                   onPressed: _cargarSolicitudes,
-                                  child: const Text(
+                                  child: Text(
                                     'Ver todas',
-                                    style: TextStyle(
+                                    style: GoogleFonts.sora(
                                       color: primary,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -343,7 +344,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: outlineVariant),
                                     ),
-                                    child: const Column(
+                                    child: Column(
                                       children: [
                                         Icon(
                                           Icons.inbox,
@@ -353,7 +354,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         SizedBox(height: 12),
                                         Text(
                                           'No hay solicitudes activas',
-                                          style: TextStyle(
+                                          style: GoogleFonts.sora(
                                             color: Colors.white,
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -363,7 +364,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         Text(
                                           'Las nuevas peticiones de los clientes aparecerán aquí.',
                                           textAlign: TextAlign.center,
-                                          style: TextStyle(
+                                          style: GoogleFonts.sora(
                                             color: onSurfaceVariant,
                                             fontSize: 12,
                                           ),
@@ -412,7 +413,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 color: onSurface,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
-                                fontFamily: 'Sora',
+                                
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -605,7 +606,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               color: primaryContainer,
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              fontFamily: 'Sora',
+              
               letterSpacing: -0.5,
             ),
           ),
@@ -802,7 +803,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         color: onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'Sora',
+                        
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -980,7 +981,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  fontFamily: 'Sora',
+                  
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1115,7 +1116,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         color: onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        fontFamily: 'Sora',
+                        
                       ),
                     ),
                     const SizedBox(height: 4),

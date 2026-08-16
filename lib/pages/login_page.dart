@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'role_selection_page.dart';
 import 'home_page.dart';
@@ -178,13 +179,12 @@ class _LoginPageState extends State<LoginPage> {
           child: const Icon(Icons.build, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'Bienvenido',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-            fontFamily: 'Sora',
           ),
         ),
         const SizedBox(height: 8),

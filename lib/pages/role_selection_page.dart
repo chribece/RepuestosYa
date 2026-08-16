@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'register_cliente_page.dart';
 import 'register_almacen_page.dart';
 
@@ -65,19 +66,19 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           child: const Icon(Icons.build, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'Cuéntanos quién eres',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-            fontFamily: 'Sora',
+
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Selecciona tu tipo de cuenta para continuar',
-          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
+          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -116,11 +117,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Tipo de cuenta',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: onSurfaceVariant,
                   fontWeight: FontWeight.bold,
@@ -129,7 +130,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: requiredAsterisk,
                   fontWeight: FontWeight.bold,
@@ -156,7 +157,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                 border: InputBorder.none,
               ),
               dropdownColor: surfaceContainerHigh,
-              style: const TextStyle(color: onSurface, fontSize: 16),
+              style: GoogleFonts.sora(color: onSurface, fontSize: 16),
               icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
               items: const [
                 DropdownMenuItem(
@@ -210,12 +211,12 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               'CONTINUAR',
-              style: TextStyle(
+              style: GoogleFonts.sora(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1,
@@ -235,9 +236,9 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         onPressed: () {
           Navigator.pop(context);
         },
-        child: const Text(
+        child: Text(
           'Volver',
-          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
+          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
 
@@ -131,13 +132,13 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
           icon: const Icon(Icons.arrow_back, color: primaryContainer),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detalle de Orden',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w700,
-            fontFamily: 'Sora',
+
           ),
         ),
       ),
@@ -146,10 +147,10 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               child: CircularProgressIndicator(color: primaryContainer),
             )
           : _orden == null
-          ? const Center(
+          ? Center(
               child: Text(
                 'No se pudo cargar la orden',
-                style: TextStyle(color: onSurfaceVariant),
+                style: GoogleFonts.sora(color: onSurfaceVariant),
               ),
             )
           : SingleChildScrollView(
@@ -186,21 +187,20 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                           ),
                           child: Text(
                             _getEstadoTexto(_orden?['estado']),
-                            style: TextStyle(
+                            style: GoogleFonts.sora(
                               color: _getEstadoColor(_orden?['estado']),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'Sora',
+
                             ),
                           ),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'ID: ${widget.ordenId}',
-                          style: const TextStyle(
+                          style: GoogleFonts.sora(
                             color: onSurfaceVariant,
                             fontSize: 12,
-                            fontFamily: 'Inter',
                           ),
                         ),
                       ],
@@ -302,7 +302,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               color: onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              fontFamily: 'Sora',
+              
             ),
           ),
         ],
@@ -419,7 +419,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                   color: onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'Sora',
+                  
                 ),
               ),
             ],
@@ -518,7 +518,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  fontFamily: 'Sora',
+                  
                   letterSpacing: 0.5,
                 ),
               ),

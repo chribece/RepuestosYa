@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import '../services/almacen_service.dart';
 
@@ -151,13 +152,13 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           icon: const Icon(Icons.arrow_back, color: primary, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Perfil de Almacén',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Sora',
+
           ),
         ),
         actions: [
@@ -177,11 +178,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
               ),
               label: Text(
                 _isEditing ? 'Cancelar' : 'Editar',
-                style: const TextStyle(
+                style: GoogleFonts.sora(
                   color: primary,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ),
@@ -198,21 +198,20 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 children: [
                   const Icon(Icons.store, color: onSurfaceVariant, size: 64),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'No tienes un almacén registrado',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurface,
                       fontSize: 18,
-                      fontFamily: 'Sora',
+
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Regístrate para comenzar',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurfaceVariant,
                       fontSize: 14,
-                      fontFamily: 'Inter',
                     ),
                   ),
                 ],
@@ -287,7 +286,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                     color: onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Sora',
+                    
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -586,7 +585,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+                      
                     ),
                   ),
                 ],
@@ -602,7 +601,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+                      
                     ),
                   ),
                 ],

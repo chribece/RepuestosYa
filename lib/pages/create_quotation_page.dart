@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -80,17 +81,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Evidencia Visual',
-                      style: TextStyle(
+                      style: GoogleFonts.sora(
                         color: onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        fontFamily: 'Sora',
+
                       ),
                     ),
                   ),
@@ -106,19 +107,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     ),
                     child: const Icon(Icons.photo_camera, color: secondary),
                   ),
-                  title: const Text(
+                  title: Text(
                     'Tomar foto',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurface,
-                      fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Usar la cámara del dispositivo',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurfaceVariant,
-                      fontFamily: 'Inter',
                       fontSize: 12,
                     ),
                   ),
@@ -137,19 +136,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     ),
                     child: const Icon(Icons.photo_library, color: secondary),
                   ),
-                  title: const Text(
+                  title: Text(
                     'Elegir de galería',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurface,
-                      fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Seleccionar una imagen ya existente',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: onSurfaceVariant,
-                      fontFamily: 'Inter',
                       fontSize: 12,
                     ),
                   ),
@@ -172,11 +169,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         color: Colors.redAccent,
                       ),
                     ),
-                    title: const Text(
+                    title: Text(
                       'Quitar imagen',
-                      style: TextStyle(
+                      style: GoogleFonts.sora(
                         color: Colors.redAccent,
-                        fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -500,21 +496,20 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
+                Text(
                   'Nueva Cotización',
-                  style: TextStyle(
+                  style: GoogleFonts.sora(
                     color: onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Sora',
+
                   ),
                 ),
                 Text(
                   'Solicitud #$id - $pieza',
-                  style: const TextStyle(
+                  style: GoogleFonts.sora(
                     color: onSurfaceVariant,
                     fontSize: 12,
-                    fontFamily: 'Inter',
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -614,32 +609,30 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: secondary.withOpacity(0.2)),
                   ),
-                  child: const Text(
+                  child: Text(
                     'REQUERIDO',
-                    style: TextStyle(
+                    style: GoogleFonts.sora(
                       color: secondary,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Inter',
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: GoogleFonts.sora(
                     color: onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'Sora',
+
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: GoogleFonts.sora(
                     color: onSurfaceVariant,
                     fontSize: 12,
-                    fontFamily: 'Inter',
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -701,12 +694,12 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               const SizedBox(width: 8),
               Text(
                 'FICHA TÉCNICA DEL VEHÍCULO',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: primary.withOpacity(0.9),
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
-                  fontFamily: 'Sora',
+
                 ),
               ),
             ],
@@ -832,7 +825,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               color: Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              fontFamily: 'Sora',
+              
             ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
@@ -866,7 +859,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           style: const TextStyle(
             color: Colors.white,
             fontSize: 22,
-            fontFamily: 'Sora',
+            
             fontWeight: FontWeight.bold,
           ),
           validator: (value) {
@@ -1259,7 +1252,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           color: onPrimaryContainer,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'Sora',
+                          
                         ),
                       ),
                     ],
@@ -1275,7 +1268,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           color: onPrimaryContainer,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          fontFamily: 'Sora',
+                          
                         ),
                       ),
                     ],

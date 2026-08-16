@@ -11,7 +11,7 @@ import 'services/realtime_notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializar Supabase
+  // Inicializar Supabase (necesario al inicio)
   try {
     await Supabase.initialize(
       url: 'https://vpgnasrlgdgkxpggorxl.supabase.co',
@@ -24,12 +24,14 @@ void main() async {
     print('[SUPABASE] ❌ Error de inicialización: $e');
   }
 
-  // Inicializar ApiClient (carga el token desde SharedPreferences)
-  await ApiClient().init();
+  // Inicializar ApiClient en background
+  ApiClient().init();
 
-  // Inicializar servicio de notificaciones en tiempo real
-  await RealtimeNotificationService().init();
-  await RealtimeNotificationService().requestPermissions();
+  // Inicializar notificaciones en background después de que la app cargue
+  Future.delayed(const Duration(milliseconds: 500), () async {
+    await RealtimeNotificationService().init();
+    await RealtimeNotificationService().requestPermissions();
+  });
 
   runApp(const MyApp());
 }

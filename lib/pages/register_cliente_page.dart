@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'login_page.dart';
 import '../services/auth_service.dart';
 
@@ -132,19 +133,19 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           child: const Icon(Icons.person, size: 50, color: primary),
         ),
         const SizedBox(height: 24),
-        const Text(
+        Text(
           'Registro de Cliente',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-            fontFamily: 'Sora',
+
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Performance y precisión en cada pieza.',
-          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
+          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       ],
@@ -192,11 +193,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Nombre completo',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: onSurfaceVariant,
                   fontWeight: FontWeight.bold,
@@ -205,7 +206,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: requiredAsterisk,
                   fontWeight: FontWeight.bold,
@@ -217,12 +218,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _nameController,
-          style: const TextStyle(color: onSurface),
+          style: GoogleFonts.sora(color: onSurface),
           decoration: InputDecoration(
             filled: true,
             fillColor: surfaceContainerHigh,
             hintText: 'Juan Pérez',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
             prefixIcon: const Icon(Icons.person, color: onSurfaceVariant),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -256,11 +257,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Email corporativo / Usuario',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: onSurfaceVariant,
                   fontWeight: FontWeight.bold,
@@ -269,7 +270,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: requiredAsterisk,
                   fontWeight: FontWeight.bold,
@@ -282,12 +283,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: onSurface),
+          style: GoogleFonts.sora(color: onSurface),
           decoration: InputDecoration(
             filled: true,
             fillColor: surfaceContainerHigh,
             hintText: 'nombre@empresa.com',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
             prefixIcon: const Icon(Icons.mail, color: onSurfaceVariant),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -322,11 +323,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Contraseña',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: onSurfaceVariant,
                   fontWeight: FontWeight.bold,
@@ -335,7 +336,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: requiredAsterisk,
                   fontWeight: FontWeight.bold,
@@ -348,12 +349,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         TextFormField(
           controller: _passwordController,
           obscureText: true,
-          style: const TextStyle(color: onSurface),
+          style: GoogleFonts.sora(color: onSurface),
           decoration: InputDecoration(
             filled: true,
             fillColor: surfaceContainerHigh,
             hintText: '••••••••',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
             prefixIcon: const Icon(Icons.lock, color: onSurfaceVariant),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -387,11 +388,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Confirmar contraseña',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: onSurfaceVariant,
                   fontWeight: FontWeight.bold,
@@ -400,7 +401,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   fontSize: 12,
                   color: requiredAsterisk,
                   fontWeight: FontWeight.bold,
@@ -413,12 +414,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: true,
-          style: const TextStyle(color: onSurface),
+          style: GoogleFonts.sora(color: onSurface),
           decoration: InputDecoration(
             filled: true,
             fillColor: surfaceContainerHigh,
             hintText: '••••••••',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
             prefixIcon: const Icon(Icons.lock_outline, color: onSurfaceVariant),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -472,9 +473,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
                 _acceptTerms = !_acceptTerms;
               });
             },
-            child: const Text(
+            child: Text(
               'Acepto los términos y condiciones de uso',
-              style: TextStyle(fontSize: 14, color: onSurfaceVariant),
+              style: GoogleFonts.sora(fontSize: 14, color: onSurfaceVariant),
             ),
           ),
         ),
@@ -509,12 +510,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
                       ),
                     ),
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'REGISTRARSE',
-                        style: TextStyle(
+                        style: GoogleFonts.sora(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -532,9 +533,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: const Text(
+            child: Text(
               '¿Ya tienes cuenta? Inicia sesión',
-              style: TextStyle(fontSize: 16, color: secondaryContainer),
+              style: GoogleFonts.sora(fontSize: 16, color: secondaryContainer),
             ),
           ),
         ),
@@ -552,9 +553,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               children: [
                 const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   'Certificado ISO 9001',
-                  style: TextStyle(
+                  style: GoogleFonts.sora(
                     fontSize: 12,
                     color: onSurfaceVariant,
                     letterSpacing: 1,
@@ -569,9 +570,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               children: [
                 const Icon(Icons.security, size: 18, color: onSurfaceVariant),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   'SSL Secure',
-                  style: TextStyle(
+                  style: GoogleFonts.sora(
                     fontSize: 12,
                     color: onSurfaceVariant,
                     letterSpacing: 1,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import 'complete_profile_page.dart';
@@ -100,13 +101,13 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           icon: const Icon(Icons.arrow_back, color: primary, size: 28),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Registrar Almacén',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Sora',
+
           ),
         ),
       ),
@@ -142,13 +143,13 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Crear Cuenta',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             color: primary,
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Sora',
+
           ),
         ),
         const SizedBox(height: 8),
@@ -169,24 +170,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Nombre Completo',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -195,10 +194,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -211,7 +209,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Juan Pérez',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -241,24 +239,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Email',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -268,10 +264,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -285,7 +280,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: contacto@repuestosya.com',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -315,24 +310,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Contraseña',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -342,10 +335,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _passwordController,
           obscureText: true,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -358,7 +350,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: '••••••••',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -388,24 +380,22 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
-          text: const TextSpan(
+          text: TextSpan(
             children: [
               TextSpan(
                 text: 'Confirmar Contraseña',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: TextStyle(
+                style: GoogleFonts.sora(
                   color: requiredAsterisk,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Inter',
                 ),
               ),
             ],
@@ -415,10 +405,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: true,
-          style: const TextStyle(
+          style: GoogleFonts.sora(
             color: onSurface,
             fontSize: 16,
-            fontFamily: 'Inter',
           ),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
@@ -431,7 +420,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: '••••••••',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -489,7 +478,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+                      
                     ),
                   ),
                 ],
@@ -505,7 +494,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Sora',
+                      
                     ),
                   ),
                 ],

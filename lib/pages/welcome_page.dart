@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'login_page.dart';
 import 'role_selection_page.dart';
 
@@ -68,13 +69,12 @@ class _WelcomePageState extends State<WelcomePage> {
           child: const Icon(Icons.build, size: 60, color: primary),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'RepuestosYa',
-          style: TextStyle(
+          style: GoogleFonts.sora(
             fontSize: 36,
             fontWeight: FontWeight.bold,
             color: onSurface,
-            fontFamily: 'Sora',
             letterSpacing: 1,
           ),
         ),

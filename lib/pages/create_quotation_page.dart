@@ -91,7 +91,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         color: onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-
                       ),
                     ),
                   ),
@@ -502,7 +501,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     color: onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-
                   ),
                 ),
                 Text(
@@ -625,7 +623,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     color: onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-
                   ),
                 ),
                 Text(
@@ -699,7 +696,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
-
                 ),
               ),
             ],
@@ -825,7 +821,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               color: Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              
             ),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
@@ -859,7 +854,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           style: const TextStyle(
             color: Colors.white,
             fontSize: 22,
-            
+
             fontWeight: FontWeight.bold,
           ),
           validator: (value) {
@@ -1252,7 +1247,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           color: onPrimaryContainer,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          
                         ),
                       ),
                     ],
@@ -1268,7 +1262,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           color: onPrimaryContainer,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          
                         ),
                       ),
                     ],

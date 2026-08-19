@@ -183,4 +183,114 @@ const getSolicitudPorId = async (req, res) => {
   }
 };
 
-module.exports = { getMisSolicitudes, getSolicitudesActivas, createSolicitud, getSolicitudPorId };
+// GET /requests/stats (estadísticas del cliente)
+const getEstadisticasCliente = async (req, res) => {
+  try {
+    const clienteId = req.user.id;
+
+    // Obtener solicitudes activas (en_proceso)
+    const { data: solicitudesActivas, error: errorActivas } = await supabase
+      .from('solicitudes_repuesto')
+      .select('id')
+      .eq('cliente_id', clienteId)
+      .eq('estado', 'en_proceso');
+
+    if (errorActivas) {
+      return res.status(400).json({ error: errorActivas.message });
+    }
+
+    // Obtener cotizaciones recibidas (contando cotizaciones para todas las solicitudes del cliente)
+    const { data: todasSolicitudes, error: errorSolicitudes } = await supabase
+      .from('solicitudes_repuesto')
+      .select('id, cotizaciones(count)')
+      .eq('cliente_id', clienteId);
+
+    if (errorSolicitudes) {
+      return res.status(400).json({ error: errorSolicitudes.message });
+    }
+
+    let totalCotizaciones = 0;
+    if (todasSolicitudes) {
+      todasSolicitudes.forEach(solicitud => {
+        if (solicitud.cotizaciones && solicitud.cotizaciones.length > 0) {
+          totalCotizaciones += solicitud.cotizaciones[0].count || 0;
+        }
+      });
+    }
+
+    // Obtener solicitudes completadas
+    const { data: solicitudesCompletadas, error: errorCompletadas } = await supabase
+      .from('solicitudes_repuesto')
+      .select('id')
+      .eq('cliente_id', clienteId)
+      .eq('estado', 'completado');
+
+    if (errorCompletadas) {
+      return res.status(400).json({ error: errorCompletadas.message });
+    }
+
+    // Obtener órdenes de compra del cliente
+    const { data: ordenes, error: errorOrdenes } = await supabase
+      .from('ordenes_compra')
+      .select('id')
+      .eq('cliente_id', clienteId);
+
+    if (errorOrdenes) {
+      return res.status(400).json({ error: errorOrdenes.message });
+    }
+
+    const estadisticas = {
+      solicitudes_activas: solicitudesActivas?.length || 0,
+      cotizaciones_recibidas: totalCotizaciones,
+      solicitudes_en_proceso: solicitudesActivas?.length || 0,
+      solicitudes_completadas: solicitudesCompletadas?.length || 0,
+      ordenes_realizadas: ordenes?.length || 0
+    };
+
+    res.json(estadisticas);
+  } catch (error) {
+    console.error('Get estadísticas cliente error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// GET /orders (mis órdenes - clientes)
+const getMisOrdenes = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    let query = supabase
+      .from('ordenes_compra')
+      .select('*, cotizaciones(*, almacenes(nombre_comercial)), solicitudes_repuesto(pieza_nombre)')
+      .eq('cliente_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    // Si el frontend envía parámetros de paginación, aplicamos el rango
+    if (!isNaN(page) && !isNaN(limit)) {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+    }
+
+    const { data: ordenes, error } = await query;
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(ordenes || []);
+  } catch (error) {
+    console.error('Get mis órdenes error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+module.exports = { 
+  getMisSolicitudes, 
+  getSolicitudesActivas, 
+  createSolicitud, 
+  getSolicitudPorId,
+  getEstadisticasCliente,
+  getMisOrdenes
+};

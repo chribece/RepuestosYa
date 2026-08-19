@@ -170,13 +170,15 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         color: primaryContainer,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
-
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Panel de Control (Almacén)',
-                      style: GoogleFonts.sora(color: onSurfaceVariant, fontSize: 14),
+                      style: GoogleFonts.sora(
+                        color: onSurfaceVariant,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -280,7 +282,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 color: onSurface,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
-
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -307,7 +308,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                     color: onSurface,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-
                                   ),
                                 ),
                                 TextButton(
@@ -413,7 +413,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 color: onSurface,
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
-                                
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -606,7 +605,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               color: primaryContainer,
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              
+
               letterSpacing: -0.5,
             ),
           ),
@@ -803,7 +802,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         color: onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -981,7 +979,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  
+
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1116,7 +1114,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         color: onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        
                       ),
                     ),
                     const SizedBox(height: 4),

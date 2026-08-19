@@ -139,7 +139,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-
           ),
         ),
         const SizedBox(height: 8),

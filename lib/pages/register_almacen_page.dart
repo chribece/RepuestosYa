@@ -107,7 +107,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-
           ),
         ),
       ),
@@ -149,7 +148,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             color: primary,
             fontSize: 28,
             fontWeight: FontWeight.bold,
-
           ),
         ),
         const SizedBox(height: 8),
@@ -194,10 +192,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El nombre completo es requerido';
@@ -209,7 +204,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Juan Pérez',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -264,10 +261,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El email es requerido';
@@ -280,7 +274,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: contacto@repuestosya.com',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -335,10 +331,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _passwordController,
           obscureText: true,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'La contraseña es requerida';
@@ -350,7 +343,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -405,10 +400,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         TextFormField(
           controller: _confirmPasswordController,
           obscureText: true,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Por favor confirme su contraseña';
@@ -420,7 +412,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           },
           decoration: InputDecoration(
             hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -478,7 +472,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      
                     ),
                   ),
                 ],
@@ -494,7 +487,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      
                     ),
                   ),
                 ],

@@ -138,7 +138,6 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w700,
-
           ),
         ),
       ),
@@ -191,7 +190,6 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                               color: _getEstadoColor(_orden?['estado']),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-
                             ),
                           ),
                         ),
@@ -302,7 +300,6 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               color: onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              
             ),
           ),
         ],
@@ -419,7 +416,6 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                   color: onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  
                 ),
               ),
             ],
@@ -518,7 +514,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  
+
                   letterSpacing: 0.5,
                 ),
               ),

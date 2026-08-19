@@ -139,7 +139,6 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-
           ),
         ),
         const SizedBox(height: 8),

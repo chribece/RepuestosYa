@@ -57,9 +57,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
         home: const WelcomePage(),
-        routes: {
-          '/orden-compra': (context) => const OrdenCompraPage(),
-        },
+        routes: {'/orden-compra': (context) => const OrdenCompraPage()},
       ),
     );
   }

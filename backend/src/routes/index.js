@@ -52,6 +52,7 @@ router.get('/warehouse/my-warehouse', auth, requireRole('almacen'), cotizacionCo
 // Solicitud routes (protected)
 router.get('/requests', auth, solicitudController.getMisSolicitudes);
 router.get('/requests/active', auth, requireRole('almacen'), solicitudController.getSolicitudesActivas);
+router.get('/requests/stats', auth, solicitudController.getEstadisticasCliente);
 router.post('/requests', auth, solicitudController.createSolicitud);
 router.get('/requests/:id', auth, solicitudController.getSolicitudPorId);
 
@@ -64,6 +65,7 @@ router.post('/quotations/:id/accept', auth, cotizacionController.aceptarCotizaci
 router.post('/quotations/:id/reject', auth, cotizacionController.rechazarCotizacion);
 
 // Orden de compra routes (protected)
+router.get('/orders', auth, solicitudController.getMisOrdenes);
 router.get('/orders/:id', auth, ordenController.getOrdenDetalleController);
 router.patch('/orders/:id/status', auth, requireRole('almacen'), ordenController.updateOrdenEstadoController);
 

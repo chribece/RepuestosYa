@@ -13,6 +13,7 @@ import 'login_page.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_role_provider.dart';
 import 'received_quotations_page.dart';
+import 'mis_ordenes_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -40,6 +41,8 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _solicitudes = [];
   bool _isLoadingSolicitudes = false;
+  Map<String, dynamic> _estadisticas = {};
+  bool _isLoadingEstadisticas = false;
 
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
@@ -50,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _cargarSolicitudes();
+    _cargarEstadisticas();
     _suscribirANotificaciones();
   }
 
@@ -82,6 +86,7 @@ class _HomePageState extends State<HomePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _cargarSolicitudes();
+    _cargarEstadisticas();
   }
 
   Future<void> _cargarSolicitudes() async {
@@ -110,6 +115,25 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _cargarEstadisticas() async {
+    setState(() {
+      _isLoadingEstadisticas = true;
+    });
+
+    try {
+      final estadisticas = await _solicitudService.obtenerEstadisticasCliente();
+      setState(() {
+        _estadisticas = estadisticas;
+      });
+    } catch (e) {
+      print('Error al cargar estadísticas: $e');
+    } finally {
+      setState(() {
+        _isLoadingEstadisticas = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     RealtimeNotificationService().unsubscribe();
@@ -130,7 +154,10 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -164,7 +191,9 @@ class _HomePageState extends State<HomePage> {
           DrawerHeader(
             decoration: const BoxDecoration(
               color: surfaceContainerHigh,
-              border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+              border: Border(
+                bottom: BorderSide(color: outlineVariant, width: 1),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,26 +222,42 @@ class _HomePageState extends State<HomePage> {
           ),
           ListTile(
             leading: const Icon(Icons.person_rounded, color: primary),
-            title: const Text('Mi Perfil', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Mi Perfil',
+              style: TextStyle(color: Colors.white),
+            ),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
             },
           ),
           ListTile(
             leading: const Icon(Icons.shopping_cart_outlined, color: primary),
-            title: const Text('Mis Órdenes', style: TextStyle(color: Colors.white)),
+            title: const Text(
+              'Mis Órdenes',
+              style: TextStyle(color: Colors.white),
+            ),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Próximamente: Lista de órdenes de compra'), duration: Duration(seconds: 2)),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MisOrdenesPage()),
               );
             },
           ),
           const Divider(color: outlineVariant, height: 32),
           ListTile(
             leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text('Cerrar Sesión', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w500)),
+            title: const Text(
+              'Cerrar Sesión',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
             onTap: () async {
               Navigator.pop(context);
               showDialog(
@@ -237,7 +282,10 @@ class _HomePageState extends State<HomePage> {
                 if (context.mounted) Navigator.pop(context);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error al cerrar sesión: $e'), backgroundColor: Colors.red),
+                    SnackBar(
+                      content: Text('Error al cerrar sesión: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -280,7 +328,10 @@ class _HomePageState extends State<HomePage> {
           ),
           InkWell(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
             },
             borderRadius: BorderRadius.circular(20),
             child: Container(
@@ -291,7 +342,11 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
                 border: Border.all(color: outlineVariant),
               ),
-              child: const Icon(Icons.person, color: onSurfaceVariant, size: 22),
+              child: const Icon(
+                Icons.person,
+                color: onSurfaceVariant,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -307,7 +362,10 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: primaryContainer.withOpacity(0.4), width: 1.5),
+        border: Border.all(
+          color: primaryContainer.withOpacity(0.4),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: primaryContainer.withOpacity(0.08),
@@ -322,7 +380,9 @@ class _HomePageState extends State<HomePage> {
           onTap: () async {
             await Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const CreateRequestPage()),
+              MaterialPageRoute(
+                builder: (context) => const CreateRequestPage(),
+              ),
             );
             _cargarSolicitudes();
           },
@@ -333,7 +393,10 @@ class _HomePageState extends State<HomePage> {
               gradient: RadialGradient(
                 center: Alignment.center,
                 radius: 0.8,
-                colors: [primaryContainer.withOpacity(0.15), Colors.transparent],
+                colors: [
+                  primaryContainer.withOpacity(0.15),
+                  Colors.transparent,
+                ],
               ),
             ),
             child: Column(
@@ -378,36 +441,79 @@ class _HomePageState extends State<HomePage> {
 
   // --- FILA DE ESTADÍSTICAS (BENTO GRID) ---
   Widget _buildStatsRow() {
-    final int buscandoCount = _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
-    final int cotizadasCount = _solicitudes.where((s) => s['estado'] == 'completado').length;
+    // Usar estadísticas del backend si están disponibles, si no usar cálculo local
+    final int buscandoCount =
+        _estadisticas['solicitudes_activas'] ??
+        _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
+    final int cotizadasCount = _estadisticas['cotizaciones_recibidas'] ?? 0;
+    final int enProcesoCount =
+        _estadisticas['solicitudes_en_proceso'] ??
+        _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
 
     final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
     final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
+    final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
 
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildStatCard(
-            title: 'Buscando',
-            value: buscandoTxt,
-            icon: Icons.history_rounded,
-            color: primaryContainer,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'Solicitudes Activas',
+                value: buscandoTxt,
+                icon: Icons.history_rounded,
+                color: primaryContainer,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Cotizaciones Recibidas',
+                value: cotizadasTxt,
+                icon: Icons.request_quote_rounded,
+                color: secondaryContainer,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            title: 'Cotizadas',
-            value: cotizadasTxt,
-            icon: Icons.request_quote_rounded,
-            color: secondaryContainer,
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                title: 'En Proceso',
+                value: enProcesoTxt,
+                icon: Icons.pending_rounded,
+                color: tertiaryContainer,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildStatCard(
+                title: 'Órdenes Realizadas',
+                value:
+                    (_estadisticas['ordenes_realizadas']?.toString().padLeft(
+                      2,
+                      '0',
+                    ) ??
+                    '00'),
+                icon: Icons.shopping_cart_rounded,
+                color: Colors.green,
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildStatCard({required String title, required String value, required IconData icon, required Color color}) {
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -420,7 +526,11 @@ class _HomePageState extends State<HomePage> {
         children: [
           Text(
             title,
-            style: const TextStyle(color: onSurfaceVariant, fontSize: 13, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              color: onSurfaceVariant,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -428,7 +538,11 @@ class _HomePageState extends State<HomePage> {
             children: [
               Text(
                 value,
-                style: TextStyle(color: color, fontSize: 26, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               Container(
                 padding: const EdgeInsets.all(6),
@@ -455,19 +569,35 @@ class _HomePageState extends State<HomePage> {
           children: [
             const Text(
               'Mis Solicitudes',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const TodasSolicitudesPage()),
-                ).then((_) => _cargarSolicitudes());
+                  MaterialPageRoute(
+                    builder: (context) => const TodasSolicitudesPage(),
+                  ),
+                ).then((_) {
+                  _cargarSolicitudes();
+                  _cargarEstadisticas();
+                });
               },
-              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+              ),
               child: const Text(
                 'Ver todas',
-                style: TextStyle(color: primary, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -491,11 +621,25 @@ class _HomePageState extends State<HomePage> {
             ),
             child: Column(
               children: [
-                const Icon(Icons.inbox_rounded, size: 42, color: onSurfaceVariant),
+                const Icon(
+                  Icons.inbox_rounded,
+                  size: 42,
+                  color: onSurfaceVariant,
+                ),
                 const SizedBox(height: 12),
-                const Text('No tienes solicitudes aún', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                const Text(
+                  'No tienes solicitudes aún',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                const Text('Crea tu primera solicitud de repuesto', style: TextStyle(color: onSurfaceVariant, fontSize: 13)),
+                const Text(
+                  'Crea tu primera solicitud de repuesto',
+                  style: TextStyle(color: onSurfaceVariant, fontSize: 13),
+                ),
               ],
             ),
           )
@@ -537,12 +681,25 @@ class _HomePageState extends State<HomePage> {
               }
             }
 
-            final int cantidadCotizaciones = solicitud['cotizaciones_count'] ??
-                (solicitud['cotizaciones'] != null ? (solicitud['cotizaciones'] as List).length : 0);
+            // Extraer el conteo de cotizaciones del formato que devuelve Supabase
+            int cantidadCotizaciones = 0;
+            if (solicitud['cotizaciones'] != null &&
+                solicitud['cotizaciones'] is List) {
+              final cotizacionesList = solicitud['cotizaciones'] as List;
+              if (cotizacionesList.isNotEmpty && cotizacionesList[0] is Map) {
+                cantidadCotizaciones = cotizacionesList[0]['count'] ?? 0;
+              }
+            } else if (solicitud['cotizaciones_count'] != null) {
+              cantidadCotizaciones = solicitud['cotizaciones_count'];
+            }
 
-            final String quotesText = cantidadCotizaciones == 1 ? '1 Cotización nueva' : '$cantidadCotizaciones Cotizaciones';
-            final String urlFinal = solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-            final String piezaNombreFinal = solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+            final String quotesText = cantidadCotizaciones == 1
+                ? '1 Cotización nueva'
+                : '$cantidadCotizaciones Cotizaciones';
+            final String urlFinal =
+                solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+            final String piezaNombreFinal =
+                solicitud['pieza_nombre'] as String? ?? 'Repuesto';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -560,7 +717,8 @@ class _HomePageState extends State<HomePage> {
                 },
                 child: _buildRequestCard(
                   title: piezaNombreFinal,
-                  subtitle: solicitud['descripcion'] as String? ?? 'Sin descripción',
+                  subtitle:
+                      solicitud['descripcion'] as String? ?? 'Sin descripción',
                   status: statusText,
                   statusColor: statusColor,
                   quotes: quotesText,
@@ -608,10 +766,28 @@ class _HomePageState extends State<HomePage> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: imageUrl.isEmpty
-                  ? const Icon(Icons.image_not_supported_rounded, color: onSurfaceVariant, size: 28)
+                  ? const Icon(
+                      Icons.image_not_supported_rounded,
+                      color: onSurfaceVariant,
+                      size: 28,
+                    )
                   : (imageUrl.startsWith('http')
-                      ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.error, color: onSurfaceVariant))
-                      : Image.file(File(imageUrl), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.error, color: onSurfaceVariant))),
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.error,
+                              color: onSurfaceVariant,
+                            ),
+                          )
+                        : Image.file(
+                            File(imageUrl),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.error,
+                              color: onSurfaceVariant,
+                            ),
+                          )),
             ),
           ),
           const SizedBox(width: 14),
@@ -625,13 +801,20 @@ class _HomePageState extends State<HomePage> {
                     Expanded(
                       child: Text(
                         title,
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(20),
@@ -639,7 +822,11 @@ class _HomePageState extends State<HomePage> {
                       ),
                       child: Text(
                         status,
-                        style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -657,15 +844,33 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.receipt_long_rounded, color: tieneCotizaciones ? primaryContainer : secondaryContainer, size: 16),
+                        Icon(
+                          Icons.receipt_long_rounded,
+                          color: tieneCotizaciones
+                              ? primaryContainer
+                              : secondaryContainer,
+                          size: 16,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           quotes,
-                          style: TextStyle(color: tieneCotizaciones ? primaryContainer : secondaryContainer, fontSize: 12, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: tieneCotizaciones
+                                ? primaryContainer
+                                : secondaryContainer,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
-                    Text(time, style: const TextStyle(color: onSurfaceVariant, fontSize: 12)),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        color: onSurfaceVariant,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -683,7 +888,11 @@ class _HomePageState extends State<HomePage> {
       children: [
         const Text(
           'Lo más buscado',
-          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -692,11 +901,20 @@ class _HomePageState extends State<HomePage> {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             children: [
-              _buildTrendingItem(icon: Icons.tire_repair_rounded, label: 'Neumáticos'),
+              _buildTrendingItem(
+                icon: Icons.tire_repair_rounded,
+                label: 'Neumáticos',
+              ),
               const SizedBox(width: 12),
-              _buildTrendingItem(icon: Icons.battery_charging_full_rounded, label: 'Baterías'),
+              _buildTrendingItem(
+                icon: Icons.battery_charging_full_rounded,
+                label: 'Baterías',
+              ),
               const SizedBox(width: 12),
-              _buildTrendingItem(icon: Icons.car_crash_rounded, label: 'Carrocería'),
+              _buildTrendingItem(
+                icon: Icons.car_crash_rounded,
+                label: 'Carrocería',
+              ),
             ],
           ),
         ),
@@ -720,7 +938,11 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -739,15 +961,39 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildNavItem(icon: Icons.home_rounded, label: 'Home', isSelected: _selectedIndex == 0, onTap: () => setState(() => _selectedIndex = 0)),
-          _buildNavItem(icon: Icons.search_rounded, label: 'Search', isSelected: _selectedIndex == 1, onTap: () => setState(() => _selectedIndex = 1)),
-          _buildNavItem(icon: Icons.shopping_cart_rounded, label: 'Orders', isSelected: _selectedIndex == 2, onTap: () => setState(() => _selectedIndex = 2)),
+          _buildNavItem(
+            icon: Icons.home_rounded,
+            label: 'Home',
+            isSelected: _selectedIndex == 0,
+            onTap: () => setState(() => _selectedIndex = 0),
+          ),
+          _buildNavItem(
+            icon: Icons.search_rounded,
+            label: 'Search',
+            isSelected: _selectedIndex == 1,
+            onTap: () => setState(() => _selectedIndex = 1),
+          ),
+          _buildNavItem(
+            icon: Icons.shopping_cart_rounded,
+            label: 'Orders',
+            isSelected: _selectedIndex == 2,
+            onTap: () {
+              setState(() => _selectedIndex = 2);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MisOrdenesPage()),
+              );
+            },
+          ),
           _buildNavItem(
             icon: Icons.person_rounded,
             label: 'Profile',
             isSelected: _selectedIndex == 3,
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
+              );
             },
           ),
         ],
@@ -755,17 +1001,30 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildNavItem({required IconData icon, required String label, required bool isSelected, required VoidCallback onTap}) {
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: isSelected ? primaryContainer : onSurfaceVariant, size: 22),
+          Icon(
+            icon,
+            color: isSelected ? primaryContainer : onSurfaceVariant,
+            size: 22,
+          ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(color: isSelected ? primaryContainer : onSurfaceVariant, fontSize: 12, fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400),
+            style: TextStyle(
+              color: isSelected ? primaryContainer : onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+            ),
           ),
         ],
       ),

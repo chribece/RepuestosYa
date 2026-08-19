@@ -72,7 +72,6 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: onSurface,
-
           ),
         ),
         const SizedBox(height: 8),

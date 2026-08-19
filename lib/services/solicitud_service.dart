@@ -229,4 +229,29 @@ class SolicitudService {
       throw Exception('Error al rechazar cotización: $e');
     }
   }
+
+  // Obtener estadísticas del cliente (Rol Cliente)
+  Future<Map<String, dynamic>> obtenerEstadisticasCliente() async {
+    try {
+      final response = await _apiClient.get('/requests/stats');
+      return response;
+    } catch (e) {
+      throw Exception('Error al obtener estadísticas del cliente: $e');
+    }
+  }
+
+  // Obtener mis órdenes de compra (Rol Cliente)
+  Future<List<Map<String, dynamic>>> obtenerMisOrdenes({
+    required int page,
+    required int limit,
+  }) async {
+    try {
+      final response = await _apiClient.getList(
+        '/orders?page=$page&limit=$limit',
+      );
+      return response;
+    } catch (e) {
+      throw Exception('Error al obtener mis órdenes: $e');
+    }
+  }
 }

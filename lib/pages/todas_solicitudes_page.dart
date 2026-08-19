@@ -3,6 +3,7 @@ import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
+import 'received_quotations_page.dart';
 
 class TodasSolicitudesPage extends StatefulWidget {
   const TodasSolicitudesPage({super.key});
@@ -216,20 +217,53 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                   }
                 }
 
+                // Extraer el conteo de cotizaciones del formato que devuelve Supabase
+                int cantidadCotizaciones = 0;
+                if (solicitud['cotizaciones'] != null &&
+                    solicitud['cotizaciones'] is List) {
+                  final cotizacionesList = solicitud['cotizaciones'] as List;
+                  if (cotizacionesList.isNotEmpty &&
+                      cotizacionesList[0] is Map) {
+                    cantidadCotizaciones = cotizacionesList[0]['count'] ?? 0;
+                  }
+                } else if (solicitud['cotizaciones_count'] != null) {
+                  cantidadCotizaciones = solicitud['cotizaciones_count'];
+                }
+
+                final String quotesText = cantidadCotizaciones == 1
+                    ? '1 Cotización nueva'
+                    : '$cantidadCotizaciones Cotizaciones';
+                final String urlFinal =
+                    solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+                final String piezaNombreFinal =
+                    solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildRequestCard(
-                    title: solicitud['pieza_nombre'] as String? ?? 'Repuesto',
-                    subtitle:
-                        solicitud['descripcion'] as String? ??
-                        'Sin descripción',
-                    status: statusText,
-                    statusColor: statusColor,
-                    quotes: '0 Cotizaciones',
-                    time: timeText,
-                    imageUrl:
-                        solicitud['foto_url'] as String? ??
-                        'https://via.placeholder.com/96',
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ReceivedQuotationsPage(
+                            solicitudId: solicitud['id'].toString(),
+                            piezaNombre: piezaNombreFinal,
+                          ),
+                        ),
+                      );
+                    },
+                    child: _buildRequestCard(
+                      title: piezaNombreFinal,
+                      subtitle:
+                          solicitud['descripcion'] as String? ??
+                          'Sin descripción',
+                      status: statusText,
+                      statusColor: statusColor,
+                      quotes: quotesText,
+                      tieneCotizaciones: cantidadCotizaciones > 0,
+                      time: timeText,
+                      imageUrl: urlFinal,
+                    ),
                   ),
                 );
               },
@@ -244,6 +278,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     required String status,
     required Color statusColor,
     required String quotes,
+    required bool tieneCotizaciones,
     required String time,
     required String imageUrl,
   }) {
@@ -252,7 +287,10 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant),
+        border: Border.all(
+          color: tieneCotizaciones ? primaryContainer : outlineVariant,
+          width: tieneCotizaciones ? 1.5 : 1.0,
+        ),
       ),
       child: Row(
         children: [
@@ -343,17 +381,21 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                          Icons.receipt_long,
-                          color: secondaryContainer,
-                          size: 20,
+                        Icon(
+                          Icons.receipt_long_rounded,
+                          color: tieneCotizaciones
+                              ? primaryContainer
+                              : secondaryContainer,
+                          size: 16,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           quotes,
-                          style: const TextStyle(
-                            color: secondaryContainer,
-                            fontSize: 14,
+                          style: TextStyle(
+                            color: tieneCotizaciones
+                                ? primaryContainer
+                                : secondaryContainer,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

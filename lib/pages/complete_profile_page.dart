@@ -139,7 +139,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-
           ),
         ),
       ),
@@ -193,16 +192,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             color: primary,
             fontSize: 28,
             fontWeight: FontWeight.bold,
-
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Completa la información de tu almacén para comenzar.',
-          style: GoogleFonts.sora(
-            color: onSurfaceVariant,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurfaceVariant, fontSize: 16),
         ),
       ],
     );
@@ -237,10 +232,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _nombreController,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El nombre comercial es requerido';
@@ -252,7 +244,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: RepuestosYa Central',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -308,10 +302,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _rucController,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El RUC es requerido';
@@ -323,7 +314,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: 20123456789',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -377,10 +370,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _representanteController,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El representante legal es requerido';
@@ -392,7 +382,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Juan Pérez',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -448,10 +440,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           controller: _telefonoController,
           keyboardType: TextInputType.phone,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El teléfono es requerido';
@@ -463,7 +452,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: 999123456',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -518,10 +509,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         TextFormField(
           controller: _direccionController,
           maxLines: 3,
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'La dirección es requerida';
@@ -533,7 +521,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: 'Ej: Av. Principal 123, Ciudad',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -583,10 +573,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
           ],
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return null; // Optional field
@@ -602,7 +589,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: '0.0',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -655,10 +644,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
           ],
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 16,
-          ),
+          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return null; // Optional field
@@ -674,7 +660,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           },
           decoration: InputDecoration(
             hintText: '0.0',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: GoogleFonts.sora(
+              color: onSurfaceVariant.withOpacity(0.3),
+            ),
             filled: true,
             fillColor: surfaceContainerLow,
             border: OutlineInputBorder(
@@ -732,7 +720,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-
                     ),
                   ),
                 ],
@@ -748,7 +735,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      
                     ),
                   ),
                 ],

@@ -158,7 +158,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             color: onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
-
           ),
         ),
         actions: [
@@ -200,11 +199,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                   const SizedBox(height: 16),
                   Text(
                     'No tienes un almacén registrado',
-                    style: GoogleFonts.sora(
-                      color: onSurface,
-                      fontSize: 18,
-
-                    ),
+                    style: GoogleFonts.sora(color: onSurface, fontSize: 18),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -286,7 +281,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                     color: onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -585,7 +579,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      
                     ),
                   ),
                 ],
@@ -601,7 +594,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                       color: onPrimaryContainer,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      
                     ),
                   ),
                 ],

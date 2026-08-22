@@ -1,3 +1,4 @@
+import '../utils/app_logger.dart';
 import 'api_client.dart';
 
 class Solicitud {
@@ -92,13 +93,16 @@ class SolicitudService {
       };
 
       if (vehiculoId != null) data['vehiculo_id'] = vehiculoId;
-      if (descripcion != null && descripcion.isNotEmpty)
+      if (descripcion != null && descripcion.isNotEmpty) {
         data['descripcion'] = descripcion;
+      }
       if (fotoUrl != null && fotoUrl.isNotEmpty) data['foto_url'] = fotoUrl;
-      if (vinBusqueda != null && vinBusqueda.isNotEmpty)
+      if (vinBusqueda != null && vinBusqueda.isNotEmpty) {
         data['vin_busqueda'] = vinBusqueda;
-      if (direccionEntregaId != null)
+      }
+      if (direccionEntregaId != null) {
         data['direccion_entrega_id'] = direccionEntregaId;
+      }
 
       final response = await _apiClient.post(
         '/requests',
@@ -196,18 +200,25 @@ class SolicitudService {
   // Aceptar una cotización específica (Rol Cliente)
   Future<Map<String, dynamic>> aceptarCotizacion(String cotizacionId) async {
     try {
-      print(
-        'SolicitudService: Llamando a POST /quotations/$cotizacionId/accept',
+      AppLogger.debug(
+        'Llamando a POST /quotations/$cotizacionId/accept',
+        name: 'SolicitudService',
       );
       final response = await _apiClient.post(
         '/quotations/$cotizacionId/accept',
         requireAuth: true,
       );
-      print('SolicitudService: Respuesta de aceptarCotizacion: $response');
-      print('SolicitudService: ordenId extraído: ${response['ordenId']}');
+      AppLogger.debug(
+        'Respuesta de aceptarCotizacion: $response - ordenId extraído: ${response['ordenId']}',
+        name: 'SolicitudService',
+      );
       return response;
     } catch (e) {
-      print('SolicitudService: Error en aceptarCotizacion: $e');
+      AppLogger.error(
+        'Error en aceptarCotizacion: $e',
+        name: 'SolicitudService',
+        error: e,
+      );
       throw Exception('Error al aceptar cotización: $e');
     }
   }
@@ -215,17 +226,22 @@ class SolicitudService {
   // Rechazar una cotización específica (Rol Cliente)
   Future<Map<String, dynamic>> rechazarCotizacion(String cotizacionId) async {
     try {
-      print(
-        'SolicitudService: Llamando a POST /quotations/$cotizacionId/reject',
+      AppLogger.debug(
+        'Llamando a POST /quotations/$cotizacionId/reject',
+        name: 'SolicitudService',
       );
       final response = await _apiClient.post(
         '/quotations/$cotizacionId/reject',
         requireAuth: true,
       );
-      print('SolicitudService: Respuesta exitosa: $response');
+      AppLogger.debug('Respuesta exitosa: $response', name: 'SolicitudService');
       return response;
     } catch (e) {
-      print('SolicitudService: Error en rechazarCotizacion: $e');
+      AppLogger.error(
+        'Error en rechazarCotizacion: $e',
+        name: 'SolicitudService',
+        error: e,
+      );
       throw Exception('Error al rechazar cotización: $e');
     }
   }

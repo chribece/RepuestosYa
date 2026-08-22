@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import 'complete_profile_page.dart';
 
@@ -22,19 +26,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
-
-  // Sistema de Diseño Industrial
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void dispose() {
@@ -68,7 +59,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('¡Registro exitoso! Ahora completa tu perfil.'),
-            backgroundColor: primaryContainer,
+            backgroundColor: AppColors.primaryContainer,
             duration: Duration(seconds: 2),
           ),
         );
@@ -79,12 +70,20 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         );
       }
     } catch (e) {
+      AppLogger.error(
+        'Error al registrar almacén',
+        name: 'RegisterAlmacenPage',
+        error: e,
+      );
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -93,42 +92,44 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: surface,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary, size: 28),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primary,
+            size: 28,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Registrar Almacén',
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+          style: AppTextStyles.textStyleTitle.copyWith(
+            color: AppColors.onSurface,
           ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.spacingMd),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.spacingMd),
                 _buildWelcomeText(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 _buildRepresentanteField(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildEmailField(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildPasswordField(),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildConfirmPasswordField(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 _buildRegisterButton(),
               ],
             ),
@@ -144,19 +145,15 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       children: [
         Text(
           'Crear Cuenta',
-          style: GoogleFonts.sora(
-            color: primary,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+          style: AppTextStyles.textStyleHeading.copyWith(
+            color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Text(
           'Regístrate para comenzar a gestionar tu almacén.',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 16,
-            fontFamily: 'Inter',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
           ),
         ),
       ],
@@ -164,334 +161,91 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   }
 
   Widget _buildRepresentanteField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Nombre Completo',
-                style: GoogleFonts.sora(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  color: requiredAsterisk,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _representanteController,
-          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El nombre completo es requerido';
-            }
-            if (value.trim().length < 3) {
-              return 'El nombre debe tener al menos 3 caracteres';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            hintText: 'Ej: Juan Pérez',
-            hintStyle: GoogleFonts.sora(
-              color: onSurfaceVariant.withOpacity(0.3),
-            ),
-            filled: true,
-            fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Nombre Completo',
+      hint: 'Ej: Juan Pérez',
+      controller: _representanteController,
+      type: RyTextFieldType.text,
+      isRequired: true,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'El nombre completo es requerido';
+        }
+        if (value.trim().length < 3) {
+          return 'El nombre debe tener al menos 3 caracteres';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildEmailField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Email',
-                style: GoogleFonts.sora(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  color: requiredAsterisk,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El email es requerido';
-            }
-            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-            if (!emailRegex.hasMatch(value.trim())) {
-              return 'Por favor ingrese un email válido';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            hintText: 'Ej: contacto@repuestosya.com',
-            hintStyle: GoogleFonts.sora(
-              color: onSurfaceVariant.withOpacity(0.3),
-            ),
-            filled: true,
-            fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Email',
+      hint: 'Ej: contacto@repuestosya.com',
+      controller: _emailController,
+      type: RyTextFieldType.email,
+      isRequired: true,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'El email es requerido';
+        }
+        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+        if (!emailRegex.hasMatch(value.trim())) {
+          return 'Por favor ingrese un email válido';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Contraseña',
-                style: GoogleFonts.sora(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  color: requiredAsterisk,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _passwordController,
-          obscureText: true,
-          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'La contraseña es requerida';
-            }
-            if (value.length < 6) {
-              return 'La contraseña debe tener al menos 6 caracteres';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(
-              color: onSurfaceVariant.withOpacity(0.3),
-            ),
-            filled: true,
-            fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Contraseña',
+      hint: '••••••••',
+      controller: _passwordController,
+      type: RyTextFieldType.password,
+      isRequired: true,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'La contraseña es requerida';
+        }
+        if (value.length < 6) {
+          return 'La contraseña debe tener al menos 6 caracteres';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildConfirmPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Confirmar Contraseña',
-                style: GoogleFonts.sora(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  color: requiredAsterisk,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _confirmPasswordController,
-          obscureText: true,
-          style: GoogleFonts.sora(color: onSurface, fontSize: 16),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor confirme su contraseña';
-            }
-            if (value != _passwordController.text) {
-              return 'Las contraseñas no coinciden';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(
-              color: onSurfaceVariant.withOpacity(0.3),
-            ),
-            filled: true,
-            fillColor: surfaceContainerLow,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Confirmar Contraseña',
+      hint: '••••••••',
+      controller: _confirmPasswordController,
+      type: RyTextFieldType.password,
+      isRequired: true,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Por favor confirme su contraseña';
+        }
+        if (value != _passwordController.text) {
+          return 'Las contraseñas no coinciden';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildRegisterButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _registrarAlmacen,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryContainer,
-          disabledBackgroundColor: primaryContainer.withOpacity(0.4),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: _isSubmitting
-            ? const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: onPrimaryContainer,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'PROCESANDO...',
-                    style: TextStyle(
-                      color: onPrimaryContainer,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.person_add, color: onPrimaryContainer, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'CREAR CUENTA',
-                    style: TextStyle(
-                      color: onPrimaryContainer,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-      ),
+    return RyButton(
+      label: _isSubmitting ? 'PROCESANDO...' : 'CREAR CUENTA',
+      icon: Icons.person_add,
+      variant: RyButtonVariant.primary,
+      size: RyButtonSize.large,
+      isFullWidth: true,
+      isLoading: _isSubmitting,
+      onPressed: _registrarAlmacen,
     );
   }
 }

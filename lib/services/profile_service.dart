@@ -1,3 +1,4 @@
+import '../utils/app_logger.dart';
 import 'api_client.dart';
 
 class ProfileService {
@@ -9,7 +10,11 @@ class ProfileService {
       final response = await _apiClient.get('/profile');
       return response['rol'] as String?;
     } catch (e) {
-      print('Error al obtener el rol del usuario: $e');
+      AppLogger.error(
+        'Error al obtener el rol del usuario: $e',
+        name: 'ProfileService',
+        error: e,
+      );
       return null;
     }
   }
@@ -20,7 +25,11 @@ class ProfileService {
       final response = await _apiClient.get('/profile');
       return response;
     } catch (e) {
-      print('Error al obtener el perfil del usuario: $e');
+      AppLogger.error(
+        'Error al obtener el perfil del usuario: $e',
+        name: 'ProfileService',
+        error: e,
+      );
       return null;
     }
   }
@@ -35,14 +44,18 @@ class ProfileService {
       final response = await _apiClient.put(
         '/profile',
         body: {
-          if (nombreCompleto != null) 'nombre_completo': nombreCompleto,
-          if (telefono != null) 'telefono': telefono,
-          if (avatarUrl != null) 'avatar_url': avatarUrl,
+          'nombre_completo': ?nombreCompleto,
+          'telefono': ?telefono,
+          'avatar_url': ?avatarUrl,
         },
       );
       return response;
     } catch (e) {
-      print('Error al actualizar el perfil del usuario: $e');
+      AppLogger.error(
+        'Error al actualizar el perfil del usuario: $e',
+        name: 'ProfileService',
+        error: e,
+      );
       return null;
     }
   }

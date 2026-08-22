@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
-import '../models/cotizacion.dart';
 import '../providers/cotizacion_provider.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
 
 class CotizacionesPage extends StatefulWidget {
   final String solicitudId;
@@ -30,7 +34,7 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cotizaciones Recibidas'),
-        backgroundColor: Colors.blue[700],
+        backgroundColor: AppColors.tertiaryContainer,
       ),
       body: Consumer<CotizacionProvider>(
         builder: (context, provider, child) {
@@ -41,11 +45,11 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(provider.errorMessage!),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.error,
                     duration: const Duration(seconds: 3),
                     action: SnackBarAction(
                       label: 'OK',
-                      textColor: Colors.white,
+                      textColor: AppColors.onSurface,
                       onPressed: () {
                         provider.clearError();
                       },
@@ -103,25 +107,16 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
           }
 
           if (provider.cotizaciones.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inbox, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No hay cotizaciones aún',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                ],
-              ),
+            return const RyStateContainer(
+              title: 'No hay cotizaciones aún',
+              type: RyStateType.empty,
             );
           }
 
           return RefreshIndicator(
             onRefresh: () => provider.cargarCotizaciones(widget.solicitudId),
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               itemCount: provider.cotizaciones.length,
               itemBuilder: (context, index) {
                 final cotizacion = provider.cotizaciones[index];
@@ -132,9 +127,9 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
 
                 return Card(
                   elevation: 2,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.spacingMd),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -143,16 +138,15 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                           children: [
                             const Icon(
                               Icons.store,
-                              color: Colors.blue,
+                              color: AppColors.tertiaryContainer,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.spacingXs),
                             Expanded(
                               child: Text(
                                 cotizacion.almacen?.nombreComercial ??
                                     'Almacén desconocido',
-                                style: const TextStyle(
-                                  fontSize: 18,
+                                style: AppTextStyles.textStyleBody.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -161,7 +155,7 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                             _buildEstadoBadge(cotizacion.estado),
                           ],
                         ),
-                        const Divider(height: 24),
+                        const Divider(height: AppSpacing.spacingLg),
 
                         // Precio
                         _buildInfoRow(
@@ -190,23 +184,25 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                         if (cotizacion.notasAdicionales != null &&
                             cotizacion.notasAdicionales!.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.spacingXs,
+                            ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(
                                   Icons.note,
-                                  color: Colors.grey,
+                                  color: AppColors.onSurfaceVariant,
                                   size: 18,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppSpacing.spacingXs),
                                 Expanded(
                                   child: Text(
                                     cotizacion.notasAdicionales!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey,
-                                    ),
+                                    style: AppTextStyles.textStyleCaption
+                                        .copyWith(
+                                          color: AppColors.onSurfaceVariant,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -217,31 +213,35 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                         if (cotizacion.fotoEvidenciaUrl != null &&
                             cotizacion.fotoEvidenciaUrl!.isNotEmpty)
                           Padding(
-                            padding: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.spacingSm,
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.image,
-                                      color: Colors.grey,
+                                      color: AppColors.onSurfaceVariant,
                                       size: 18,
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: AppSpacing.spacingXs),
                                     Text(
                                       'Evidencia visual',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: AppTextStyles.textStyleCaption
+                                          .copyWith(
+                                            color: AppColors.onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: AppSpacing.spacingXs),
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.radiusSm,
+                                  ),
                                   child: Image.network(
                                     cotizacion.fotoEvidenciaUrl!,
                                     width: double.infinity,
@@ -252,28 +252,33 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                                         width: double.infinity,
                                         height: 200,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[800],
+                                          color: AppColors.surfaceVariant,
                                           borderRadius: BorderRadius.circular(
-                                            8,
+                                            AppRadius.radiusSm,
                                           ),
                                         ),
-                                        child: const Center(
+                                        child: Center(
                                           child: Column(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                             children: [
-                                              Icon(
+                                              const Icon(
                                                 Icons.broken_image,
-                                                color: Colors.grey,
+                                                color:
+                                                    AppColors.onSurfaceVariant,
                                                 size: 40,
                                               ),
-                                              SizedBox(height: 8),
+                                              const SizedBox(
+                                                height: AppSpacing.spacingXs,
+                                              ),
                                               Text(
                                                 'Error al cargar imagen',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
+                                                style: AppTextStyles
+                                                    .textStyleSmall
+                                                    .copyWith(
+                                                      color: AppColors
+                                                          .onSurfaceVariant,
+                                                    ),
                                               ),
                                             ],
                                           ),
@@ -282,15 +287,18 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                                     },
                                     loadingBuilder:
                                         (context, child, loadingProgress) {
-                                          if (loadingProgress == null)
+                                          if (loadingProgress == null) {
                                             return child;
+                                          }
                                           return Container(
                                             width: double.infinity,
                                             height: 200,
                                             decoration: BoxDecoration(
-                                              color: Colors.grey[800],
+                                              color: AppColors.surfaceVariant,
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(
+                                                    AppRadius.radiusSm,
+                                                  ),
                                             ),
                                             child: const Center(
                                               child:
@@ -304,7 +312,7 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                             ),
                           ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.spacingMd),
 
                         // Botones de acción
                         if (isPendiente)
@@ -327,7 +335,7 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                                             strokeWidth: 2,
                                             valueColor:
                                                 AlwaysStoppedAnimation<Color>(
-                                                  Colors.white,
+                                                  AppColors.onSurface,
                                                 ),
                                           ),
                                         )
@@ -336,15 +344,15 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                                     isProcesando ? 'Procesando...' : 'Aceptar',
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.success,
+                                    foregroundColor: AppColors.onSurface,
                                     padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                      vertical: AppSpacing.spacingSm,
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AppSpacing.spacingSm),
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: isProcesando
@@ -357,10 +365,10 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                                   icon: const Icon(Icons.close),
                                   label: const Text('Rechazar'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.error,
+                                    foregroundColor: AppColors.onSurface,
                                     padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                      vertical: AppSpacing.spacingSm,
                                     ),
                                   ),
                                 ),
@@ -373,12 +381,11 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
                               cotizacion.isAceptada
                                   ? 'Cotización aceptada'
                                   : 'Cotización rechazada',
-                              style: TextStyle(
-                                fontSize: 14,
+                              style: AppTextStyles.textStyleCaption.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: cotizacion.isAceptada
-                                    ? Colors.green
-                                    : Colors.red,
+                                    ? AppColors.success
+                                    : AppColors.error,
                               ),
                             ),
                           ),
@@ -396,16 +403,18 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingXs),
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey, size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, color: AppColors.onSurfaceVariant, size: 18),
+          const SizedBox(width: AppSpacing.spacingXs),
           Text(
             '$label: ',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            style: AppTextStyles.textStyleCaption.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
+          Expanded(child: Text(value, style: AppTextStyles.textStyleCaption)),
         ],
       ),
     );
@@ -418,36 +427,38 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
 
     switch (estado.toLowerCase()) {
       case 'pendiente':
-        backgroundColor = Colors.orange[100]!;
-        textColor = Colors.orange[900]!;
+        backgroundColor = AppColors.warning.withValues(alpha: 0.2);
+        textColor = AppColors.warning;
         text = 'Pendiente';
         break;
       case 'aceptada':
-        backgroundColor = Colors.green[100]!;
-        textColor = Colors.green[900]!;
+        backgroundColor = AppColors.success.withValues(alpha: 0.2);
+        textColor = AppColors.success;
         text = 'Aceptada';
         break;
       case 'rechazada':
-        backgroundColor = Colors.red[100]!;
-        textColor = Colors.red[900]!;
+        backgroundColor = AppColors.error.withValues(alpha: 0.2);
+        textColor = AppColors.error;
         text = 'Rechazada';
         break;
       default:
-        backgroundColor = Colors.grey[100]!;
-        textColor = Colors.grey[900]!;
+        backgroundColor = AppColors.onSurfaceVariant.withValues(alpha: 0.2);
+        textColor = AppColors.onSurfaceVariant;
         text = estado;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingSm,
+        vertical: AppSpacing.spacingXxs,
+      ),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 12,
+        style: AppTextStyles.textStyleSmall.copyWith(
           fontWeight: FontWeight.bold,
           color: textColor,
         ),

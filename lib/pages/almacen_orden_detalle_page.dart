@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_status_badge.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
 
 class AlmacenOrdenDetallePage extends StatefulWidget {
   final String ordenId;
@@ -14,22 +20,6 @@ class AlmacenOrdenDetallePage extends StatefulWidget {
 }
 
 class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
-  // Configuración de Colores basada en tu JSON de Tailwind
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color cardBackground = Color(0xFF1E1E1E);
-
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-
   final OrdenCompraService _ordenService = OrdenCompraService();
   Map<String, dynamic>? _orden;
   bool _isLoading = true;
@@ -57,7 +47,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar la orden: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -72,7 +62,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Estado actualizado exitosamente'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
         setState(() => _isUpdating = false);
@@ -84,127 +74,75 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al actualizar el estado: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
     }
   }
 
-  Color _getEstadoColor(String? estado) {
-    switch (estado) {
-      case 'pendiente_pago':
-        return Colors.orange;
-      case 'confirmada':
-        return Colors.blue;
-      case 'entregada':
-        return Colors.green;
-      case 'cancelada':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getEstadoTexto(String? estado) {
-    switch (estado) {
-      case 'pendiente_pago':
-        return 'PENDIENTE DE PAGO';
-      case 'confirmada':
-        return 'CONFIRMADA';
-      case 'entregada':
-        return 'ENTREGADA';
-      case 'cancelada':
-        return 'CANCELADA';
-      default:
-        return 'DESCONOCIDO';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: surface,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primaryContainer),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primaryContainer),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Detalle de Orden',
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTextStyles.textStyleTitle,
         ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: primaryContainer),
+          ? const RyStateContainer(
+              title: 'Cargando orden...',
+              type: RyStateType.loading,
             )
           : _orden == null
-          ? Center(
-              child: Text(
-                'No se pudo cargar la orden',
-                style: GoogleFonts.sora(color: onSurfaceVariant),
-              ),
+          ? const RyStateContainer(
+              title: 'Error',
+              subtitle: 'No se pudo cargar la orden',
+              type: RyStateType.error,
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Estado Badge Grande
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AppSpacing.spacingLg),
                     decoration: BoxDecoration(
-                      color: cardBackground,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: outlineVariant, width: 1),
+                      color: AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+                      border: Border.all(
+                        color: AppColors.outlineVariant,
+                        width: 1,
+                      ),
                     ),
                     child: Column(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getEstadoColor(
-                              _orden?['estado'],
-                            ).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(100),
-                            border: Border.all(
-                              color: _getEstadoColor(
-                                _orden?['estado'],
-                              ).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            _getEstadoTexto(_orden?['estado']),
-                            style: GoogleFonts.sora(
-                              color: _getEstadoColor(_orden?['estado']),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                        RyStatusBadge(
+                          status: _orden?['estado'] ?? 'desconocido',
+                          style: RyStatusBadgeStyle.filled,
+                          size: RyStatusBadgeSize.large,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.spacingMd),
                         Text(
                           'ID: ${widget.ordenId}',
-                          style: GoogleFonts.sora(
-                            color: onSurfaceVariant,
-                            fontSize: 12,
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.spacingLg),
 
                   // Información del Almacén
                   _buildInfoCard(
@@ -214,7 +152,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                         _orden?['almacenes']?['nombre_comercial'] ??
                         'No disponible',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.spacingLg),
 
                   // Información de la Solicitud
                   _buildInfoCard(
@@ -222,12 +160,12 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                     icon: Icons.description,
                     content: _orden?['solicitud_id'] ?? 'No disponible',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.spacingLg),
 
                   // Detalles de la orden
                   if (_orden?['detalles'] != null) ...[
                     _buildDetallesCard(_orden?['detalles']),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.spacingLg),
                   ],
 
                   // Fechas
@@ -236,22 +174,28 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                     icon: Icons.calendar_today,
                     content: _formatFecha(_orden?['created_at']),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.spacingLg),
 
                   // Botones de acción condicionales
                   if (_orden?['estado'] == 'pendiente' ||
                       _orden?['estado'] == 'pendiente_pago')
-                    _buildActionButton(
+                    RyButton(
                       label: 'Marcar como Confirmada',
-                      color: primaryContainer,
+                      icon: Icons.check_circle,
+                      variant: RyButtonVariant.primary,
+                      size: RyButtonSize.large,
+                      isLoading: _isUpdating,
                       onPressed: _isUpdating
                           ? null
                           : () => _actualizarEstado('confirmada'),
                     ),
                   if (_orden?['estado'] == 'confirmada')
-                    _buildActionButton(
+                    RyButton(
                       label: 'Marcar como Entregada',
-                      color: Colors.green,
+                      icon: Icons.local_shipping,
+                      variant: RyButtonVariant.primary,
+                      size: RyButtonSize.large,
+                      isLoading: _isUpdating,
                       onPressed: _isUpdating
                           ? null
                           : () => _actualizarEstado('entregada'),
@@ -269,39 +213,29 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: primaryContainer, size: 20),
-              const SizedBox(width: 8),
+              Icon(icon, color: AppColors.primaryContainer, size: 20),
+              const SizedBox(width: AppSpacing.spacingSm),
               Text(
                 title,
-                style: const TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Inter',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            content,
-            style: const TextStyle(
-              color: onSurface,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          Text(content, style: AppTextStyles.textStyleBody),
         ],
       ),
     );
@@ -322,38 +256,39 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.list, color: primaryContainer, size: 20),
-              const SizedBox(width: 8),
-              const Text(
+              const Icon(
+                Icons.list,
+                color: AppColors.primaryContainer,
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Text(
                 'Detalles',
-                style: TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Inter',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.spacingMd),
           if (precio != null) ...[
             _buildDetalleRow(
               icon: Icons.attach_money,
               label: 'Precio',
               value: '\$${precio.toString()}',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.spacingMd),
           ],
           if (condicion != null) ...[
             _buildDetalleRow(
@@ -361,7 +296,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               label: 'Condición',
               value: condicion.toString(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.spacingMd),
           ],
           if (tiempoEntrega != null) ...[
             _buildDetalleRow(
@@ -369,7 +304,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               label: 'Tiempo de entrega',
               value: tiempoEntrega.toString(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.spacingMd),
           ],
           if (notas != null && notas.toString().isNotEmpty) ...[
             _buildDetalleRow(
@@ -377,7 +312,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               label: 'Notas adicionales',
               value: notas.toString(),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.spacingMd),
           ],
           if (fotoUrl != null && fotoUrl.toString().isNotEmpty)
             _buildFotoEvidencia(fotoUrl.toString()),
@@ -394,27 +329,22 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: primaryContainer, size: 18),
-        const SizedBox(width: 12),
+        Icon(icon, color: AppColors.primaryContainer, size: 18),
+        const SizedBox(width: AppSpacing.spacingMd),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'Inter',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.spacingXxs),
               Text(
                 value,
-                style: const TextStyle(
-                  color: onSurface,
-                  fontSize: 14,
+                style: AppTextStyles.textStyleCaption.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -431,45 +361,54 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
       children: [
         Row(
           children: [
-            const Icon(Icons.image, color: primaryContainer, size: 18),
-            const SizedBox(width: 12),
-            const Text(
+            const Icon(
+              Icons.image,
+              color: AppColors.primaryContainer,
+              size: 18,
+            ),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Text(
               'Foto de evidencia',
-              style: TextStyle(
-                color: onSurfaceVariant,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Inter',
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingSm),
         Container(
           width: double.infinity,
           height: 150,
           decoration: BoxDecoration(
-            color: surfaceContainerLow,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: outlineVariant, width: 1),
+            color: AppColors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+            border: Border.all(color: AppColors.outlineVariant, width: 1),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
             child: CachedNetworkImage(
               imageUrl: fotoUrl,
               fit: BoxFit.cover,
               placeholder: (context, url) => const Center(
-                child: CircularProgressIndicator(color: primaryContainer),
+                child: CircularProgressIndicator(
+                  color: AppColors.primaryContainer,
+                ),
               ),
-              errorWidget: (context, url, error) => const Center(
+              errorWidget: (context, url, error) => Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.broken_image, color: onSurfaceVariant, size: 32),
-                    SizedBox(height: 8),
+                    const Icon(
+                      Icons.broken_image,
+                      color: AppColors.onSurfaceVariant,
+                      size: 32,
+                    ),
+                    const SizedBox(height: AppSpacing.spacingSm),
                     Text(
                       'No se pudo cargar la imagen',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -478,47 +417,6 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActionButton({
-    required String label,
-    required Color color,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          disabledBackgroundColor: color.withOpacity(0.5),
-        ),
-        child: _isUpdating
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-
-                  letterSpacing: 0.5,
-                ),
-              ),
-      ),
     );
   }
 

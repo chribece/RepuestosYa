@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../widgets/ry_button.dart';
 import 'register_cliente_page.dart';
 import 'register_almacen_page.dart';
 
@@ -14,35 +18,24 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   final _formKey = GlobalKey<FormState>();
   String? _selectedRole;
 
-  // Color scheme - Industrial Dark Theme
-  static const Color background = Color(0xFF131313);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(color: background),
+        decoration: const BoxDecoration(color: AppColors.background),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppSpacing.spacingLg),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 // Role Selection Form
                 _buildRoleSelectionForm(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 // Footer
                 _buildFooter(),
               ],
@@ -61,23 +54,23 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           height: 100,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: primaryContainer.withOpacity(0.2),
+            color: AppColors.primaryContainer.withValues(alpha: 0.2),
           ),
-          child: const Icon(Icons.build, size: 50, color: primary),
+          child: const Icon(Icons.build, size: 50, color: AppColors.primary),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.spacingLg),
         Text(
           'Cuéntanos quién eres',
-          style: GoogleFonts.sora(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
+          style: AppTextStyles.textStyleHeading.copyWith(
+            color: AppColors.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Text(
           'Selecciona tu tipo de cuenta para continuar',
-          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -87,11 +80,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   Widget _buildRoleSelectionForm() {
     return Container(
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF333333)),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.spacingLg),
       child: Form(
         key: _formKey,
         child: Column(
@@ -99,10 +92,10 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           children: [
             // Role Dropdown
             _buildRoleDropdown(),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.spacingLg),
             // Continue Button
             _buildContinueButton(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Back Button
             _buildBackButton(),
           ],
@@ -120,51 +113,53 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             children: [
               TextSpan(
                 text: 'Tipo de cuenta',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
                 ),
               ),
               TextSpan(
                 text: ' *',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: requiredAsterisk,
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.requiredAsterisk,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Container(
           decoration: BoxDecoration(
-            color: surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: outlineVariant),
+            color: AppColors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+            border: Border.all(color: AppColors.outlineVariant),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              value: _selectedRole,
+              initialValue: _selectedRole,
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingSm,
                 ),
                 border: InputBorder.none,
               ),
-              dropdownColor: surfaceContainerHigh,
-              style: GoogleFonts.sora(color: onSurface, fontSize: 16),
-              icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+              dropdownColor: AppColors.surfaceContainerHigh,
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
+              ),
+              icon: const Icon(
+                Icons.expand_more,
+                color: AppColors.onSurfaceVariant,
+              ),
               items: const [
                 DropdownMenuItem(
                   value: 'Cliente',
                   child: Row(
                     children: [
-                      Icon(Icons.person, color: primary, size: 20),
-                      SizedBox(width: 12),
+                      Icon(Icons.person, color: AppColors.primary, size: 20),
+                      SizedBox(width: AppSpacing.spacingSm),
                       Text('Cliente'),
                     ],
                   ),
@@ -173,8 +168,8 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   value: 'Almacén',
                   child: Row(
                     children: [
-                      Icon(Icons.warehouse, color: primary, size: 20),
-                      SizedBox(width: 12),
+                      Icon(Icons.warehouse, color: AppColors.primary, size: 20),
+                      SizedBox(width: AppSpacing.spacingSm),
                       Text('Almacén'),
                     ],
                   ),
@@ -199,46 +194,24 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   }
 
   Widget _buildContinueButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _handleContinue,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryContainer,
-          foregroundColor: onPrimaryContainer,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'CONTINUAR',
-              style: GoogleFonts.sora(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-              ),
-            ),
-            SizedBox(width: 8),
-            Icon(Icons.arrow_forward),
-          ],
-        ),
-      ),
+    return RyButton(
+      label: 'CONTINUAR',
+      trailingIcon: Icons.arrow_forward,
+      variant: RyButtonVariant.primary,
+      size: RyButtonSize.large,
+      isFullWidth: true,
+      onPressed: _handleContinue,
     );
   }
 
   Widget _buildBackButton() {
     return Center(
-      child: TextButton(
+      child: RyButton(
+        label: 'Volver',
+        variant: RyButtonVariant.text,
         onPressed: () {
           Navigator.pop(context);
         },
-        child: Text(
-          'Volver',
-          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
-        ),
       ),
     );
   }
@@ -267,43 +240,49 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           children: [
             Row(
               children: [
-                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
-                const Text(
+                const Icon(
+                  Icons.verified,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
                   'Certificado ISO 9001',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 16),
-            Container(width: 1, height: 16, color: outlineVariant),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Container(width: 1, height: 16, color: AppColors.outlineVariant),
+            const SizedBox(width: AppSpacing.spacingMd),
             Row(
               children: [
-                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
-                const Text(
+                const Icon(
+                  Icons.security,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
                   'SSL Secure',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+        const SizedBox(height: AppSpacing.spacingMd),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
-            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ),

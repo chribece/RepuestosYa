@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/realtime_notification_service.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_state_container.dart';
+import '../widgets/ry_status_badge.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
   final String solicitudId;
@@ -22,21 +30,6 @@ class ReceivedQuotationsPage extends StatefulWidget {
 
 class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   final SolicitudService _solicitudService = SolicitudService();
-
-  // Paleta de colores industrial oscura
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color cardGradientStart = Color(0xFF1E1E1E);
-  static const Color cardGradientEnd = Color(0xFF161616);
-  static const Color cardBorder = Color(0xFF333333);
 
   int _selectedTabIndex = 0;
   List<Map<String, dynamic>> _cotizaciones = [];
@@ -135,13 +128,16 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     });
 
     try {
-      print('Intentando aceptar cotización con ID: $cotizacionId');
+      AppLogger.debug(
+        'Intentando aceptar cotización con ID: $cotizacionId',
+        name: 'ReceivedQuotationsPage',
+      );
       final response = await _solicitudService.aceptarCotizacion(cotizacionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Cotización aceptada correctamente'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
 
@@ -155,12 +151,16 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         }
       }
     } catch (e) {
-      print('Error al aceptar cotización: $e');
+      AppLogger.error(
+        'Error al aceptar cotización',
+        name: 'ReceivedQuotationsPage',
+        error: e,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al aceptar cotización: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -175,24 +175,31 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
   Future<void> _rechazarCotizacion(String cotizacionId) async {
     try {
-      print('Intentando rechazar cotización con ID: $cotizacionId');
+      AppLogger.debug(
+        'Intentando rechazar cotización con ID: $cotizacionId',
+        name: 'ReceivedQuotationsPage',
+      );
       await _solicitudService.rechazarCotizacion(cotizacionId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Cotización rechazada'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.warning,
           ),
         );
         _cargarCotizaciones();
       }
     } catch (e) {
-      print('Error al rechazar cotización: $e');
+      AppLogger.error(
+        'Error al rechazar cotización',
+        name: 'ReceivedQuotationsPage',
+        error: e,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al rechazar cotización: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -202,7 +209,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: _buildTopAppBar(),
       body: Column(
         children: [
@@ -210,13 +217,22 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           _buildTabsBar(),
           Expanded(
             child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: primaryContainer),
+                ? const RyStateContainer(
+                    title: 'Cargando cotizaciones...',
+                    type: RyStateType.loading,
                   )
                 : _errorMessage != null
-                ? _buildErrorState()
+                ? RyStateContainer(
+                    title: 'Error',
+                    subtitle: _errorMessage,
+                    type: RyStateType.error,
+                  )
                 : _cotizaciones.isEmpty
-                ? _buildEmptyState()
+                ? const RyStateContainer(
+                    title: 'Sin cotizaciones',
+                    subtitle: 'Los almacenes enviarán sus ofertas pronto',
+                    type: RyStateType.empty,
+                  )
                 : _buildQuotationsList(),
           ),
         ],
@@ -226,80 +242,73 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
   PreferredSizeWidget _buildTopAppBar() {
     return AppBar(
-      backgroundColor: surface,
+      backgroundColor: AppColors.surface,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: onSurface),
+        icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
         onPressed: () => Navigator.pop(context),
       ),
-      title: const Text(
-        'Cotizaciones',
-        style: TextStyle(
-          color: onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      title: Text('Cotizaciones', style: AppTextStyles.textStyleTitle),
     );
   }
 
   Widget _buildSummaryCard() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(AppSpacing.spacingMd),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorder, width: 1),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Row(
         children: [
-          // Foto mini del repuesto
           Container(
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: cardBorder, width: 1),
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              border: Border.all(color: AppColors.outlineVariant, width: 1),
             ),
             child: widget.fotoUrl != null && widget.fotoUrl!.isNotEmpty
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusSm),
                     child: Image.network(
                       widget.fotoUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return const Icon(
                           Icons.image_not_supported,
-                          color: onSurfaceVariant,
+                          color: AppColors.onSurfaceVariant,
                           size: 32,
                         );
                       },
                     ),
                   )
-                : const Icon(Icons.image, color: onSurfaceVariant, size: 32),
+                : const Icon(
+                    Icons.image,
+                    color: AppColors.onSurfaceVariant,
+                    size: 32,
+                  ),
           ),
-          const SizedBox(width: 16),
-          // Información de la pieza
+          const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   widget.piezaNombre,
-                  style: const TextStyle(
-                    color: onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTextStyles.textStyleBody,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.spacingXxs),
                 Text(
                   '${widget.ofertasPendientes} ofertas pendientes',
-                  style: const TextStyle(color: secondary, fontSize: 14),
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.secondary,
+                  ),
                 ),
               ],
             ),
@@ -313,10 +322,12 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final tabs = ['Todas', 'Más baratas', 'Más cercanas'];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: const BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: cardBorder, width: 1)),
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         children: tabs.asMap().entries.map((entry) {
@@ -328,11 +339,15 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             child: InkWell(
               onTap: () => _onTabChanged(index),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.spacingMd,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isSelected ? primaryContainer : Colors.transparent,
+                      color: isSelected
+                          ? AppColors.primaryContainer
+                          : AppColors.transparent,
                       width: 2,
                     ),
                   ),
@@ -340,9 +355,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: isSelected ? primaryContainer : onSurfaceVariant,
-                    fontSize: 14,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: isSelected
+                        ? AppColors.primaryContainer
+                        : AppColors.onSurfaceVariant,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
@@ -354,67 +370,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     );
   }
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 48),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage ?? 'Error desconocido',
-              style: const TextStyle(color: onSurface, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _cargarCotizaciones,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryContainer,
-                foregroundColor: onPrimaryContainer,
-              ),
-              child: const Text('Reintentar'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.inbox, color: onSurfaceVariant, size: 64),
-            const SizedBox(height: 16),
-            const Text(
-              'No hay cotizaciones aún',
-              style: TextStyle(
-                color: onSurface,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Los almacenes enviarán sus ofertas pronto',
-              style: TextStyle(color: onSurfaceVariant, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuotationsList() {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       itemCount: _cotizaciones.length,
       itemBuilder: (context, index) {
         final cotizacion = _cotizaciones[index];
@@ -435,28 +393,22 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final estado = cotizacion['estado'] ?? 'pendiente';
     final createdAt = cotizacion['created_at'];
 
-    // Simular disponibilidad basado en tiempo de entrega
     final disponibilidad = tiempoEntrega.toLowerCase().contains('hoy')
         ? 'Disponible hoy'
         : 'Mañana';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [cardGradientStart, cardGradientEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorder, width: 1),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sección superior: Info del almacén
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
             child: Row(
               children: [
                 Expanded(
@@ -467,81 +419,54 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                         children: [
                           Text(
                             almacenNombre,
-                            style: const TextStyle(
-                              color: onSurface,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTextStyles.textStyleBody,
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: disponibilidad == 'Disponible hoy'
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(100),
-                              border: Border.all(
-                                color: disponibilidad == 'Disponible hoy'
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.orange.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Text(
-                              disponibilidad,
-                              style: TextStyle(
-                                color: disponibilidad == 'Disponible hoy'
-                                    ? Colors.green
-                                    : Colors.orange,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          const SizedBox(width: AppSpacing.spacingSm),
+                          RyStatusBadge(
+                            status: disponibilidad == 'Disponible hoy'
+                                ? 'available'
+                                : 'pending',
+                            style: RyStatusBadgeStyle.filled,
+                            size: RyStatusBadgeSize.small,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.spacingXs),
                       Row(
                         children: [
                           const Icon(
                             Icons.access_time,
-                            color: onSurfaceVariant,
+                            color: AppColors.onSurfaceVariant,
                             size: 16,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.spacingXxs),
                           Text(
                             _formatTiempoEnvio(createdAt),
-                            style: const TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSpacing.spacingMd),
                           const Icon(
                             Icons.schedule,
-                            color: onSurfaceVariant,
+                            color: AppColors.onSurfaceVariant,
                             size: 16,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.spacingXxs),
                           Text(
                             tiempoEntrega,
-                            style: const TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                       if (notas != null && notas.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.spacingXs),
                         Text(
                           notas,
-                          style: const TextStyle(
-                            color: onSurfaceVariant,
-                            fontSize: 12,
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.onSurfaceVariant,
                             fontStyle: FontStyle.italic,
                           ),
                           maxLines: 2,
@@ -554,41 +479,40 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
               ],
             ),
           ),
-          // Separador
           Container(
             height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            color: cardBorder,
+            margin: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.spacingMd,
+            ),
+            color: AppColors.outlineVariant,
           ),
-          // Sección inferior: Precio y acciones
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
             child: Row(
               children: [
-                // Precio destacado
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Precio Final',
-                        style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.spacingXxs),
                       Row(
                         children: [
                           Text(
                             '\$${precio.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: primaryContainer,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
+                            style: AppTextStyles.textStyleHeading.copyWith(
+                              color: AppColors.primaryContainer,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.spacingXxs),
                           const Icon(
                             Icons.verified,
-                            color: primaryContainer,
+                            color: AppColors.primaryContainer,
                             size: 20,
                           ),
                         ],
@@ -596,143 +520,87 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
-                // Botones de acción
+                const SizedBox(width: AppSpacing.spacingMd),
                 if (estado == 'pendiente') ...[
-                  // Botón Ver foto
                   if (fotoEvidencia != null && fotoEvidencia.isNotEmpty)
-                    OutlinedButton.icon(
+                    RyButton(
+                      label: 'Ver foto',
+                      icon: Icons.image,
+                      variant: RyButtonVariant.secondary,
+                      size: RyButtonSize.small,
                       onPressed: () {
-                        // Mostrar foto en diálogo
                         showDialog(
                           context: context,
                           builder: (context) => Dialog(
-                            backgroundColor: surface,
+                            backgroundColor: AppColors.surface,
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Padding(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.all(
+                                    AppSpacing.spacingMd,
+                                  ),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.radiusSm,
+                                    ),
                                     child: Image.network(
                                       fotoEvidencia,
                                       errorBuilder:
                                           (context, error, stackTrace) {
                                             return const Icon(
                                               Icons.error,
-                                              color: Colors.red,
+                                              color: AppColors.error,
                                               size: 64,
                                             );
                                           },
                                     ),
                                   ),
                                 ),
-                                TextButton(
+                                RyButton(
+                                  label: 'Cerrar',
+                                  variant: RyButtonVariant.text,
                                   onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cerrar'),
                                 ),
                               ],
                             ),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.image, size: 16),
-                      label: const Text('Ver foto'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: onSurface,
-                        side: const BorderSide(color: cardBorder),
-                      ),
                     ),
-                  const SizedBox(width: 8),
-                  // Botón de rechazar
-                  OutlinedButton.icon(
+                  const SizedBox(width: AppSpacing.spacingSm),
+                  RyButton(
+                    label: 'Rechazar',
+                    icon: Icons.close,
+                    variant: RyButtonVariant.secondary,
+                    size: RyButtonSize.small,
                     onPressed: () => _rechazarCotizacion(cotizacion['id']),
-                    icon: const Icon(Icons.close, size: 16),
-                    label: const Text('Rechazar'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.orange,
-                      side: const BorderSide(color: Colors.orange),
-                    ),
                   ),
-                  const SizedBox(width: 8),
-                  // Botón Aceptar
-                  ElevatedButton.icon(
+                  const SizedBox(width: AppSpacing.spacingSm),
+                  RyButton(
+                    label: 'Aceptar',
+                    icon: Icons.check,
+                    variant: RyButtonVariant.primary,
+                    size: RyButtonSize.small,
+                    isLoading: _loadingCotizaciones[cotizacion['id']] == true,
                     onPressed: _loadingCotizaciones[cotizacion['id']] == true
                         ? null
                         : () => _aceptarCotizacion(cotizacion['id']),
-                    icon: _loadingCotizaciones[cotizacion['id']] == true
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Icon(Icons.check, size: 16),
-                    label: const Text('Aceptar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryContainer,
-                      foregroundColor: onPrimaryContainer,
-                      elevation: 0,
-                    ),
                   ),
-                ] else if (estado == 'aceptada') ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Aceptada',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                ] else if (estado == 'aceptada')
+                  RyStatusBadge(
+                    status: 'completed',
+                    customLabel: 'Aceptada',
+                    style: RyStatusBadgeStyle.filled,
+                    size: RyStatusBadgeSize.small,
+                  )
+                else if (estado == 'rechazada')
+                  RyStatusBadge(
+                    status: 'error',
+                    customLabel: 'Rechazada',
+                    style: RyStatusBadgeStyle.filled,
+                    size: RyStatusBadgeSize.small,
                   ),
-                ] else if (estado == 'rechazada') ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.cancel, color: Colors.red, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'Rechazada',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

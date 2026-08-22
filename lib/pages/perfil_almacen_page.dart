@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter/services.dart';
+import '../theme/app_colors.dart';
 import '../services/almacen_service.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class PerfilAlmacenPage extends StatefulWidget {
   const PerfilAlmacenPage({super.key});
@@ -24,18 +30,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
 
   final AlmacenService _almacenService = AlmacenService();
 
-  // Sistema de Diseño Industrial
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-
   @override
   void dispose() {
     _nombreController.dispose();
@@ -52,11 +46,23 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
 
     try {
       final almacen = await _almacenService.obtenerMiAlmacen();
-      print('DEBUG: Almacen recibido: $almacen');
-      print('DEBUG: Tipo de almacen: ${almacen.runtimeType}');
+      AppLogger.debug(
+        'DEBUG: Almacen recibido: $almacen',
+        name: 'PerfilAlmacenPage',
+      );
+      AppLogger.debug(
+        'DEBUG: Tipo de almacen: ${almacen.runtimeType}',
+        name: 'PerfilAlmacenPage',
+      );
       if (almacen != null) {
-        print('DEBUG: Nombre comercial: ${almacen['nombre_comercial']}');
-        print('DEBUG: Dirección: ${almacen['direccion_texto']}');
+        AppLogger.debug(
+          'DEBUG: Nombre comercial: ${almacen['nombre_comercial']}',
+          name: 'PerfilAlmacenPage',
+        );
+        AppLogger.debug(
+          'DEBUG: Dirección: ${almacen['direccion_texto']}',
+          name: 'PerfilAlmacenPage',
+        );
         setState(() {
           _almacenData = almacen;
           _nombreController.text = almacen['nombre_comercial'] ?? '';
@@ -66,13 +72,17 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           _isLoading = false;
         });
       } else {
-        print('DEBUG: Almacen es null');
+        AppLogger.debug('DEBUG: Almacen es null', name: 'PerfilAlmacenPage');
         setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('DEBUG: Error al cargar almacén: $e');
+      AppLogger.error(
+        'Error al cargar almacén',
+        name: 'PerfilAlmacenPage',
+        error: e,
+      );
       setState(() {
         _isLoading = false;
       });
@@ -80,7 +90,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar almacén: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -114,7 +124,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Perfil actualizado correctamente'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
         await _cargarAlmacen();
@@ -127,7 +137,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al actualizar perfil: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -137,29 +147,29 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   @override
   void initState() {
     super.initState();
-    print('DEBUG: PerfilAlmacenPage initState llamado');
+    AppLogger.debug(
+      'DEBUG: PerfilAlmacenPage initState llamado',
+      name: 'PerfilAlmacenPage',
+    );
     _cargarAlmacen();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: surface,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary, size: 28),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: AppColors.primary,
+            size: 28,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Perfil de Almacén',
-          style: GoogleFonts.sora(
-            color: onSurface,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: Text('Perfil de Almacén', style: AppTextStyles.textStyleTitle),
         actions: [
           if (!_isLoading && _almacenData != null)
             TextButton.icon(
@@ -172,68 +182,52 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                     },
               icon: Icon(
                 _isEditing ? Icons.close : Icons.edit,
-                color: primary,
+                color: AppColors.primary,
                 size: 20,
               ),
               label: Text(
                 _isEditing ? 'Cancelar' : 'Editar',
-                style: GoogleFonts.sora(
-                  color: primary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                style: AppTextStyles.textStyleButton.copyWith(
+                  color: AppColors.primary,
                 ),
               ),
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: primaryContainer),
+          ? const RyStateContainer(
+              title: 'Cargando perfil...',
+              type: RyStateType.loading,
             )
           : _almacenData == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.store, color: onSurfaceVariant, size: 64),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No tienes un almacén registrado',
-                    style: GoogleFonts.sora(color: onSurface, fontSize: 18),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Regístrate para comenzar',
-                    style: GoogleFonts.sora(
-                      color: onSurfaceVariant,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+          ? const RyStateContainer(
+              title: 'Sin almacén',
+              subtitle:
+                  'No tienes un almacén registrado. Regístrate para comenzar.',
+              type: RyStateType.empty,
             )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildStatusCard(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.spacingXl),
                     _buildNombreField(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.spacingXl),
                     _buildDireccionField(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.spacingXl),
                     Row(
                       children: [
                         Expanded(child: _buildLatField()),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: AppSpacing.spacingMd),
                         Expanded(child: _buildLonField()),
                       ],
                     ),
                     if (_isEditing) ...[
-                      const SizedBox(height: 32),
+                      const SizedBox(height: AppSpacing.spacingXxl),
                       _buildSaveButton(),
                     ],
                   ],
@@ -248,56 +242,55 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     final estadoAbierto = _almacenData?['estado_abierto'] ?? true;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.spacingSm),
             decoration: BoxDecoration(
               color: verificado
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+                  ? AppColors.success.withValues(alpha: 0.1)
+                  : AppColors.warning.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
             ),
             child: Icon(
               verificado ? Icons.verified : Icons.pending,
-              color: verificado ? Colors.green : Colors.orange,
+              color: verificado ? AppColors.success : AppColors.warning,
               size: 24,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   verificado ? 'Almacén Verificado' : 'En Verificación',
-                  style: const TextStyle(
-                    color: onSurface,
-                    fontSize: 16,
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.spacingXxs),
                 Row(
                   children: [
                     Icon(
                       estadoAbierto ? Icons.storefront : Icons.store,
-                      color: estadoAbierto ? Colors.green : Colors.red,
+                      color: estadoAbierto
+                          ? AppColors.success
+                          : AppColors.error,
                       size: 16,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.spacingXxs),
                     Text(
                       estadoAbierto ? 'Abierto' : 'Cerrado',
-                      style: TextStyle(
-                        color: onSurfaceVariant,
-                        fontSize: 12,
-                        fontFamily: 'Inter',
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -311,294 +304,51 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   }
 
   Widget _buildNombreField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Nombre Comercial',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _nombreController,
-          enabled: _isEditing,
-          style: const TextStyle(
-            color: onSurface,
-            fontSize: 16,
-            fontFamily: 'Inter',
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El nombre comercial es requerido';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _isEditing
-                ? surfaceContainerLow
-                : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Nombre Comercial',
+      controller: _nombreController,
+      isReadOnly: !_isEditing,
+      isRequired: true,
     );
   }
 
   Widget _buildDireccionField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Dirección',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _direccionController,
-          enabled: _isEditing,
-          maxLines: 3,
-          style: const TextStyle(
-            color: onSurface,
-            fontSize: 16,
-            fontFamily: 'Inter',
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'La dirección es requerida';
-            }
-            return null;
-          },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _isEditing
-                ? surfaceContainerLow
-                : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
-            ),
-            contentPadding: const EdgeInsets.all(16),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Dirección',
+      controller: _direccionController,
+      isReadOnly: !_isEditing,
+      maxLines: 3,
+      isRequired: true,
     );
   }
 
   Widget _buildLatField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Latitud',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _latController,
-          enabled: _isEditing,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-            signed: true,
-          ),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
-          ],
-          style: const TextStyle(
-            color: onSurface,
-            fontSize: 16,
-            fontFamily: 'Inter',
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _isEditing
-                ? surfaceContainerLow
-                : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Latitud',
+      controller: _latController,
+      isReadOnly: !_isEditing,
+      type: RyTextFieldType.number,
     );
   }
 
   Widget _buildLonField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Longitud',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _lonController,
-          enabled: _isEditing,
-          keyboardType: const TextInputType.numberWithOptions(
-            decimal: true,
-            signed: true,
-          ),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
-          ],
-          style: const TextStyle(
-            color: onSurface,
-            fontSize: 16,
-            fontFamily: 'Inter',
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _isEditing
-                ? surfaceContainerLow
-                : surfaceContainerLow.withOpacity(0.5),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: outlineVariant.withOpacity(0.3)),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 16,
-              horizontal: 16,
-            ),
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Longitud',
+      controller: _lonController,
+      isReadOnly: !_isEditing,
+      type: RyTextFieldType.number,
     );
   }
 
   Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _isSubmitting ? null : _guardarCambios,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryContainer,
-          disabledBackgroundColor: primaryContainer.withOpacity(0.4),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: _isSubmitting
-            ? const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: onPrimaryContainer,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'GUARDANDO...',
-                    style: TextStyle(
-                      color: onPrimaryContainer,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              )
-            : const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.save, color: onPrimaryContainer, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'GUARDAR CAMBIOS',
-                    style: TextStyle(
-                      color: onPrimaryContainer,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-      ),
+    return RyButton(
+      label: 'Guardar Cambios',
+      icon: Icons.save,
+      variant: RyButtonVariant.primary,
+      size: RyButtonSize.large,
+      isFullWidth: true,
+      isLoading: _isSubmitting,
+      onPressed: _isSubmitting ? null : _guardarCambios,
     );
   }
 }

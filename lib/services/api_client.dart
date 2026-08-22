@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/app_logger.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
@@ -19,7 +20,10 @@ class ApiClient {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString(_tokenKey);
-    print('ApiClient init: token = ${_token != null ? "EXISTS" : "NULL"}');
+    AppLogger.debug(
+      'init: token = ${_token != null ? "EXISTS" : "NULL"}',
+      name: 'ApiClient',
+    );
   }
 
   // Guardar el token
@@ -27,7 +31,7 @@ class ApiClient {
     _token = token;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
-    print('ApiClient setToken: token saved successfully');
+    AppLogger.debug('setToken: token saved successfully', name: 'ApiClient');
   }
 
   // Obtener el token actual
@@ -58,8 +62,10 @@ class ApiClient {
   Exception _handleError(http.Response response) {
     String message = 'Error desconocido';
 
-    print('ApiClient Error: Status ${response.statusCode}');
-    print('ApiClient Error: Body ${response.body}');
+    AppLogger.warning(
+      'Error: Status ${response.statusCode} - Body ${response.body}',
+      name: 'ApiClient',
+    );
 
     try {
       final body = json.decode(response.body);

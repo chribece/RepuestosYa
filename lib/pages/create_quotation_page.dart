@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/services.dart';
+import '../theme/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
-import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../widgets/ry_text_field.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
@@ -28,26 +33,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   bool _isSubmitting = false;
 
   final ImagePicker _imagePicker = ImagePicker();
-  final AuthService _authService = AuthService();
   final SolicitudService _solicitudService = SolicitudService();
   final AlmacenService _almacenService = AlmacenService();
-
-  // Sistema de Diseño y Paleta de Colores Industrial
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color surfaceContainerHighest = Color(0xFF353534);
-  static const Color surfaceVariant = Color(0xFF353534);
-
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
 
   @override
   void dispose() {
@@ -61,63 +48,72 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   Future<void> _showImageSourceSelector() async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: surfaceContainerHigh,
+      backgroundColor: AppColors.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.radiusXl),
+        ),
       ),
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingSm),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 40,
                   height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
                   decoration: BoxDecoration(
-                    color: outlineVariant,
-                    borderRadius: BorderRadius.circular(2),
+                    color: AppColors.outlineVariant,
+                    borderRadius: BorderRadius.circular(AppRadius.radiusFull),
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingLg,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'Evidencia Visual',
                       style: GoogleFonts.sora(
-                        color: onSurface,
-                        fontSize: 16,
+                        textStyle: AppTextStyles.textStyleBody,
+                        color: AppColors.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.spacingXs),
                 ListTile(
                   leading: Container(
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: secondaryContainer.withOpacity(0.15),
+                      color: AppColors.secondaryContainer.withValues(
+                        alpha: 0.15,
+                      ),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_camera, color: secondary),
+                    child: const Icon(
+                      Icons.photo_camera,
+                      color: AppColors.secondary,
+                    ),
                   ),
                   title: Text(
                     'Tomar foto',
                     style: GoogleFonts.sora(
-                      color: onSurface,
+                      color: AppColors.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   subtitle: Text(
                     'Usar la cámara del dispositivo',
                     style: GoogleFonts.sora(
-                      color: onSurfaceVariant,
-                      fontSize: 12,
+                      textStyle: AppTextStyles.textStyleSmall,
+                      color: AppColors.onSurfaceVariant,
                     ),
                   ),
                   onTap: () {
@@ -130,23 +126,28 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: secondaryContainer.withOpacity(0.15),
+                      color: AppColors.secondaryContainer.withValues(
+                        alpha: 0.15,
+                      ),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.photo_library, color: secondary),
+                    child: const Icon(
+                      Icons.photo_library,
+                      color: AppColors.secondary,
+                    ),
                   ),
                   title: Text(
                     'Elegir de galería',
                     style: GoogleFonts.sora(
-                      color: onSurface,
+                      color: AppColors.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   subtitle: Text(
                     'Seleccionar una imagen ya existente',
                     style: GoogleFonts.sora(
-                      color: onSurfaceVariant,
-                      fontSize: 12,
+                      textStyle: AppTextStyles.textStyleSmall,
+                      color: AppColors.onSurfaceVariant,
                     ),
                   ),
                   onTap: () {
@@ -160,18 +161,18 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.15),
+                        color: AppColors.error.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.delete_outline,
-                        color: Colors.redAccent,
+                        color: AppColors.error,
                       ),
                     ),
                     title: Text(
                       'Quitar imagen',
                       style: GoogleFonts.sora(
-                        color: Colors.redAccent,
+                        color: AppColors.error,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -209,58 +210,68 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   ? 'No se pudo acceder a la cámara: $e'
                   : 'Error al seleccionar la imagen: $e',
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
     }
   }
 
-  // Traducción lógica segura para que coincida exactamente con la columna de Supabase
-  String _getConditionDbValue(String condition) {
-    switch (condition) {
-      case 'new':
-        return 'Nuevo (En caja original)';
-      case 'used_a':
-      case 'used_b':
-        return 'Usado (Buen estado)'; // Unificar todos los usados a este valor
-      case 'refurbished':
-        return 'Nuevo (Abierto)'; // O puedes elegir 'Usado (Buen estado)' si prefieres
-      default:
-        return 'Nuevo (En caja original)';
-    }
-  }
-
   Future<String?> _uploadImageToSupabase(File imageFile) async {
     try {
-      print('[UPLOAD] 🚀 Iniciando subida de imagen...');
+      AppLogger.debug(
+        '[UPLOAD] 🚀 Iniciando subida de imagen...',
+        name: 'CreateQuotationPage',
+      );
 
       final supabase = Supabase.instance.client;
 
       // Verificar sesión de autenticación
       final session = supabase.auth.currentSession;
       if (session == null) {
-        print('[UPLOAD] ❌ No hay sesión activa. Intentando refrescar...');
+        AppLogger.warning(
+          '[UPLOAD] ❌ No hay sesión activa. Intentando refrescar...',
+          name: 'CreateQuotationPage',
+        );
         try {
           await supabase.auth.refreshSession();
-          print('[UPLOAD] ✅ Sesión refrescada');
+          AppLogger.info(
+            '[UPLOAD] ✅ Sesión refrescada',
+            name: 'CreateQuotationPage',
+          );
         } catch (e) {
-          print('[UPLOAD] ❌ Error al refrescar sesión: $e');
+          AppLogger.error(
+            '[UPLOAD] ❌ Error al refrescar sesión',
+            name: 'CreateQuotationPage',
+            error: e,
+          );
           return null;
         }
       } else {
-        print('[UPLOAD] ✅ Usuario autenticado: ${session.user.id}');
+        AppLogger.debug(
+          '[UPLOAD] ✅ Usuario autenticado: ${session.user.id}',
+          name: 'CreateQuotationPage',
+        );
       }
 
       // Generar nombre único
       final fileName =
           'cotizacion_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final filePath = 'evidencias/$fileName';
-      print('[UPLOAD] 📁 FilePath: $filePath');
-      print('[UPLOAD] 📦 Tamaño: ${await imageFile.length()} bytes');
+      AppLogger.debug(
+        '[UPLOAD] 📁 FilePath: $filePath',
+        name: 'CreateQuotationPage',
+      );
+      AppLogger.debug(
+        '[UPLOAD] 📦 Tamaño: ${await imageFile.length()} bytes',
+        name: 'CreateQuotationPage',
+      );
 
       // Subir al bucket
-      print('[UPLOAD] ⬆️ Subiendo imagen...');
+      AppLogger.debug(
+        '[UPLOAD] ⬆️ Subiendo imagen...',
+        name: 'CreateQuotationPage',
+      );
       final response = await supabase.storage
           .from('Repuestosya')
           .upload(
@@ -273,19 +284,29 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
             ),
           );
 
-      print('[UPLOAD] ✅ Upload response: $response');
+      AppLogger.debug(
+        '[UPLOAD] ✅ Upload response: $response',
+        name: 'CreateQuotationPage',
+      );
 
       // Obtener URL pública
       final publicUrl = supabase.storage
           .from('Repuestosya')
           .getPublicUrl(filePath);
 
-      print('[UPLOAD] 🔗 URL pública: $publicUrl');
+      AppLogger.debug(
+        '[UPLOAD] 🔗 URL pública: $publicUrl',
+        name: 'CreateQuotationPage',
+      );
 
       return publicUrl;
     } catch (e, stackTrace) {
-      print('[UPLOAD] ❌ ERROR DETALLADO: $e');
-      print('[UPLOAD] Stack trace: $stackTrace');
+      AppLogger.error(
+        '[UPLOAD] ❌ ERROR DETALLADO',
+        name: 'CreateQuotationPage',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }
@@ -323,7 +344,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
         if (uploadedImageUrl == null) {
           throw Exception(
-            'La subida de imagen falló. Revisa la consola de Flutter para ver el error detallado. '
+            'La subida de imagen falló. Revisa la consola de Flutter para ver el AppColors.error detallado. '
             'Posibles causas: 1) Bucket no existe, 2) Políticas de INSERT faltantes, 3) Usuario no autenticado',
           );
         }
@@ -367,7 +388,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al procesar la cotización: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),
         );
@@ -403,7 +424,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         : '0000';
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           Positioned(
@@ -414,7 +435,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: primary.withOpacity(0.03),
+                color: AppColors.primary.withValues(alpha: 0.03),
               ),
             ),
           ),
@@ -426,7 +447,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: secondary.withOpacity(0.03),
+                color: AppColors.secondary.withValues(alpha: 0.03),
               ),
             ),
           ),
@@ -439,27 +460,32 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   child: Form(
                     key: _formKey,
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 110),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.spacingMd,
+                        AppSpacing.spacingLg,
+                        AppSpacing.spacingMd,
+                        110, // ajuste fino intencional: espacio para la barra de acción fija
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSummaryCard(piezaNombre, descripcion),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.spacingLg),
 
                           // SECCIÓN DE ESPECIFICACIONES TÉCNICAS Y VIN
                           _buildVehicleTechnicalSheet(objetoInterno),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildPriceField(),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildConditionDropdown(),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildDeliveryTimeDropdown(),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildImageUploadArea(),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildNotesField(),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildImportantInfoBox(),
                         ],
                       ),
@@ -478,36 +504,34 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   Widget _buildHeader(String id, String pieza) {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXs),
       decoration: const BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: primary, size: 28),
+            icon: const Icon(
+              Icons.arrow_back,
+              color: AppColors.primary,
+              size: 28,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.spacingSm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'Nueva Cotización',
-                  style: GoogleFonts.sora(
-                    color: onSurface,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text('Nueva Cotización', style: AppTextStyles.textStyleTitle),
                 Text(
                   'Solicitud #$id - $pieza',
-                  style: GoogleFonts.sora(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -532,11 +556,11 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         widget.solicitud['image_url'];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Row(
         children: [
@@ -544,13 +568,14 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: outlineVariant, width: 1),
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              border: Border.all(color: AppColors.outlineVariant, width: 1),
             ),
             child: (urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty)
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(7),
+                    // ajuste fino intencional: 1px menos que el radio del borde exterior
+                    borderRadius: BorderRadius.circular(AppRadius.radiusSm - 1),
                     child: urlDeLaImagen.trim().startsWith('/')
                         ? Image.file(
                             File(urlDeLaImagen.trim()),
@@ -558,7 +583,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(
                                   Icons.precision_manufacturing,
-                                  color: primaryContainer,
+                                  color: AppColors.primaryContainer,
                                   size: 32,
                                 ),
                           )
@@ -568,7 +593,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(
                                   Icons.precision_manufacturing,
-                                  color: primaryContainer,
+                                  color: AppColors.primaryContainer,
                                   size: 32,
                                 ),
                             loadingBuilder: (context, child, loadingProgress) {
@@ -579,7 +604,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: primary,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               );
@@ -588,48 +613,50 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   )
                 : const Icon(
                     Icons.precision_manufacturing,
-                    color: primaryContainer,
+                    color: AppColors.primaryContainer,
                     size: 32,
                   ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
+                    horizontal: AppSpacing.spacingXs,
+                    vertical: 2, // ajuste fino intencional: pastilla compacta
                   ),
                   decoration: BoxDecoration(
-                    color: secondaryContainer.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: secondary.withOpacity(0.2)),
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusXs),
+                    border: Border.all(
+                      color: AppColors.secondary.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Text(
                     'REQUERIDO',
                     style: GoogleFonts.sora(
-                      color: secondary,
-                      fontSize: 10,
+                      textStyle: AppTextStyles.textStyleSmall,
+                      color: AppColors.secondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.spacingXxs),
                 Text(
                   title,
                   style: GoogleFonts.sora(
-                    color: onSurface,
-                    fontSize: 16,
+                    textStyle: AppTextStyles.textStyleBody,
+                    color: AppColors.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   subtitle,
                   style: GoogleFonts.sora(
-                    color: onSurfaceVariant,
-                    fontSize: 12,
+                    textStyle: AppTextStyles.textStyleSmall,
+                    color: AppColors.onSurfaceVariant,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -676,38 +703,42 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.analytics, color: primary, size: 20),
-              const SizedBox(width: 8),
+              const Icon(Icons.analytics, color: AppColors.primary, size: 20),
+              const SizedBox(width: AppSpacing.spacingXs),
               Text(
                 'FICHA TÉCNICA DEL VEHÍCULO',
                 style: GoogleFonts.sora(
-                  color: primary.withOpacity(0.9),
-                  fontSize: 12,
+                  textStyle: AppTextStyles.textStyleSmall,
+                  color: AppColors.primary.withValues(alpha: 0.9),
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.2,
                 ),
               ),
             ],
           ),
-          const Divider(color: outlineVariant, height: 24, thickness: 1),
+          const Divider(
+            color: AppColors.outlineVariant,
+            height: AppSpacing.spacingLg,
+            thickness: 1,
+          ),
 
           Row(
             children: [
               Expanded(
                 child: _buildSpecsCell('Marca', marcaNombre, Icons.apartment),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.spacingXs),
               Expanded(
                 child: _buildSpecsCell(
                   'Modelo',
@@ -715,30 +746,33 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   Icons.directions_car,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.spacingXs),
               Expanded(
                 child: _buildSpecsCell('Año', anio, Icons.calendar_today),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.spacingMd),
 
-          const Text(
+          Text(
             'Número de Chasis / VIN (Indispensable)',
-            style: TextStyle(
-              color: onSurfaceVariant,
-              fontSize: 11,
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
               fontWeight: FontWeight.bold,
-              fontFamily: 'Inter',
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.spacingXs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.spacingSm,
+              vertical: AppSpacing.spacingSm,
+            ),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: outlineVariant.withOpacity(0.5)),
+              color: AppColors.onSurface.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              border: Border.all(
+                color: AppColors.outlineVariant.withValues(alpha: 0.5),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -748,11 +782,11 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                     vin.isNotEmpty
                         ? vin.toUpperCase()
                         : 'NO ESPECIFICADO POR EL CLIENTE',
-                    style: TextStyle(
+                    style: AppTextStyles.textStyleCaption.copyWith(
                       color: vin.isNotEmpty
-                          ? Colors.white
-                          : onSurfaceVariant.withOpacity(0.5),
-                      fontSize: 14,
+                          ? AppColors.onSurface
+                          : AppColors.onSurfaceVariant.withValues(alpha: 0.5),
+                      // familia monoespaciada intencional para el VIN (sin token equivalente)
                       fontFamily: 'JetBrains Mono',
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -766,18 +800,22 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('¡VIN copiado al portapapeles!'),
-                          backgroundColor: Colors.green,
+                          backgroundColor: AppColors.success,
                           duration: Duration(seconds: 2),
                         ),
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(AppSpacing.spacingXs),
                       decoration: BoxDecoration(
-                        color: surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
                       ),
-                      child: const Icon(Icons.copy, color: secondary, size: 16),
+                      child: const Icon(
+                        Icons.copy,
+                        color: AppColors.secondary,
+                        size: 16,
+                      ),
                     ),
                   ),
               ],
@@ -790,12 +828,14 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
   Widget _buildSpecsCell(String label, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(AppSpacing.spacingSm),
       height: 72,
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: outlineVariant.withOpacity(0.3)),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -803,23 +843,20 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         children: [
           Row(
             children: [
-              Icon(icon, color: onSurfaceVariant, size: 12),
-              const SizedBox(width: 4),
+              Icon(icon, color: AppColors.onSurfaceVariant, size: 12),
+              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 label,
-                style: const TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 10,
-                  fontFamily: 'Inter',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
                 ),
               ),
             ],
           ),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurface,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
@@ -831,88 +868,14 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   }
 
   Widget _buildPriceField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Precio de Venta (USD) *',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _priceController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          // CORRECCIÓN: "inputFormatters" está correctamente escrito
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-          ],
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-
-            fontWeight: FontWeight.bold,
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty)
-              return 'Por favor ingresa un precio';
-            if (double.tryParse(value) == null || double.parse(value) <= 0)
-              return 'Ingresa un monto válido';
-            return null;
-          },
-          decoration: InputDecoration(
-            prefixIcon: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                '\$',
-                style: TextStyle(
-                  color: primary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            prefixIconConstraints: const BoxConstraints(
-              minWidth: 0,
-              minHeight: 0,
-            ),
-            hintText: '0.00',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.2)),
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 18,
-              horizontal: 16,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN.',
-          style: TextStyle(
-            color: Color(0x77E4BEB4),
-            fontSize: 10,
-            letterSpacing: 0.5,
-            fontFamily: 'Inter',
-          ),
-        ),
-      ],
+    return RyTextField(
+      label: 'Precio de Venta (USD)',
+      hint: '0.00',
+      controller: _priceController,
+      type: RyTextFieldType.number,
+      isRequired: true,
+      prefixIcon: Icons.attach_money,
+      helperText: 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN',
     );
   }
 
@@ -920,33 +883,32 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Estado del Repuesto *',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
           decoration: BoxDecoration(
-            color: surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: outlineVariant),
+            color: AppColors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            border: Border.all(color: AppColors.outlineVariant),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedCondition,
-              dropdownColor: surfaceContainerHigh,
-              icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+              dropdownColor: AppColors.surfaceContainerHigh,
+              icon: const Icon(
+                Icons.expand_more,
+                color: AppColors.onSurfaceVariant,
+              ),
               isExpanded: true,
-              style: const TextStyle(
-                color: onSurface,
-                fontSize: 15,
-                fontFamily: 'Inter',
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
               ),
               items: const [
                 DropdownMenuItem(
@@ -976,33 +938,32 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Tiempo de Entrega Estimado *',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
           decoration: BoxDecoration(
-            color: surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: outlineVariant),
+            color: AppColors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            border: Border.all(color: AppColors.outlineVariant),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedDeliveryTime,
-              dropdownColor: surfaceContainerHigh,
-              icon: const Icon(Icons.expand_more, color: onSurfaceVariant),
+              dropdownColor: AppColors.surfaceContainerHigh,
+              icon: const Icon(
+                Icons.expand_more,
+                color: AppColors.onSurfaceVariant,
+              ),
               isExpanded: true,
-              style: const TextStyle(
-                color: onSurface,
-                fontSize: 15,
-                fontFamily: 'Inter',
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
               ),
               items: const [
                 DropdownMenuItem(value: 'Inmediata', child: Text('Inmediata')),
@@ -1017,8 +978,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                 ),
               ],
               onChanged: (value) {
-                if (value != null)
+                if (value != null) {
                   setState(() => _selectedDeliveryTime = value);
+                }
               },
             ),
           ),
@@ -1031,26 +993,27 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Evidencia Visual',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         GestureDetector(
           onTap: _showImageSourceSelector,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.spacingLg,
+              horizontal: AppSpacing.spacingMd,
+            ),
             decoration: BoxDecoration(
-              color: secondaryContainer.withOpacity(0.02),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.secondaryContainer.withValues(alpha: 0.02),
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
               border: Border.all(
-                color: secondaryContainer.withOpacity(0.4),
+                color: AppColors.secondaryContainer.withValues(alpha: 0.4),
                 width: 1.5,
                 style: BorderStyle.solid,
               ),
@@ -1059,7 +1022,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                 ? Column(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
                         child: Image.file(
                           _selectedImage!,
                           height: 150,
@@ -1067,19 +1030,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.spacingXs),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
-                          Icon(Icons.edit, color: secondary, size: 14),
-                          SizedBox(width: 4),
+                          Icon(
+                            Icons.edit,
+                            color: AppColors.secondary,
+                            size: 14,
+                          ),
+                          SizedBox(width: AppSpacing.spacingXxs),
                           Text(
                             'Cambiar imagen',
-                            style: TextStyle(
-                              color: secondary,
-                              fontSize: 14,
-                              fontFamily: 'Inter',
-                            ),
+                            style: AppTextStyles.textStyleCaption,
                           ),
                         ],
                       ),
@@ -1091,32 +1054,30 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: secondaryContainer.withOpacity(0.12),
+                          color: AppColors.secondaryContainer.withValues(
+                            alpha: 0.12,
+                          ),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.add_a_photo,
-                          color: secondary,
+                          color: AppColors.secondary,
                           size: 24,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
+                      const SizedBox(height: AppSpacing.spacingSm),
+                      Text(
                         'Foto del repuesto en stock',
-                        style: TextStyle(
-                          color: onSurface,
+                        style: AppTextStyles.textStyleCaption.copyWith(
+                          color: AppColors.onSurface,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
+                      const SizedBox(height: AppSpacing.spacingXxs / 2),
+                      Text(
                         'Toca para usar la cámara o elegir de galería',
-                        style: TextStyle(
-                          color: onSurfaceVariant,
-                          fontSize: 12,
-                          fontFamily: 'Inter',
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -1131,42 +1092,40 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Notas Adicionales (Opcional)',
-          style: TextStyle(
-            color: onSurfaceVariant,
-            fontSize: 14,
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Inter',
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         TextFormField(
           controller: _notesController,
           maxLines: 4,
-          style: const TextStyle(
-            color: onSurface,
-            fontSize: 15,
-            fontFamily: 'Inter',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurface,
           ),
           decoration: InputDecoration(
             hintText: 'Ej: Incluye garantía de 6 meses, entrega inmediata...',
-            hintStyle: TextStyle(color: onSurfaceVariant.withOpacity(0.3)),
+            hintStyle: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
             filled: true,
-            fillColor: surfaceContainerHigh,
+            fillColor: AppColors.surfaceContainerHigh,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              borderSide: const BorderSide(color: AppColors.outlineVariant),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: outlineVariant),
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              borderSide: const BorderSide(color: AppColors.outlineVariant),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryContainer),
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              borderSide: const BorderSide(color: AppColors.primaryContainer),
             ),
-            contentPadding: const EdgeInsets.all(16),
+            contentPadding: const EdgeInsets.all(AppSpacing.spacingMd),
           ),
         ),
       ],
@@ -1175,25 +1134,25 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
   Widget _buildImportantInfoBox() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerHighest.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant.withOpacity(0.2)),
+        color: AppColors.surfaceContainerHigh.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.2),
+        ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info, color: primary, size: 20),
-          SizedBox(width: 12),
+          const Icon(Icons.info, color: AppColors.primary, size: 20),
+          const SizedBox(width: AppSpacing.spacingSm),
           Expanded(
             child: Text(
               'Al enviar esta cotización, te comprometes a mantener el stock reservado por 24 horas.',
-              style: TextStyle(
-                color: onSurfaceVariant,
-                fontSize: 12,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
                 height: 1.4,
-                fontFamily: 'Inter',
               ),
             ),
           ),
@@ -1208,11 +1167,11 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.spacingMd),
         decoration: BoxDecoration(
-          color: background.withOpacity(0.9),
+          color: AppColors.background.withValues(alpha: 0.9),
           border: const Border(
-            top: BorderSide(color: outlineVariant, width: 1),
+            top: BorderSide(color: AppColors.outlineVariant, width: 1),
           ),
         ),
         child: SizedBox(
@@ -1221,46 +1180,50 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           child: ElevatedButton(
             onPressed: _isSubmitting ? null : _enviarCotizacion,
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryContainer,
-              disabledBackgroundColor: primaryContainer.withOpacity(0.4),
+              backgroundColor: AppColors.primaryContainer,
+              disabledBackgroundColor: AppColors.primaryContainer.withValues(
+                alpha: 0.4,
+              ),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
               ),
             ),
             child: _isSubmitting
-                ? const Row(
+                ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: onPrimaryContainer,
+                          color: AppColors.onPrimaryContainer,
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.spacingSm),
                       Text(
                         'PROCESANDO...',
-                        style: TextStyle(
-                          color: onPrimaryContainer,
-                          fontSize: 16,
+                        style: AppTextStyles.textStyleButton.copyWith(
+                          color: AppColors.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.send, color: onPrimaryContainer, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(
+                        Icons.send,
+                        color: AppColors.onPrimaryContainer,
+                        size: 20,
+                      ),
+                      const SizedBox(width: AppSpacing.spacingXs),
                       Text(
                         'ENVIAR COTIZACIÓN',
-                        style: TextStyle(
-                          color: onPrimaryContainer,
-                          fontSize: 16,
+                        style: AppTextStyles.textStyleButton.copyWith(
+                          color: AppColors.onPrimaryContainer,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

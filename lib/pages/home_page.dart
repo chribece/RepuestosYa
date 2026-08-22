@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import '../theme/app_colors.dart';
 import 'create_request_page.dart';
 import 'profile_page.dart';
-import 'register_almacen_page.dart';
-import 'perfil_almacen_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
-import '../services/almacen_service.dart';
 import '../services/realtime_notification_service.dart';
 import 'todas_solicitudes_page.dart';
 import 'login_page.dart';
-import 'package:provider/provider.dart';
-import '../providers/user_role_provider.dart';
 import 'received_quotations_page.dart';
 import 'mis_ordenes_page.dart';
+import '../widgets/ry_part_card.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,30 +24,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // Color scheme from HTML / Design System
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color secondary = Color(0xFF9ECAFF);
-
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _solicitudes = [];
   bool _isLoadingSolicitudes = false;
   Map<String, dynamic> _estadisticas = {};
-  bool _isLoadingEstadisticas = false;
 
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
-  final AlmacenService _almacenService = AlmacenService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -65,7 +49,7 @@ class _HomePageState extends State<HomePage> {
         RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
 
         final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
-        if (solicitudes != null && solicitudes.isNotEmpty) {
+        if (solicitudes.isNotEmpty) {
           final solicitudIds = solicitudes
               .map((s) => s['id']?.toString() ?? '')
               .where((id) => id.isNotEmpty)
@@ -78,7 +62,11 @@ class _HomePageState extends State<HomePage> {
         }
       }
     } catch (e) {
-      print('Error al suscribir a notificaciones: $e');
+      AppLogger.error(
+        'Error al suscribir a notificaciones',
+        name: 'HomePage',
+        error: e,
+      );
     }
   }
 
@@ -107,7 +95,11 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      print('Error al cargar solicitudes: $e');
+      AppLogger.error(
+        'Error al cargar solicitudes',
+        name: 'HomePage',
+        error: e,
+      );
     } finally {
       setState(() {
         _isLoadingSolicitudes = false;
@@ -116,21 +108,17 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _cargarEstadisticas() async {
-    setState(() {
-      _isLoadingEstadisticas = true;
-    });
-
     try {
       final estadisticas = await _solicitudService.obtenerEstadisticasCliente();
       setState(() {
         _estadisticas = estadisticas;
       });
     } catch (e) {
-      print('Error al cargar estadísticas: $e');
-    } finally {
-      setState(() {
-        _isLoadingEstadisticas = false;
-      });
+      AppLogger.error(
+        'Error al cargar estadísticas',
+        name: 'HomePage',
+        error: e,
+      );
     }
   }
 
@@ -145,7 +133,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       drawer: _buildNavigationDrawer(context),
       body: SafeArea(
         child: Column(
@@ -155,21 +143,22 @@ class _HomePageState extends State<HomePage> {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingSm,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.spacingSm),
                     _buildNewSearchButton(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppSpacing.spacingLg),
                     _buildStatsRow(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.spacingLg),
                     _buildRequestsSection(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.spacingLg),
                     _buildTrendingSection(),
-                    const SizedBox(height: 40),
+                    // 40 estaba a la misma distancia de 32 y 48: se toma spacingXl
+                    const SizedBox(height: AppSpacing.spacingXl),
                   ],
                 ),
               ),
@@ -184,15 +173,15 @@ class _HomePageState extends State<HomePage> {
   // --- DRAWER MODERNO Y LIMPIO ---
   Widget _buildNavigationDrawer(BuildContext context) {
     return Drawer(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
             decoration: const BoxDecoration(
-              color: surfaceContainerHigh,
+              color: AppColors.surfaceContainerHigh,
               border: Border(
-                bottom: BorderSide(color: outlineVariant, width: 1),
+                bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
               ),
             ),
             child: Column(
@@ -201,30 +190,37 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   'RepuestosYa',
-                  style: TextStyle(
-                    color: primaryContainer,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                  style: AppTextStyles.textStyleHeading.copyWith(
+                    color: AppColors.primaryContainer,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                const SizedBox(height: AppSpacing.spacingXs),
+                Text(
                   'Menú de Opciones',
-                  style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.home_rounded, color: primary),
-            title: const Text('Inicio', style: TextStyle(color: Colors.white)),
+            leading: const Icon(Icons.home_rounded, color: AppColors.primary),
+            title: Text(
+              'Inicio',
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
+              ),
+            ),
             onTap: () => Navigator.pop(context),
           ),
           ListTile(
-            leading: const Icon(Icons.person_rounded, color: primary),
-            title: const Text(
+            leading: const Icon(Icons.person_rounded, color: AppColors.primary),
+            title: Text(
               'Mi Perfil',
-              style: TextStyle(color: Colors.white),
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
+              ),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -235,10 +231,15 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.shopping_cart_outlined, color: primary),
-            title: const Text(
+            leading: const Icon(
+              Icons.shopping_cart_outlined,
+              color: AppColors.primary,
+            ),
+            title: Text(
               'Mis Órdenes',
-              style: TextStyle(color: Colors.white),
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurface,
+              ),
             ),
             onTap: () {
               Navigator.pop(context);
@@ -248,13 +249,16 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
-          const Divider(color: outlineVariant, height: 32),
+          const Divider(
+            color: AppColors.outlineVariant,
+            height: AppSpacing.spacingXl,
+          ),
           ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            title: const Text(
+            leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+            title: Text(
               'Cerrar Sesión',
-              style: TextStyle(
-                color: Colors.redAccent,
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.error,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -264,7 +268,9 @@ class _HomePageState extends State<HomePage> {
                 context: context,
                 barrierDismissible: false,
                 builder: (context) => const Center(
-                  child: CircularProgressIndicator(color: primaryContainer),
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryContainer,
+                  ),
                 ),
               );
 
@@ -284,7 +290,7 @@ class _HomePageState extends State<HomePage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Error al cerrar sesión: $e'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppColors.error,
                     ),
                   );
                 }
@@ -300,28 +306,33 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTopAppBar() {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.menu_rounded, color: primary, size: 24),
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.spacingXs),
               Text(
                 'RepuestosYa',
-                style: TextStyle(
-                  color: primaryContainer,
-                  fontSize: 22,
+                style: AppTextStyles.textStyleTitle.copyWith(
+                  color: AppColors.primaryContainer,
                   fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
                 ),
               ),
             ],
@@ -333,19 +344,20 @@ class _HomePageState extends State<HomePage> {
                 MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
             },
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppRadius.radiusXl),
             child: Container(
-              width: 40,
-              height: 40,
+              // 48×48 dp mínimo WCAG 2.5.5 (antes 40×40).
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: surfaceVariant,
+                color: AppColors.surfaceVariant,
                 shape: BoxShape.circle,
-                border: Border.all(color: outlineVariant),
+                border: Border.all(color: AppColors.outlineVariant),
               ),
               child: const Icon(
                 Icons.person,
-                color: onSurfaceVariant,
-                size: 22,
+                color: AppColors.onSurfaceVariant,
+                size: 24,
               ),
             ),
           ),
@@ -360,22 +372,22 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       height: 180,
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
         border: Border.all(
-          color: primaryContainer.withOpacity(0.4),
+          color: AppColors.primaryContainer.withValues(alpha: 0.4),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: primaryContainer.withOpacity(0.08),
+            color: AppColors.primaryContainer.withValues(alpha: 0.08),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           onTap: () async {
             await Navigator.push(
@@ -386,16 +398,16 @@ class _HomePageState extends State<HomePage> {
             );
             _cargarSolicitudes();
           },
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.radiusLg),
               gradient: RadialGradient(
                 center: Alignment.center,
                 radius: 0.8,
                 colors: [
-                  primaryContainer.withOpacity(0.15),
-                  Colors.transparent,
+                  AppColors.primaryContainer.withValues(alpha: 0.15),
+                  AppColors.transparent,
                 ],
               ),
             ),
@@ -406,30 +418,34 @@ class _HomePageState extends State<HomePage> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: primaryContainer.withOpacity(0.15),
+                    color: AppColors.primaryContainer.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
-                    border: Border.all(color: primaryContainer, width: 2),
+                    border: Border.all(
+                      color: AppColors.primaryContainer,
+                      width: 2,
+                    ),
                   ),
                   child: const Icon(
                     Icons.photo_camera_rounded,
-                    color: primaryContainer,
+                    color: AppColors.primaryContainer,
                     size: 38,
                   ),
                 ),
-                const SizedBox(height: 14),
-                const Text(
+                const SizedBox(height: AppSpacing.spacingMd),
+                Text(
                   'NUEVA BÚSQUEDA',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.onSurface,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
+                const SizedBox(height: AppSpacing.spacingXxs),
+                Text(
                   'Sube una foto y encuentra tu repuesto al instante',
-                  style: TextStyle(color: onSurfaceVariant, fontSize: 12),
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -463,21 +479,21 @@ class _HomePageState extends State<HomePage> {
                 title: 'Solicitudes Activas',
                 value: buscandoTxt,
                 icon: Icons.history_rounded,
-                color: primaryContainer,
+                color: AppColors.primaryContainer,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.spacingSm),
             Expanded(
               child: _buildStatCard(
                 title: 'Cotizaciones Recibidas',
                 value: cotizadasTxt,
                 icon: Icons.request_quote_rounded,
-                color: secondaryContainer,
+                color: AppColors.secondaryContainer,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.spacingSm),
         Row(
           children: [
             Expanded(
@@ -485,10 +501,10 @@ class _HomePageState extends State<HomePage> {
                 title: 'En Proceso',
                 value: enProcesoTxt,
                 icon: Icons.pending_rounded,
-                color: tertiaryContainer,
+                color: AppColors.tertiaryContainer,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.spacingSm),
             Expanded(
               child: _buildStatCard(
                 title: 'Órdenes Realizadas',
@@ -499,7 +515,7 @@ class _HomePageState extends State<HomePage> {
                     ) ??
                     '00'),
                 icon: Icons.shopping_cart_rounded,
-                color: Colors.green,
+                color: AppColors.success,
               ),
             ),
           ],
@@ -515,40 +531,38 @@ class _HomePageState extends State<HomePage> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: outlineVariant),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: onSurfaceVariant,
-              fontSize: 13,
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.spacingSm),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 value,
-                style: TextStyle(
+                style: AppTextStyles.textStyleHeading.copyWith(
                   color: color,
-                  fontSize: 26,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(AppSpacing.spacingXs),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.radiusSm),
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),
@@ -567,11 +581,10 @@ class _HomePageState extends State<HomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Mis Solicitudes',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
+              style: AppTextStyles.textStyleTitle.copyWith(
+                color: AppColors.onSurface,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -588,97 +601,44 @@ class _HomePageState extends State<HomePage> {
                 });
               },
               style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
+                // 48×48 dp mínimo WCAG 2.5.5 (antes minimumSize: Size.zero
+                // colapsaba el área táctil al alto del texto).
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingXs,
+                  vertical: AppSpacing.spacingXxs,
+                ),
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
-              child: const Text(
+              child: Text(
                 'Ver todas',
-                style: TextStyle(
-                  color: primary,
-                  fontSize: 14,
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.primary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.spacingMd),
         if (_isLoadingSolicitudes)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24.0),
-              child: CircularProgressIndicator(color: primaryContainer),
-            ),
+          const RyStateContainer(
+            title: 'Cargando solicitudes...',
+            type: RyStateType.loading,
           )
         else if (_solicitudes.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.inbox_rounded,
-                  size: 42,
-                  color: onSurfaceVariant,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'No tienes solicitudes aún',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Crea tu primera solicitud de repuesto',
-                  style: TextStyle(color: onSurfaceVariant, fontSize: 13),
-                ),
-              ],
-            ),
+          const RyStateContainer(
+            title: 'Sin solicitudes',
+            subtitle: 'Crea tu primera solicitud de repuesto',
+            type: RyStateType.empty,
           )
         else
           ..._solicitudes.take(3).map((solicitud) {
             final estado = solicitud['estado'] as String? ?? 'en_proceso';
-            Color statusColor;
-            String statusText;
-
-            switch (estado) {
-              case 'en_proceso':
-                statusColor = primaryContainer;
-                statusText = 'En Proceso';
-                break;
-              case 'completado':
-                statusColor = Colors.greenAccent;
-                statusText = 'Completado';
-                break;
-              case 'expirado':
-                statusColor = onSurfaceVariant;
-                statusText = 'Expirado';
-                break;
-              default:
-                statusColor = primaryContainer;
-                statusText = estado;
-            }
-
             final createdAt = solicitud['created_at'] as String?;
-            String timeText = 'Reciente';
+            DateTime? createdAtDate;
             if (createdAt != null) {
-              final date = DateTime.parse(createdAt);
-              final difference = DateTime.now().difference(date);
-              if (difference.inHours < 1) {
-                timeText = 'Hace ${difference.inMinutes} min';
-              } else if (difference.inHours < 24) {
-                timeText = 'Hace ${difference.inHours}h';
-              } else {
-                timeText = 'Hace ${difference.inDays}d';
-              }
+              createdAtDate = DateTime.parse(createdAt);
             }
 
             // Extraer el conteo de cotizaciones del formato que devuelve Supabase
@@ -693,17 +653,22 @@ class _HomePageState extends State<HomePage> {
               cantidadCotizaciones = solicitud['cotizaciones_count'];
             }
 
-            final String quotesText = cantidadCotizaciones == 1
-                ? '1 Cotización nueva'
-                : '$cantidadCotizaciones Cotizaciones';
             final String urlFinal =
                 solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
             final String piezaNombreFinal =
                 solicitud['pieza_nombre'] as String? ?? 'Repuesto';
+            final String descripcionFinal =
+                solicitud['descripcion'] as String? ?? 'Sin descripción';
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GestureDetector(
+              padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+              child: RyPartCard(
+                partName: piezaNombreFinal,
+                imageUrl: urlFinal,
+                vehicleInfo: descripcionFinal,
+                status: estado,
+                createdAt: createdAtDate ?? DateTime.now(),
+                variant: RyPartCardVariant.client,
                 onTap: () {
                   Navigator.push(
                     context,
@@ -711,173 +676,44 @@ class _HomePageState extends State<HomePage> {
                       builder: (context) => ReceivedQuotationsPage(
                         solicitudId: solicitud['id'].toString(),
                         piezaNombre: piezaNombreFinal,
+                        ofertasPendientes: cantidadCotizaciones,
                       ),
                     ),
                   );
                 },
-                child: _buildRequestCard(
-                  title: piezaNombreFinal,
-                  subtitle:
-                      solicitud['descripcion'] as String? ?? 'Sin descripción',
-                  status: statusText,
-                  statusColor: statusColor,
-                  quotes: quotesText,
-                  tieneCotizaciones: cantidadCotizaciones > 0,
-                  time: timeText,
-                  imageUrl: urlFinal,
-                ),
+                customFooter: cantidadCotizaciones > 0
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.spacingSm,
+                          vertical: AppSpacing.spacingXxs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.radiusSm,
+                          ),
+                          border: Border.all(
+                            color: AppColors.primaryContainer.withValues(
+                              alpha: 0.3,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          cantidadCotizaciones == 1
+                              ? '1 Cotización nueva'
+                              : '$cantidadCotizaciones Cotizaciones',
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.primaryContainer,
+                          ),
+                        ),
+                      )
+                    : null,
               ),
             );
           }),
       ],
-    );
-  }
-
-  Widget _buildRequestCard({
-    required String title,
-    required String subtitle,
-    required String status,
-    required Color statusColor,
-    required String quotes,
-    required bool tieneCotizaciones,
-    required String time,
-    required String imageUrl,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: tieneCotizaciones ? primaryContainer : outlineVariant,
-          width: tieneCotizaciones ? 1.5 : 1.0,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 84,
-            height: 84,
-            decoration: BoxDecoration(
-              color: surfaceVariant,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: outlineVariant),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: imageUrl.isEmpty
-                  ? const Icon(
-                      Icons.image_not_supported_rounded,
-                      color: onSurfaceVariant,
-                      size: 28,
-                    )
-                  : (imageUrl.startsWith('http')
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.error,
-                              color: onSurfaceVariant,
-                            ),
-                          )
-                        : Image.file(
-                            File(imageUrl),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.error,
-                              color: onSurfaceVariant,
-                            ),
-                          )),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor.withOpacity(0.3)),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: onSurfaceVariant, fontSize: 13),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.receipt_long_rounded,
-                          color: tieneCotizaciones
-                              ? primaryContainer
-                              : secondaryContainer,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          quotes,
-                          style: TextStyle(
-                            color: tieneCotizaciones
-                                ? primaryContainer
-                                : secondaryContainer,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        color: onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -886,15 +722,14 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Lo más buscado',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
+          style: AppTextStyles.textStyleTitle.copyWith(
+            color: AppColors.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.spacingSm),
         SizedBox(
           height: 96,
           child: ListView(
@@ -905,12 +740,12 @@ class _HomePageState extends State<HomePage> {
                 icon: Icons.tire_repair_rounded,
                 label: 'Neumáticos',
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.spacingSm),
               _buildTrendingItem(
                 icon: Icons.battery_charging_full_rounded,
                 label: 'Baterías',
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.spacingSm),
               _buildTrendingItem(
                 icon: Icons.car_crash_rounded,
                 label: 'Carrocería',
@@ -925,22 +760,21 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTrendingItem({required IconData icon, required String label}) {
     return Container(
       width: 130,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.spacingSm),
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: outlineVariant),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: primary, size: 28),
-          const SizedBox(height: 8),
+          Icon(icon, color: AppColors.primary, size: 28),
+          const SizedBox(height: AppSpacing.spacingXs),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurface,
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
@@ -955,8 +789,10 @@ class _HomePageState extends State<HomePage> {
     return Container(
       height: 64,
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        border: Border(top: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1007,26 +843,36 @@ class _HomePageState extends State<HomePage> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isSelected ? primaryContainer : onSurfaceVariant,
-            size: 22,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? primaryContainer : onSurfaceVariant,
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+    return SizedBox(
+      // Garantiza área táctil de 48×48 dp mínimo WCAG 2.5.5 (antes la
+      // Column medía ~46 dp de alto y el ancho dependía del contenido).
+      height: 48,
+      width: 64,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              color: isSelected
+                  ? AppColors.primaryContainer
+                  : AppColors.onSurfaceVariant,
+              size: 22,
             ),
-          ),
-        ],
+            // ajuste fino intencional: separación mínima icono/label en la barra inferior
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: isSelected
+                    ? AppColors.primaryContainer
+                    : AppColors.onSurfaceVariant,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

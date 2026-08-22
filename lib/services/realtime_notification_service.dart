@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import '../utils/app_logger.dart';
 
 class RealtimeNotificationService {
   static final RealtimeNotificationService _instance =
@@ -18,7 +18,7 @@ class RealtimeNotificationService {
   RealtimeChannel? _ordenesChannel;
   RealtimeChannel? _solicitudesChannel;
   RealtimeChannel? _ordenesStatusChannel;
-  List<RealtimeChannel> _multipleChannels = [];
+  final List<RealtimeChannel> _multipleChannels = [];
 
   static const String _channelId = 'repuestosya_channel';
   static const String _channelName = 'RepuestosYa Notifications';
@@ -45,15 +45,17 @@ class RealtimeNotificationService {
     await _notificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        if (kDebugMode) {
-          print('Notification clicked: ${response.payload}');
-        }
+        AppLogger.debug(
+          'Notification clicked: ${response.payload}',
+          name: 'RealtimeNotificationService',
+        );
       },
     );
 
-    if (kDebugMode) {
-      print('RealtimeNotificationService initialized');
-    }
+    AppLogger.info(
+      'RealtimeNotificationService initialized',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   Future<void> requestPermissions() async {
@@ -62,13 +64,15 @@ class RealtimeNotificationService {
           await DeviceInfoPlugin().androidInfo;
       if (androidInfo.version.sdkInt >= 33) {
         final PermissionStatus status = await Permission.notification.request();
-        if (kDebugMode) {
-          print('Notification permission status: $status');
-        }
+        AppLogger.debug(
+          'Notification permission status: $status',
+          name: 'RealtimeNotificationService',
+        );
         if (status.isDenied) {
-          if (kDebugMode) {
-            print('Notification permission denied');
-          }
+          AppLogger.warning(
+            'Notification permission denied',
+            name: 'RealtimeNotificationService',
+          );
         }
       }
     } else if (Platform.isIOS) {
@@ -77,9 +81,10 @@ class RealtimeNotificationService {
             IOSFlutterLocalNotificationsPlugin
           >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
-      if (kDebugMode) {
-        print('iOS notification permissions: $result');
-      }
+      AppLogger.debug(
+        'iOS notification permissions: $result',
+        name: 'RealtimeNotificationService',
+      );
     }
   }
 
@@ -114,9 +119,10 @@ class RealtimeNotificationService {
       notificationDetails,
     );
 
-    if (kDebugMode) {
-      print('Notification shown: $title - $body');
-    }
+    AppLogger.debug(
+      'Notification shown: $title - $body',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   Future<void> subscribeToCotizaciones(String solicitudId) async {
@@ -142,9 +148,10 @@ class RealtimeNotificationService {
         )
         .subscribe();
 
-    if (kDebugMode) {
-      print('Subscribed to cotizaciones for solicitudId: $solicitudId');
-    }
+    AppLogger.info(
+      'Subscribed to cotizaciones for solicitudId: $solicitudId',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   Future<void> subscribeToOrdenes(String almacenId) async {
@@ -170,33 +177,33 @@ class RealtimeNotificationService {
         )
         .subscribe();
 
-    if (kDebugMode) {
-      print('Subscribed to ordenes for almacenId: $almacenId');
-    }
+    AppLogger.info(
+      'Subscribed to ordenes for almacenId: $almacenId',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   Future<void> subscribeToAllMyRequests(List<String> solicitudIds) async {
     await unsubscribeMultiple();
 
-    if (kDebugMode) {
-      print(
-        '[REALTIME] Iniciando suscripción a ${solicitudIds.length} solicitudes',
-      );
-    }
+    AppLogger.debug(
+      'Iniciando suscripción a ${solicitudIds.length} solicitudes',
+      name: 'REALTIME',
+    );
 
     if (solicitudIds.isEmpty) {
-      if (kDebugMode) {
-        print('[REALTIME] ⚠️ No hay solicitudes para suscribir - lista vacía');
-      }
+      AppLogger.warning(
+        '⚠️ No hay solicitudes para suscribir - lista vacía',
+        name: 'REALTIME',
+      );
       return;
     }
 
     for (final solicitudId in solicitudIds) {
-      if (kDebugMode) {
-        print(
-          '[REALTIME] Suscribiendo a cotizaciones de solicitud: $solicitudId',
-        );
-      }
+      AppLogger.debug(
+        'Suscribiendo a cotizaciones de solicitud: $solicitudId',
+        name: 'REALTIME',
+      );
       try {
         final channel = Supabase.instance.client
             .channel('cotizaciones_$solicitudId')
@@ -210,12 +217,10 @@ class RealtimeNotificationService {
                 value: solicitudId,
               ),
               callback: (payload) {
-                if (kDebugMode) {
-                  print(
-                    '[REALTIME] 📩 Nueva cotización recibida para solicitud: $solicitudId',
-                  );
-                  print('[REALTIME] Payload: ${payload.newRecord}');
-                }
+                AppLogger.debug(
+                  '📩 Nueva cotización recibida para solicitud: $solicitudId - Payload: ${payload.newRecord}',
+                  name: 'REALTIME',
+                );
                 showNotification(
                   '¡Nueva Cotización!',
                   'Un almacén ha respondido a tu solicitud.',
@@ -223,30 +228,37 @@ class RealtimeNotificationService {
               },
             )
             .subscribe((status, error) {
-              if (kDebugMode) {
-                print('[REALTIME] Canal status para $solicitudId: $status');
-                if (error != null) {
-                  print('[REALTIME] Error en canal $solicitudId: $error');
-                }
+              AppLogger.debug(
+                'Canal status para $solicitudId: $status',
+                name: 'REALTIME',
+              );
+              if (error != null) {
+                AppLogger.error(
+                  'Error en canal $solicitudId: $error',
+                  name: 'REALTIME',
+                  error: error,
+                );
               }
             });
 
         _multipleChannels.add(channel);
-        if (kDebugMode) {
-          print('[REALTIME] ✅ Canal creado para solicitud: $solicitudId');
-        }
+        AppLogger.debug(
+          '✅ Canal creado para solicitud: $solicitudId',
+          name: 'REALTIME',
+        );
       } catch (e) {
-        if (kDebugMode) {
-          print('[REALTIME] ❌ Error al suscribir a solicitud $solicitudId: $e');
-        }
+        AppLogger.error(
+          '❌ Error al suscribir a solicitud $solicitudId: $e',
+          name: 'REALTIME',
+          error: e,
+        );
       }
     }
 
-    if (kDebugMode) {
-      print(
-        '[REALTIME] ✅ Suscripción completada a ${solicitudIds.length} solicitudes',
-      );
-    }
+    AppLogger.info(
+      '✅ Suscripción completada a ${solicitudIds.length} solicitudes',
+      name: 'REALTIME',
+    );
   }
 
   Future<void> unsubscribe() async {
@@ -259,9 +271,10 @@ class RealtimeNotificationService {
     _solicitudesChannel = null;
     _ordenesStatusChannel = null;
 
-    if (kDebugMode) {
-      print('Unsubscribed from all channels');
-    }
+    AppLogger.info(
+      'Unsubscribed from all channels',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   Future<void> unsubscribeMultiple() async {
@@ -270,16 +283,15 @@ class RealtimeNotificationService {
     }
     _multipleChannels.clear();
 
-    if (kDebugMode) {
-      print('Unsubscribed from multiple channels');
-    }
+    AppLogger.info(
+      'Unsubscribed from multiple channels',
+      name: 'RealtimeNotificationService',
+    );
   }
 
   // 1. Para Almacenes: Escuchar nuevas solicitudes (Broadcast)
   void subscribeToNuevasSolicitudes() {
-    if (kDebugMode) {
-      print('[REALTIME] 👂 Escuchando nuevas solicitudes...');
-    }
+    AppLogger.info('👂 Escuchando nuevas solicitudes...', name: 'REALTIME');
     _solicitudesChannel = Supabase.instance.client
         .channel('solicitudes_broadcast')
         .onPostgresChanges(
@@ -287,11 +299,10 @@ class RealtimeNotificationService {
           schema: 'public',
           table: 'solicitudes_repuesto',
           callback: (payload) {
-            if (kDebugMode) {
-              print(
-                '[REALTIME] 📩 Nueva solicitud detectada: ${payload.newRecord['id']}',
-              );
-            }
+            AppLogger.debug(
+              '📩 Nueva solicitud detectada: ${payload.newRecord['id']}',
+              name: 'REALTIME',
+            );
             showNotification(
               '¡Nueva Solicitud!',
               'Un cliente necesita un repuesto. Revisa tu dashboard.',
@@ -303,11 +314,10 @@ class RealtimeNotificationService {
 
   // 2. Para Clientes: Escuchar cambios de estado en sus órdenes
   void subscribeToEstadoOrden(String clienteId) {
-    if (kDebugMode) {
-      print(
-        '[REALTIME] 👂 Escuchando cambios en órdenes del cliente: $clienteId',
-      );
-    }
+    AppLogger.info(
+      '👂 Escuchando cambios en órdenes del cliente: $clienteId',
+      name: 'REALTIME',
+    );
     _ordenesStatusChannel = Supabase.instance.client
         .channel('ordenes_status_$clienteId')
         .onPostgresChanges(
@@ -321,9 +331,10 @@ class RealtimeNotificationService {
           ),
           callback: (payload) {
             final nuevoEstado = payload.newRecord['estado'] as String?;
-            if (kDebugMode) {
-              print('[REALTIME] 📩 Orden actualizada a: $nuevoEstado');
-            }
+            AppLogger.debug(
+              '📩 Orden actualizada a: $nuevoEstado',
+              name: 'REALTIME',
+            );
 
             if (nuevoEstado == 'confirmada') {
               showNotification(

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'role_selection_page.dart';
 import 'home_page.dart';
 import 'warehouse_dashboard.dart';
 import '../services/auth_service.dart';
 import '../providers/user_role_provider.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,18 +26,6 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
-
-  // Color scheme from HTML
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
 
   @override
   void dispose() {
@@ -61,6 +53,8 @@ class _LoginPageState extends State<LoginPage> {
           throw Exception('No se pudo obtener el usuario autenticado');
         }
 
+        if (!mounted) return;
+
         // Cargar el rol del usuario desde la base de datos
         final userRoleProvider = Provider.of<UserRoleProvider>(
           context,
@@ -74,6 +68,8 @@ class _LoginPageState extends State<LoginPage> {
             'No se pudo determinar el rol del usuario. Contacte al administrador.',
           );
         }
+
+        if (!mounted) return;
 
         setState(() {
           _isLoading = false;
@@ -122,6 +118,8 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } catch (e) {
+        if (!mounted) return;
+
         setState(() {
           _isLoading = false;
         });
@@ -130,7 +128,7 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -141,22 +139,19 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(color: background),
+        decoration: const BoxDecoration(color: AppColors.background),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: 32),
-                // Login Form Card
+                const SizedBox(height: AppSpacing.spacingXl),
                 _buildLoginForm(),
-                const SizedBox(height: 32),
-                // Footer
+                const SizedBox(height: AppSpacing.spacingXl),
                 _buildFooter(),
               ],
             ),
@@ -174,23 +169,18 @@ class _LoginPageState extends State<LoginPage> {
           height: 100,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: primaryContainer.withOpacity(0.2),
+            color: AppColors.primaryContainer.withValues(alpha: 0.2),
           ),
-          child: const Icon(Icons.build, size: 50, color: primary),
+          child: Icon(Icons.build, size: 50, color: AppColors.primary),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.spacingLg),
+        Text('Bienvenido', style: AppTextStyles.textStyleHeading),
+        const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Bienvenido',
-          style: GoogleFonts.sora(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
           'Performance y precisión en cada pieza.',
-          style: TextStyle(fontSize: 16, color: onSurfaceVariant),
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -200,26 +190,22 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildLoginForm() {
     return Container(
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF333333)),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.spacingLg),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Email Field
             _buildEmailField(),
-            const SizedBox(height: 16),
-            // Password Field
+            const SizedBox(height: AppSpacing.spacingMd),
             _buildPasswordField(),
-            const SizedBox(height: 16),
-            // Remember Me
+            const SizedBox(height: AppSpacing.spacingMd),
             _buildRememberMe(),
-            const SizedBox(height: 24),
-            // Action Buttons
+            const SizedBox(height: AppSpacing.spacingLg),
             _buildActionButtons(),
           ],
         ),
@@ -228,53 +214,21 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildEmailField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Email corporativo / Usuario',
-          style: TextStyle(
-            fontSize: 12,
-            color: onSurfaceVariant,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: 'nombre@empresa.com',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.mail, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Por favor ingrese su email';
-            }
-            if (!value.contains('@')) {
-              return 'Por favor ingrese un email válido';
-            }
-            return null;
-          },
-        ),
-      ],
+    return RyTextField(
+      label: 'Email corporativo / Usuario',
+      hint: 'nombre@empresa.com',
+      type: RyTextFieldType.email,
+      prefixIcon: Icons.mail,
+      controller: _emailController,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Por favor ingrese su email';
+        }
+        if (!value.contains('@')) {
+          return 'Por favor ingrese un email válido';
+        }
+        return null;
+      },
     );
   }
 
@@ -285,50 +239,31 @@ class _LoginPageState extends State<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Contraseña',
-              style: TextStyle(
-                fontSize: 12,
-                color: onSurfaceVariant,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
               ),
             ),
             TextButton(
               onPressed: () {
                 // TODO: Implement forgot password
               },
-              child: const Text(
+              child: Text(
                 '¿Olvidó su clave?',
-                style: TextStyle(fontSize: 12, color: tertiaryContainer),
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.tertiaryContainer,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextFormField(
+        const SizedBox(height: AppSpacing.spacingXs),
+        RyTextField(
+          hint: '••••••••',
+          type: RyTextFieldType.password,
+          prefixIcon: Icons.lock,
           controller: _passwordController,
-          obscureText: true,
-          style: const TextStyle(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: '••••••••',
-            hintStyle: const TextStyle(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.lock, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Por favor ingrese su contraseña';
@@ -353,17 +288,19 @@ class _LoginPageState extends State<LoginPage> {
               _rememberMe = value ?? false;
             });
           },
-          fillColor: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.selected)) {
-              return primaryContainer;
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.primaryContainer;
             }
-            return surfaceContainerHigh;
+            return AppColors.surfaceContainerHigh;
           }),
-          checkColor: const Color(0xFFFFFFFF),
+          checkColor: AppColors.onPrimaryContainer,
         ),
-        const Text(
+        Text(
           'Recordar sesión en este equipo',
-          style: TextStyle(fontSize: 14, color: onSurfaceVariant),
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -372,50 +309,20 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleLogin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryContainer,
-              foregroundColor: onPrimaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        onPrimaryContainer,
-                      ),
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'INGRESAR',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.bolt),
-                    ],
-                  ),
-          ),
+        RyButton(
+          label: 'INGRESAR',
+          icon: Icons.bolt,
+          variant: RyButtonVariant.primary,
+          size: RyButtonSize.large,
+          isLoading: _isLoading,
+          isFullWidth: true,
+          onPressed: _handleLogin,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.spacingMd),
         Center(
-          child: TextButton(
+          child: RyButton(
+            label: '¿Aún no tienes cuenta? Regístrate',
+            variant: RyButtonVariant.text,
             onPressed: () {
               Navigator.push(
                 context,
@@ -424,14 +331,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               );
             },
-            child: const Text(
-              '¿Aún no tienes cuenta? Regístrate',
-              style: TextStyle(
-                fontSize: 16,
-                color: secondaryContainer,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
           ),
         ),
       ],
@@ -446,43 +345,49 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Row(
               children: [
-                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
-                const Text(
+                Icon(
+                  Icons.verified,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
                   'Certificado ISO 9001',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 16),
-            Container(width: 1, height: 16, color: outlineVariant),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Container(width: 1, height: 16, color: AppColors.outlineVariant),
+            const SizedBox(width: AppSpacing.spacingMd),
             Row(
               children: [
-                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
-                const Text(
+                Icon(
+                  Icons.security,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
                   'SSL Secure',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+        const SizedBox(height: AppSpacing.spacingMd),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
             '© 2026 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
-            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ),

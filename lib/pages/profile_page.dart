@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 import 'vehicles_page.dart';
 import 'addresses_page.dart';
-import 'warehouse_dashboard.dart'; // Importación indispensable para la redirección de almacén
+import 'warehouse_dashboard.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -15,23 +22,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Color scheme from HTML
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color error = Color(0xFFFF1744);
-  static const Color dividerColor = Color(0xFF2C2C2C);
-
   // Llave global indispensable para abrir de manera segura el menú hamburguesa
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -133,33 +123,41 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: surfaceVariant,
-          title: const Text(
-            'Cerrar Sesión',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
+          backgroundColor: AppColors.surfaceVariant,
+          title: Text('Cerrar Sesión', style: AppTextStyles.textStyleTitle),
+          content: Text(
             '¿Estás seguro de que deseas salir de la aplicación?',
-            style: TextStyle(color: onSurfaceVariant),
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar', style: TextStyle(color: primary)),
+              child: Text(
+                'Cancelar',
+                style: AppTextStyles.textStyleButton.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context); // Cierra el modal dialog
+                Navigator.pop(context);
                 await _authService.signOut();
-                if (mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false,
-                  );
-                }
+                if (!mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  this.context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (route) => false,
+                );
               },
-              child: const Text('Salir', style: TextStyle(color: error)),
+              child: Text(
+                'Salir',
+                style: AppTextStyles.textStyleButton.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
             ),
           ],
         );
@@ -172,21 +170,22 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = _authService.currentUser;
 
     return Scaffold(
-      key: _scaffoldKey, // Vinculación de la llave limpia para el menú
-      backgroundColor: background,
-
-      // MENÚ LATERAL (DRAWER) CON REDIRECCIÓN INTELIGENTE
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
       drawer: Drawer(
         child: Container(
-          color: background,
+          color: AppColors.background,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
-                  color: surfaceContainerHigh,
+                  color: AppColors.surfaceContainerHigh,
                   border: Border(
-                    bottom: BorderSide(color: outlineVariant, width: 1),
+                    bottom: BorderSide(
+                      color: AppColors.outlineVariant,
+                      width: 1,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -195,52 +194,52 @@ class _ProfilePageState extends State<ProfilePage> {
                   children: [
                     Text(
                       'RepuestosYa',
-                      style: TextStyle(
-                        color: primaryContainer,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                      style: AppTextStyles.textStyleHeading.copyWith(
+                        color: AppColors.primaryContainer,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    const SizedBox(height: AppSpacing.spacingSm),
+                    Text(
                       'Menú de Opciones',
-                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
+                      style: AppTextStyles.textStyleCaption.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.home, color: primaryContainer),
-                title: const Text(
-                  'Inicio',
-                  style: TextStyle(color: Colors.white),
+                leading: const Icon(
+                  Icons.home,
+                  color: AppColors.primaryContainer,
                 ),
+                title: Text('Inicio', style: AppTextStyles.textStyleBody),
                 onTap: () {
-                  Navigator.pop(context); // Cierra el menú lateral visualmente
-                  _navigateToHomeBasedOnRole(); // Llama a la redirección dinámica por rol
+                  Navigator.pop(context);
+                  _navigateToHomeBasedOnRole();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.person, color: primaryContainer),
-                title: const Text(
-                  'Mi Perfil',
-                  style: TextStyle(color: Colors.white),
+                leading: const Icon(
+                  Icons.person,
+                  color: AppColors.primaryContainer,
                 ),
+                title: Text('Mi Perfil', style: AppTextStyles.textStyleBody),
                 onTap: () {
-                  Navigator.pop(
-                    context,
-                  ); // Solo cierra el drawer porque ya está aquí
+                  Navigator.pop(context);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
-                title: const Text(
+                leading: const Icon(Icons.logout, color: AppColors.error),
+                title: Text(
                   'Cerrar Sesión',
-                  style: TextStyle(color: Colors.redAccent),
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.error,
+                  ),
                 ),
                 onTap: () {
-                  Navigator.pop(context); // Cierra el drawer lateral
-                  _showLogoutDialog(); // Llama a tu función nativa de confirmación
+                  Navigator.pop(context);
+                  _showLogoutDialog();
                 },
               ),
             ],
@@ -251,35 +250,29 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // TopAppBar
             _buildTopAppBar(),
-            // Main Content
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: primaryContainer),
+                  ? const RyStateContainer(
+                      title: 'Cargando perfil...',
+                      type: RyStateType.loading,
                     )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSpacing.spacingMd),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 20),
-                          // Profile Header
+                          const SizedBox(height: AppSpacing.spacingLg),
                           _buildProfileHeader(user),
-                          const SizedBox(height: 24),
-                          // Form Fields
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildEditableFields(),
-                          const SizedBox(height: 24),
-                          // Menu Section (SÓLO PARA CLIENTES)
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildMenuSection(),
-                          const SizedBox(height: 24),
-                          // Logout Button
+                          const SizedBox(height: AppSpacing.spacingXl),
                           _buildLogoutButton(),
-                          const SizedBox(height: 16),
-                          // Footer
+                          const SizedBox(height: AppSpacing.spacingMd),
                           _buildFooter(),
-                          const SizedBox(height: 80), // Space for bottom nav
+                          const SizedBox(height: AppSpacing.spacingXxl),
                         ],
                       ),
                     ),
@@ -293,10 +286,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildTopAppBar() {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: const BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -304,26 +299,22 @@ class _ProfilePageState extends State<ProfilePage> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.menu, color: primaryContainer, size: 24),
+                icon: const Icon(
+                  Icons.menu,
+                  color: AppColors.primaryContainer,
+                  size: 24,
+                ),
                 onPressed: () {
-                  // Abre de manera segura el Drawer lateral de esta pantalla
                   _scaffoldKey.currentState?.openDrawer();
                 },
               ),
-              const SizedBox(width: 4),
-              const Text(
-                'Mi Perfil',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              const SizedBox(width: AppSpacing.spacingXxs),
+              Text('Mi Perfil', style: AppTextStyles.textStyleTitle),
             ],
           ),
           if (!_isLoading)
             IconButton(
-              icon: const Icon(Icons.save, color: primaryContainer),
+              icon: const Icon(Icons.save, color: AppColors.primaryContainer),
               onPressed: _saveProfile,
             ),
         ],
@@ -345,44 +336,37 @@ class _ProfilePageState extends State<ProfilePage> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: surfaceContainerHigh,
+            color: AppColors.surfaceContainerHigh,
             shape: BoxShape.circle,
-            border: Border.all(color: primaryContainer, width: 2),
+            border: Border.all(color: AppColors.primaryContainer, width: 2),
             boxShadow: [
               BoxShadow(
-                color: primaryContainer.withOpacity(0.2),
+                color: AppColors.primaryContainer.withValues(alpha: 0.2),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: const Icon(Icons.person, size: 40, color: primary),
+          child: const Icon(Icons.person, size: 40, color: AppColors.primary),
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: AppSpacing.spacingLg),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                displayName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
+              Text(displayName, style: AppTextStyles.textStyleHeading),
+              const SizedBox(height: AppSpacing.spacingXxs),
               Text(
                 email,
-                style: const TextStyle(color: onSurfaceVariant, fontSize: 14),
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.spacingXxs),
               Text(
                 roleDisplay,
-                style: const TextStyle(
-                  color: primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.primary,
                 ),
               ),
             ],
@@ -396,65 +380,30 @@ class _ProfilePageState extends State<ProfilePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Información Personal',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _nombreController,
+        Text('Información Personal', style: AppTextStyles.textStyleTitle),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
           label: 'Nombre Completo',
-          icon: Icons.person_outline,
+          prefixIcon: Icons.person_outline,
+          controller: _nombreController,
         ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _telefonoController,
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
           label: 'Teléfono',
-          icon: Icons.phone_android_outlined,
-          keyboardType: TextInputType.phone,
+          prefixIcon: Icons.phone_android_outlined,
+          type: RyTextFieldType.phone,
+          controller: _telefonoController,
         ),
       ],
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: onSurfaceVariant),
-        prefixIcon: Icon(icon, color: primaryContainer),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: primaryContainer, width: 2),
-        ),
-        filled: true,
-        fillColor: surfaceContainerLow,
-      ),
     );
   }
 
   Widget _buildMenuSection() {
     return Container(
       decoration: BoxDecoration(
-        color: surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         children: [
@@ -506,24 +455,17 @@ class _ProfilePageState extends State<ProfilePage> {
       children: [
         ListTile(
           leading: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.spacingSm),
             decoration: BoxDecoration(
-              color: background,
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
             ),
-            child: Icon(icon, color: primary),
+            child: Icon(icon, color: AppColors.primary),
           ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          title: Text(title, style: AppTextStyles.textStyleBody),
           trailing: const Icon(
             Icons.arrow_forward_ios,
-            color: onSurfaceVariant,
+            color: AppColors.onSurfaceVariant,
             size: 16,
           ),
           onTap: onTap,
@@ -531,58 +473,33 @@ class _ProfilePageState extends State<ProfilePage> {
         if (!isLast)
           Container(
             height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            color: dividerColor,
+            margin: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.spacingMd,
+            ),
+            color: AppColors.outlineVariant,
           ),
       ],
     );
   }
 
   Widget _buildLogoutButton() {
-    return Container(
-      width: double.infinity,
-      height: 56,
-      decoration: BoxDecoration(
-        color: error,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: error.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _showLogoutDialog,
-          borderRadius: BorderRadius.circular(12),
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.logout, color: Colors.white, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                'Cerrar Sesión',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return RyButton(
+      label: 'Cerrar Sesión',
+      icon: Icons.logout,
+      variant: RyButtonVariant.danger,
+      size: RyButtonSize.large,
+      isFullWidth: true,
+      onPressed: _showLogoutDialog,
     );
   }
 
   Widget _buildFooter() {
-    return const Center(
+    return Center(
       child: Text(
         'Versión 2.1.0 • Built for Performance',
-        style: TextStyle(color: outlineVariant, fontSize: 12),
+        style: AppTextStyles.textStyleSmall.copyWith(
+          color: AppColors.outlineVariant,
+        ),
         textAlign: TextAlign.center,
       ),
     );

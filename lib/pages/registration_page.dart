@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
 import 'login_page.dart';
 import '../services/auth_service.dart';
 
@@ -19,19 +25,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
   bool _acceptTerms = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
-
-  // Color scheme from HTML
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void dispose() {
@@ -55,6 +48,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
           nombreCompleto: _nameController.text.trim(),
         );
 
+        if (!mounted) return;
+
         setState(() {
           _isLoading = false;
         });
@@ -65,7 +60,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             content: Text(
               '¡Cuenta creada exitosamente! Por favor verifica tu email.',
             ),
-            backgroundColor: primaryContainer,
+            backgroundColor: AppColors.primaryContainer,
             duration: Duration(seconds: 3),
           ),
         );
@@ -76,6 +71,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
           MaterialPageRoute(builder: (context) => const LoginPage()),
         );
       } catch (e) {
+        AppLogger.error(
+          'Error al registrar usuario',
+          name: 'RegistrationPage',
+          error: e,
+        );
+
+        if (!mounted) return;
+
         setState(() {
           _isLoading = false;
         });
@@ -84,7 +87,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -95,21 +98,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(color: background),
+        decoration: const BoxDecoration(color: AppColors.background),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 // Registration Form Card
                 _buildRegistrationForm(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 // Footer
                 _buildFooter(),
               ],
@@ -128,23 +131,23 @@ class _RegistrationPageState extends State<RegistrationPage> {
           height: 100,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: primaryContainer.withOpacity(0.2),
+            color: AppColors.primaryContainer.withValues(alpha: 0.2),
           ),
-          child: const Icon(Icons.build, size: 50, color: primary),
+          child: const Icon(Icons.build, size: 50, color: AppColors.primary),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.spacingLg),
         Text(
           'Crear Cuenta',
-          style: GoogleFonts.sora(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
+          style: AppTextStyles.textStyleHeading.copyWith(
+            color: AppColors.onSurface,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.spacingXs),
         Text(
           'Performance y precisión en cada pieza.',
-          style: GoogleFonts.sora(fontSize: 16, color: onSurfaceVariant),
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -154,11 +157,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget _buildRegistrationForm() {
     return Container(
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF333333)),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.spacingLg),
       child: Form(
         key: _formKey,
         child: Column(
@@ -166,19 +169,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
           children: [
             // Name Field
             _buildNameField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Email Field
             _buildEmailField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Password Field
             _buildPasswordField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Confirm Password Field
             _buildConfirmPasswordField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Accept Terms
             _buildAcceptTerms(),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.spacingLg),
             // Action Buttons
             _buildActionButtons(),
           ],
@@ -188,262 +191,83 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Widget _buildNameField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Nombre completo',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: requiredAsterisk,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _nameController,
-          style: GoogleFonts.sora(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: 'Juan Pérez',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.person, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingrese su nombre completo';
-            }
-            if (value.trim().length < 2) {
-              return 'El nombre debe tener al menos 2 caracteres';
-            }
-            return null;
-          },
-        ),
-      ],
+    return RyTextField(
+      label: 'Nombre completo',
+      hint: 'Juan Pérez',
+      controller: _nameController,
+      type: RyTextFieldType.text,
+      isRequired: true,
+      prefixIcon: Icons.person,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Por favor ingrese su nombre completo';
+        }
+        if (value.trim().length < 2) {
+          return 'El nombre debe tener al menos 2 caracteres';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildEmailField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Email corporativo / Usuario',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: requiredAsterisk,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          style: GoogleFonts.sora(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: 'nombre@empresa.com',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.mail, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Por favor ingrese su email';
-            }
-            final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-            if (!emailRegex.hasMatch(value.trim())) {
-              return 'Por favor ingrese un email válido';
-            }
-            return null;
-          },
-        ),
-      ],
+    return RyTextField(
+      label: 'Email corporativo / Usuario',
+      hint: 'nombre@empresa.com',
+      controller: _emailController,
+      type: RyTextFieldType.email,
+      isRequired: true,
+      prefixIcon: Icons.mail,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Por favor ingrese su email';
+        }
+        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+        if (!emailRegex.hasMatch(value.trim())) {
+          return 'Por favor ingrese un email válido';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Contraseña',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: requiredAsterisk,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _passwordController,
-          obscureText: true,
-          style: GoogleFonts.sora(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.lock, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Por favor ingrese su contraseña';
-            }
-            if (value.length < 6) {
-              return 'La contraseña debe tener al menos 6 caracteres';
-            }
-            return null;
-          },
-        ),
-      ],
+    return RyTextField(
+      label: 'Contraseña',
+      hint: '••••••••',
+      controller: _passwordController,
+      type: RyTextFieldType.password,
+      isRequired: true,
+      prefixIcon: Icons.lock,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Por favor ingrese su contraseña';
+        }
+        if (value.length < 6) {
+          return 'La contraseña debe tener al menos 6 caracteres';
+        }
+        return null;
+      },
     );
   }
 
   Widget _buildConfirmPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Confirmar contraseña',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: GoogleFonts.sora(
-                  fontSize: 12,
-                  color: requiredAsterisk,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _confirmPasswordController,
-          obscureText: true,
-          style: GoogleFonts.sora(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: '••••••••',
-            hintStyle: GoogleFonts.sora(color: onSurfaceVariant),
-            prefixIcon: const Icon(Icons.lock_outline, color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Por favor confirme su contraseña';
-            }
-            if (value != _passwordController.text) {
-              return 'Las contraseñas no coinciden';
-            }
-            return null;
-          },
-        ),
-      ],
+    return RyTextField(
+      label: 'Confirmar contraseña',
+      hint: '••••••••',
+      controller: _confirmPasswordController,
+      type: RyTextFieldType.password,
+      isRequired: true,
+      prefixIcon: Icons.lock_outline,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Por favor confirme su contraseña';
+        }
+        if (value != _passwordController.text) {
+          return 'Las contraseñas no coinciden';
+        }
+        return null;
+      },
     );
   }
 
@@ -457,13 +281,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
               _acceptTerms = value ?? false;
             });
           },
-          fillColor: MaterialStateProperty.resolveWith((states) {
-            if (states.contains(MaterialState.selected)) {
-              return primaryContainer;
+          fillColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.primaryContainer;
             }
-            return surfaceContainerHigh;
+            return AppColors.surfaceContainerHigh;
           }),
-          checkColor: const Color(0xFFFFFFFF),
+          checkColor: AppColors.onPrimaryContainer,
         ),
         Expanded(
           child: GestureDetector(
@@ -474,7 +298,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
             },
             child: Text(
               'Acepto los términos y condiciones de uso',
-              style: GoogleFonts.sora(fontSize: 14, color: onSurfaceVariant),
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
         ),
@@ -485,57 +311,23 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleRegistration,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryContainer,
-              foregroundColor: onPrimaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 0,
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        onPrimaryContainer,
-                      ),
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'REGISTRARSE',
-                        style: GoogleFonts.sora(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.person_add),
-                    ],
-                  ),
-          ),
+        RyButton(
+          label: 'REGISTRARSE',
+          trailingIcon: Icons.person_add,
+          variant: RyButtonVariant.primary,
+          size: RyButtonSize.large,
+          isFullWidth: true,
+          isLoading: _isLoading,
+          onPressed: _handleRegistration,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.spacingMd),
         Center(
-          child: TextButton(
+          child: RyButton(
+            label: '¿Ya tienes cuenta? Inicia sesión',
+            variant: RyButtonVariant.text,
             onPressed: () {
               Navigator.pop(context);
             },
-            child: Text(
-              '¿Ya tienes cuenta? Inicia sesión',
-              style: GoogleFonts.sora(fontSize: 16, color: secondaryContainer),
-            ),
           ),
         ),
       ],
@@ -550,43 +342,49 @@ class _RegistrationPageState extends State<RegistrationPage> {
           children: [
             Row(
               children: [
-                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
+                const Icon(
+                  Icons.verified,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
                   'Certificado ISO 9001',
-                  style: GoogleFonts.sora(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 16),
-            Container(width: 1, height: 16, color: outlineVariant),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Container(width: 1, height: 16, color: AppColors.outlineVariant),
+            const SizedBox(width: AppSpacing.spacingMd),
             Row(
               children: [
-                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 4),
+                const Icon(
+                  Icons.security,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
                   'SSL Secure',
-                  style: GoogleFonts.sora(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
-                    letterSpacing: 1,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+        const SizedBox(height: AppSpacing.spacingMd),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
-            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ),

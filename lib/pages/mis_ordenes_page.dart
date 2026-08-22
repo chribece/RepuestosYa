@@ -1,7 +1,15 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import 'orden_compra_page.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_state_container.dart';
+import '../widgets/ry_status_badge.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class MisOrdenesPage extends StatefulWidget {
   const MisOrdenesPage({super.key});
@@ -21,15 +29,6 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
   bool _hayMasDatos = true;
   int _paginaActual = 1;
   final int _limitePorPagina = 10;
-
-  // Estilos y colores idénticos a tu HomePage
-  static const Color background = Color(0xFF131313);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
 
   @override
   void initState() {
@@ -67,7 +66,11 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
         });
       }
     } catch (e) {
-      print('Error al cargar primera página: $e');
+      AppLogger.error(
+        'Error al cargar primera página',
+        name: 'MisOrdenesPage',
+        error: e,
+      );
     } finally {
       setState(() => _isLoading = false);
     }
@@ -96,7 +99,11 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
         }
       });
     } catch (e) {
-      print('Error al cargar más órdenes: $e');
+      AppLogger.error(
+        'Error al cargar más órdenes',
+        name: 'MisOrdenesPage',
+        error: e,
+      );
     } finally {
       setState(() => _cargandoMas = false);
     }
@@ -105,89 +112,54 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: background,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        title: const Text(
-          'Mis Órdenes',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Mis Órdenes', style: AppTextStyles.textStyleTitle),
+        iconTheme: const IconThemeData(color: AppColors.onSurface),
         shape: const Border(
-          bottom: BorderSide(color: outlineVariant, width: 1),
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
         ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: primaryContainer),
+          ? const RyStateContainer(
+              title: 'Cargando órdenes...',
+              type: RyStateType.loading,
             )
           : _ordenes.isEmpty
-          ? const Center(
-              child: Text(
-                'No tienes órdenes registradas',
-                style: TextStyle(color: onSurfaceVariant),
-              ),
+          ? const RyStateContainer(
+              title: 'Sin órdenes',
+              subtitle: 'No tienes órdenes registradas',
+              type: RyStateType.empty,
             )
           : ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               itemCount: _ordenes.length + (_cargandoMas ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == _ordenes.length) {
                   return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(
+                      vertical: AppSpacing.spacingMd,
+                    ),
                     child: Center(
-                      child: CircularProgressIndicator(color: primaryContainer),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryContainer,
+                      ),
                     ),
                   );
                 }
 
                 final orden = _ordenes[index];
                 final estado = orden['estado'] as String? ?? 'pendiente';
-                Color statusColor = primaryContainer;
-                String statusText = estado;
-
-                switch (estado) {
-                  case 'pendiente':
-                    statusColor = primaryContainer;
-                    statusText = 'Pendiente';
-                    break;
-                  case 'en_proceso':
-                    statusColor = secondaryContainer;
-                    statusText = 'En Proceso';
-                    break;
-                  case 'completado':
-                    statusColor = Colors.green;
-                    statusText = 'Completado';
-                    break;
-                  case 'cancelado':
-                    statusColor = Colors.red;
-                    statusText = 'Cancelado';
-                    break;
-                }
-
                 final createdAt = orden['created_at'] as String?;
-                String timeText = 'Reciente';
+
+                DateTime? createdAtDate;
                 if (createdAt != null) {
-                  final date = DateTime.parse(createdAt);
-                  final difference = DateTime.now().difference(date);
-                  if (difference.inHours < 1) {
-                    timeText = 'Hace ${difference.inMinutes} min';
-                  } else if (difference.inHours < 24) {
-                    timeText = 'Hace ${difference.inHours}h';
-                  } else if (difference.inDays == 1) {
-                    timeText = 'Ayer';
-                  } else {
-                    timeText = 'Hace ${difference.inDays} días';
-                  }
+                  createdAtDate = DateTime.parse(createdAt);
                 }
 
-                // Obtener datos de la cotización y solicitud
                 final cotizacion =
                     orden['cotizaciones'] as Map<String, dynamic>?;
                 final solicitud =
@@ -203,15 +175,14 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
                     almacen?['nombre_comercial'] as String? ?? 'Almacén';
 
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
                   child: _buildOrdenCard(
                     ordenId: orden['id'].toString(),
                     title: piezaNombre,
                     almacen: almacenNombre,
                     precio: precio,
-                    status: statusText,
-                    statusColor: statusColor,
-                    time: timeText,
+                    status: estado,
+                    createdAt: createdAtDate,
                   ),
                 );
               },
@@ -225,15 +196,14 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
     required String almacen,
     required String precio,
     required String status,
-    required Color statusColor,
-    required String time,
+    DateTime? createdAt,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: outlineVariant),
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,101 +211,90 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: statusColor, width: 1),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              Expanded(child: Text(title, style: AppTextStyles.textStyleBody)),
+              RyStatusBadge(
+                status: status,
+                style: RyStatusBadgeStyle.filled,
+                size: RyStatusBadgeSize.small,
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.spacingSm),
           Row(
             children: [
-              const Icon(Icons.store, color: onSurfaceVariant, size: 16),
-              const SizedBox(width: 4),
+              const Icon(
+                Icons.store,
+                color: AppColors.onSurfaceVariant,
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 almacen,
-                style: const TextStyle(color: onSurfaceVariant, fontSize: 14),
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.spacingXxs),
           Row(
             children: [
-              const Icon(Icons.attach_money, color: onSurfaceVariant, size: 16),
-              const SizedBox(width: 4),
+              const Icon(
+                Icons.attach_money,
+                color: AppColors.onSurfaceVariant,
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 '\$$precio',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                style: AppTextStyles.textStyleBody.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.spacingMd),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                time,
-                style: const TextStyle(color: onSurfaceVariant, fontSize: 12),
-              ),
-              ElevatedButton(
+              if (createdAt != null)
+                Text(
+                  _formatTime(createdAt),
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              RyButton(
+                label: 'Ver Detalles',
+                variant: RyButtonVariant.primary,
+                size: RyButtonSize.small,
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OrdenCompraPage(),
+                      builder: (context) => const OrdenCompraPage(),
                       settings: RouteSettings(arguments: ordenId),
                     ),
                   );
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryContainer,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Ver Detalles',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inHours < 1) {
+      return 'Hace ${difference.inMinutes} min';
+    } else if (difference.inHours < 24) {
+      return 'Hace ${difference.inHours}h';
+    } else if (difference.inDays == 1) {
+      return 'Ayer';
+    } else {
+      return 'Hace ${difference.inDays} días';
+    }
   }
 }

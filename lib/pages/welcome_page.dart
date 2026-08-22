@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../widgets/ry_button.dart';
 import 'login_page.dart';
 import 'role_selection_page.dart';
 
@@ -11,37 +14,27 @@ class WelcomePage extends StatefulWidget {
 }
 
 class _WelcomePageState extends State<WelcomePage> {
-  // Color scheme - Industrial Dark Theme
-  static const Color background = Color(0xFF131313);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       body: Container(
-        decoration: const BoxDecoration(color: background),
+        decoration: const BoxDecoration(color: AppColors.background),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppSpacing.spacingLg),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: 48),
+                const SizedBox(height: AppSpacing.spacingXxl),
                 // Welcome Text
                 _buildWelcomeText(),
-                const SizedBox(height: 64),
+                const SizedBox(height: AppSpacing.spacingXxxl),
                 // Action Buttons
                 _buildActionButtons(),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.spacingXl),
                 // Footer
                 _buildFooter(),
               ],
@@ -60,22 +53,19 @@ class _WelcomePageState extends State<WelcomePage> {
           height: 120,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: primaryContainer.withOpacity(0.15),
+            color: AppColors.primaryContainer.withValues(alpha: 0.15),
             border: Border.all(
-              color: primaryContainer.withOpacity(0.3),
+              color: AppColors.primaryContainer.withValues(alpha: 0.3),
               width: 2,
             ),
           ),
-          child: const Icon(Icons.build, size: 60, color: primary),
+          child: const Icon(Icons.build, size: 60, color: AppColors.primary),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: AppSpacing.spacingXl),
         Text(
           'RepuestosYa',
-          style: GoogleFonts.sora(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: onSurface,
-            letterSpacing: 1,
+          style: AppTextStyles.textStyleDisplay.copyWith(
+            color: AppColors.onSurface,
           ),
         ),
       ],
@@ -85,20 +75,22 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildWelcomeText() {
     return Column(
       children: [
-        const Text(
+        Text(
           'Tu socio estratégico en\nrepuestos automotrices',
-          style: TextStyle(
-            fontSize: 24,
+          style: AppTextStyles.textStyleHeading.copyWith(
             fontWeight: FontWeight.w600,
-            color: onSurface,
+            color: AppColors.onSurface,
             height: 1.4,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 16),
-        const Text(
+        const SizedBox(height: AppSpacing.spacingMd),
+        Text(
           'Conectamos clientes y almacenes con\nprecisión, velocidad y confianza.',
-          style: TextStyle(fontSize: 16, color: onSurfaceVariant, height: 1.5),
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+            height: 1.5,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -108,82 +100,35 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryContainer,
-              foregroundColor: onPrimaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.login, size: 24),
-                SizedBox(width: 12),
-                Text(
-                  'Iniciar sesión con cuenta RepuestosYa',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+        RyButton(
+          label: 'Iniciar sesión con cuenta RepuestosYa',
+          icon: Icons.login,
+          variant: RyButtonVariant.primary,
+          size: RyButtonSize.large,
+          isFullWidth: true,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
+          },
         ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: outlineVariant, width: 1.5),
-          ),
-          child: OutlinedButton(
-            onPressed: () {
-              // Navigate to role selection for registration
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RoleSelectionPage(),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(
-              foregroundColor: onSurface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyButton(
+          label: 'Crear nueva cuenta',
+          icon: Icons.person_add,
+          variant: RyButtonVariant.outline,
+          size: RyButtonSize.large,
+          isFullWidth: true,
+          onPressed: () {
+            // Navigate to role selection for registration
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RoleSelectionPage(),
               ),
-              side: BorderSide.none,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_add, size: 24),
-                SizedBox(width: 12),
-                Text(
-                  'Crear nueva cuenta',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -197,30 +142,36 @@ class _WelcomePageState extends State<WelcomePage> {
           children: [
             Row(
               children: [
-                const Icon(Icons.verified, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 6),
-                const Text(
+                const Icon(
+                  Icons.verified,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Text(
                   'Certificado ISO 9001',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 24),
-            Container(width: 1, height: 16, color: outlineVariant),
-            const SizedBox(width: 24),
+            const SizedBox(width: AppSpacing.spacingLg),
+            Container(width: 1, height: 16, color: AppColors.outlineVariant),
+            const SizedBox(width: AppSpacing.spacingLg),
             Row(
               children: [
-                const Icon(Icons.security, size: 18, color: onSurfaceVariant),
-                const SizedBox(width: 6),
-                const Text(
+                const Icon(
+                  Icons.security,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Text(
                   'SSL Secure',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: onSurfaceVariant,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -228,12 +179,14 @@ class _WelcomePageState extends State<WelcomePage> {
             ),
           ],
         ),
-        const SizedBox(height: 24),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 32),
+        const SizedBox(height: AppSpacing.spacingLg),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
             '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
-            style: TextStyle(fontSize: 12, color: onSurfaceVariant),
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
             textAlign: TextAlign.center,
           ),
         ),

@@ -7,6 +7,8 @@ import 'providers/user_role_provider.dart';
 import 'providers/orden_compra_provider.dart';
 import 'services/api_client.dart';
 import 'services/realtime_notification_service.dart';
+import 'theme/app_theme.dart';
+import 'utils/app_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,13 +17,21 @@ void main() async {
   try {
     await Supabase.initialize(
       url: 'https://vpgnasrlgdgkxpggorxl.supabase.co',
-      anonKey:
+      publishableKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZ25hc3JsZ2Rna3hwZ2dvcnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4Njg0MzgsImV4cCI6MjA5NjQ0NDQzOH0.iENx5XVTyvr2-GLqOKqPzxwsekThJu1PNGDDpDfrOOE',
     );
-    print('[SUPABASE] ✅ Inicializado correctamente');
-    print('[SUPABASE] URL: https://vpgnasrlgdgkxpggorxl.supabase.co');
-  } catch (e) {
-    print('[SUPABASE] ❌ Error de inicialización: $e');
+    AppLogger.info('Supabase inicializado correctamente', name: 'Supabase');
+    AppLogger.info(
+      'URL: https://vpgnasrlgdgkxpggorxl.supabase.co',
+      name: 'Supabase',
+    );
+  } catch (e, st) {
+    AppLogger.error(
+      'Error de inicialización de Supabase',
+      name: 'Supabase',
+      error: e,
+      stackTrace: st,
+    );
   }
 
   // Inicializar ApiClient en background
@@ -49,13 +59,11 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'RepuestosYa',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFFF5722),
-            brightness: Brightness.dark,
-          ),
-        ),
+        // Dark-only (ver §8.1 de docs/DESIGN_SYSTEM.md): la app no tiene
+        // tema claro. Antes `theme: lightTheme, darkTheme: darkTheme,
+        // themeMode: ThemeMode.dark` pero `lightTheme` era un clon del
+        // oscuro. Se eliminó en v1.2.1.
+        theme: darkTheme,
         home: const WelcomePage(),
         routes: {'/orden-compra': (context) => const OrdenCompraPage()},
       ),

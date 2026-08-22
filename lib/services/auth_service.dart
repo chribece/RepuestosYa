@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/app_logger.dart';
 import 'api_client.dart';
 
 // Clases compatibles con Supabase para mantener la misma interfaz
@@ -31,7 +32,6 @@ class AuthService {
   User? _currentUser;
   final StreamController<AuthState> _authStateController =
       StreamController<AuthState>.broadcast();
-  bool _isInitialized = false;
 
   // Constructor privado para singleton
   AuthService._privateConstructor() {
@@ -63,7 +63,11 @@ class AuthService {
             _authStateController.add(AuthState(user: _currentUser));
           }
         } catch (e) {
-          print('Error decoding token: $e');
+          AppLogger.error(
+            'Error decoding token: $e',
+            name: 'AuthService',
+            error: e,
+          );
           // Si hay error al decodificar, limpiar el token
           await _apiClient.clearToken();
         }
@@ -79,10 +83,10 @@ class AuthService {
     String? rol,
   }) async {
     try {
-      print('AuthService: Intentando registrar usuario');
-      print('AuthService: Email: $email');
-      print('AuthService: Nombre: $nombreCompleto');
-      print('AuthService: Rol: $rol');
+      AppLogger.debug(
+        'Intentando registrar usuario - Email: $email - Nombre: $nombreCompleto - Rol: $rol',
+        name: 'AuthService',
+      );
 
       final response = await _apiClient.post(
         '/auth/register',
@@ -90,12 +94,12 @@ class AuthService {
           'email': email,
           'password': password,
           'nombreCompleto': nombreCompleto,
-          if (rol != null) 'rol': rol,
+          'rol': ?rol,
         },
         requireAuth: false,
       );
 
-      print('AuthService: Registro exitoso');
+      AppLogger.info('Registro exitoso', name: 'AuthService');
       final token = response['token'] as String;
       await _apiClient.setToken(token);
 
@@ -114,7 +118,7 @@ class AuthService {
 
       return AuthResponse(user: _currentUser!, token: token);
     } catch (e) {
-      print('AuthService: Error en registro: $e');
+      AppLogger.error('Error en registro: $e', name: 'AuthService', error: e);
       throw Exception('Error al registrar usuario: $e');
     }
   }
@@ -156,18 +160,31 @@ class AuthService {
   // Sincronizar sesión con Supabase para permitir subida de imágenes
   Future<void> _syncSupabaseSession(String email, String password) async {
     try {
-      print('[AUTH] Sincronizando sesión con Supabase...');
+      AppLogger.debug(
+        'Sincronizando sesión con Supabase...',
+        name: 'AuthService',
+      );
       final response = await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
       if (response.user != null) {
-        print('[AUTH] ✅ Sesión Supabase sincronizada: ${response.user!.id}');
+        AppLogger.info(
+          '✅ Sesión Supabase sincronizada: ${response.user!.id}',
+          name: 'AuthService',
+        );
       } else {
-        print('[AUTH] ⚠️ No se pudo sincronizar sesión con Supabase');
+        AppLogger.warning(
+          '⚠️ No se pudo sincronizar sesión con Supabase',
+          name: 'AuthService',
+        );
       }
     } catch (e) {
-      print('[AUTH] ❌ Error al sincronizar con Supabase: $e');
+      AppLogger.error(
+        '❌ Error al sincronizar con Supabase: $e',
+        name: 'AuthService',
+        error: e,
+      );
       // No fallar el login si Supabase falla - el login del backend es el principal
     }
   }
@@ -180,7 +197,11 @@ class AuthService {
         await _apiClient.post('/auth/logout', requireAuth: true);
       } catch (e) {
         // Ignore backend errors - JWT is stateless, client-side logout is sufficient
-        print('Backend logout call failed (non-critical): $e');
+        AppLogger.error(
+          'Backend logout call failed (non-critical): $e',
+          name: 'AuthService',
+          error: e,
+        );
       }
 
       // Clear local token and user data

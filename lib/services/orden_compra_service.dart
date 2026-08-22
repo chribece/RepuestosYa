@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/orden_compra.dart';
-import 'api_client.dart';
 
 class BadRequestException implements Exception {
   final String message;
@@ -38,7 +37,6 @@ class ServerException implements Exception {
 
 class OrdenCompraService {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
-  final ApiClient _apiClient = ApiClient();
 
   Future<String> _getToken() async {
     // Usa el ApiClient singleton que ya maneja los tokens desde SharedPreferences

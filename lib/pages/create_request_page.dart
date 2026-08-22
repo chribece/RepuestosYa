@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import '../theme/app_colors.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/vehiculo_service.dart';
 import '../services/direccion_service.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_text_field.dart';
+import '../widgets/ry_image_picker.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class CreateRequestPage extends StatefulWidget {
   const CreateRequestPage({super.key});
@@ -20,7 +28,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   final _locationController = TextEditingController(); // Solo para mostrar
 
   File? _selectedImage;
-  bool _isUploading = false;
   bool _isSubmitting = false;
 
   String? _selectedVehiculoId;
@@ -31,25 +38,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   bool _isLoadingVehiculos = false;
   bool _isLoadingDirecciones = false;
 
-  final ImagePicker _imagePicker = ImagePicker();
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
   final VehiculoService _vehiculoService = VehiculoService();
   final DireccionService _direccionService = DireccionService();
-
-  // Colores
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color tertiaryContainer = Color(0xFF019AD8);
-  static const Color secondaryContainer = Color(0xFF1E95F2);
-  static const Color background = Color(0xFF131313);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -76,7 +68,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         _vehiculos = vehiculos;
       });
     } catch (e) {
-      print('Error al cargar vehículos: $e');
+      AppLogger.warning('Error al cargar vehículos: $e', name: 'CreateRequest');
     } finally {
       setState(() => _isLoadingVehiculos = false);
     }
@@ -85,10 +77,15 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   Future<void> _cargarDirecciones() async {
     setState(() => _isLoadingDirecciones = true);
     try {
-      print('[DIRECCIONES] Iniciando carga de direcciones...');
+      AppLogger.debug(
+        'Iniciando carga de direcciones...',
+        name: 'CreateRequest.Direcciones',
+      );
       final direcciones = await _direccionService.getDirecciones();
-      print('[DIRECCIONES] Direcciones cargadas: ${direcciones.length}');
-      print('[DIRECCIONES] Datos: $direcciones');
+      AppLogger.debug(
+        'Direcciones cargadas: ${direcciones.length}',
+        name: 'CreateRequest.Direcciones',
+      );
 
       setState(() {
         _direcciones = direcciones;
@@ -100,20 +97,29 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           );
           _selectedDireccionId = principal['id'] as String?;
           _locationController.text = _formatDireccion(principal);
-          print('[DIRECCIONES] Dirección seleccionada: $_selectedDireccionId');
+          AppLogger.debug(
+            'Dirección seleccionada: $_selectedDireccionId',
+            name: 'CreateRequest.Direcciones',
+          );
         } else {
           _selectedDireccionId = null;
           _locationController.text = 'Selecciona o agrega una dirección';
-          print('[DIRECCIONES] No hay direcciones disponibles');
+          AppLogger.debug(
+            'No hay direcciones disponibles',
+            name: 'CreateRequest.Direcciones',
+          );
         }
       });
     } catch (e) {
-      print('[DIRECCIONES] Error al cargar direcciones: $e');
+      AppLogger.warning(
+        'Error al cargar direcciones: $e',
+        name: 'CreateRequest.Direcciones',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar direcciones: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -138,84 +144,21 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   // ========== IMAGEN ==========
 
-  Future<void> _pickImage() async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: surfaceContainerHigh,
-        title: const Text(
-          'Seleccionar imagen',
-          style: TextStyle(color: onSurface),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: primaryContainer),
-              title: const Text('Cámara', style: TextStyle(color: onSurface)),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImageFromSource(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: primaryContainer),
-              title: const Text('Galería', style: TextStyle(color: onSurface)),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImageFromSource(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickImageFromSource(ImageSource source) async {
-    try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: source,
-        maxWidth: 800,
-        maxHeight: 800,
-      );
-      if (image != null) {
-        setState(() => _isUploading = true);
-        await Future.delayed(
-          const Duration(milliseconds: 1500),
-        ); // Simular subida
-        setState(() {
-          _selectedImage = File(image.path);
-          _isUploading = false;
-        });
-        _showToast('Imagen cargada con éxito');
-      }
-    } catch (e) {
-      setState(() => _isUploading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar imagen: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   void _showToast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: primaryContainer),
-            const SizedBox(width: 8),
-            Text(message, style: const TextStyle(color: onSurface)),
+            const Icon(Icons.check_circle, color: AppColors.primaryContainer),
+            const SizedBox(width: AppSpacing.spacingSm),
+            Text(message, style: AppTextStyles.textStyleBody),
           ],
         ),
-        backgroundColor: surfaceContainerHigh,
+        backgroundColor: AppColors.surfaceContainerHigh,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(50),
-          side: const BorderSide(color: primaryContainer),
+          borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+          side: const BorderSide(color: AppColors.primaryContainer),
         ),
         duration: const Duration(seconds: 3),
       ),
@@ -231,20 +174,22 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     final referenciaController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    final result = await showModalBottomSheet<bool>(
+    await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: surfaceContainerHigh,
+      backgroundColor: AppColors.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.radiusXl),
+        ),
       ),
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 16,
+            left: AppSpacing.spacingMd,
+            right: AppSpacing.spacingMd,
+            top: AppSpacing.spacingMd,
           ),
           child: Form(
             key: formKey,
@@ -253,94 +198,54 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Agregar nueva dirección',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                    style: AppTextStyles.textStyleTitle.copyWith(
+                      color: AppColors.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  RyTextField(
+                    label: 'Alias (ej: Casa, Taller)',
                     controller: aliasController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Alias (ej: Casa, Taller)',
-                      labelStyle: TextStyle(color: onSurfaceVariant),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: primaryContainer),
-                      ),
-                    ),
+                    isRequired: true,
                     validator: (value) => (value == null || value.isEmpty)
                         ? 'Ingresa un alias'
                         : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  RyTextField(
+                    label: 'Calle principal',
                     controller: callePrincipalController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Calle principal',
-                      labelStyle: TextStyle(color: onSurfaceVariant),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: primaryContainer),
-                      ),
-                    ),
+                    isRequired: true,
                     validator: (value) => (value == null || value.isEmpty)
                         ? 'Ingresa la calle principal'
                         : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  RyTextField(
+                    label: 'Calle secundaria (opcional)',
                     controller: calleSecundariaController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Calle secundaria (opcional)',
-                      labelStyle: TextStyle(color: onSurfaceVariant),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: primaryContainer),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  RyTextField(
+                    label: 'Referencia (opcional)',
                     controller: referenciaController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      labelText: 'Referencia (opcional)',
-                      labelStyle: TextStyle(color: onSurfaceVariant),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: outlineVariant),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: primaryContainer),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppSpacing.spacingLg),
                   Row(
                     children: [
                       Expanded(
-                        child: TextButton(
+                        child: RyButton(
+                          label: 'Cancelar',
+                          variant: RyButtonVariant.text,
                           onPressed: () => Navigator.pop(context, false),
-                          child: const Text(
-                            'Cancelar',
-                            style: TextStyle(color: onSurfaceVariant),
-                          ),
                         ),
                       ),
                       Expanded(
-                        child: ElevatedButton(
+                        child: RyButton(
+                          label: 'Guardar',
+                          variant: RyButtonVariant.primary,
                           onPressed: () async {
                             if (formKey.currentState!.validate()) {
                               try {
@@ -357,6 +262,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                           .trim(),
                                     );
                                 // Cerrar modal con éxito
+                                if (!context.mounted) return;
                                 Navigator.pop(context, true);
                                 // Recargar lista y seleccionar la nueva dirección
                                 await _cargarDirecciones();
@@ -369,27 +275,23 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                 });
                                 _showToast('Dirección agregada correctamente');
                               } catch (e) {
+                                if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
                                       'Error al guardar dirección: $e',
                                     ),
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: AppColors.error,
                                   ),
                                 );
                               }
                             }
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryContainer,
-                            foregroundColor: onPrimaryContainer,
-                          ),
-                          child: const Text('Guardar'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.spacingSm),
                 ],
               ),
             ),
@@ -405,37 +307,37 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: surfaceContainerHigh,
-        title: const Text(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: Text(
           'Seleccionar dirección de entrega',
-          style: TextStyle(color: onSurface),
+          style: AppTextStyles.textStyleTitle,
         ),
         content: SizedBox(
           width: double.maxFinite,
           child: _isLoadingDirecciones
-              ? const Center(
-                  child: CircularProgressIndicator(color: primaryContainer),
+              ? const RyStateContainer(
+                  title: 'Cargando direcciones...',
+                  type: RyStateType.loading,
                 )
               : _direcciones.isEmpty
               ? Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'No tienes direcciones registradas',
-                      style: TextStyle(color: onSurfaceVariant),
+                      style: AppTextStyles.textStyleBody.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    RyButton(
+                      label: 'Agregar dirección',
+                      icon: Icons.add,
+                      variant: RyButtonVariant.primary,
                       onPressed: () {
                         Navigator.pop(context);
                         _agregarDireccion();
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Agregar dirección'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryContainer,
-                        foregroundColor: onPrimaryContainer,
-                      ),
                     ),
                   ],
                 )
@@ -452,12 +354,12 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                           return ListTile(
                             title: Text(
                               _formatDireccion(direccion),
-                              style: const TextStyle(color: onSurface),
+                              style: AppTextStyles.textStyleBody,
                             ),
                             trailing: isSelected
                                 ? const Icon(
                                     Icons.check_circle,
-                                    color: primaryContainer,
+                                    color: AppColors.primaryContainer,
                                   )
                                 : null,
                             onTap: () {
@@ -475,15 +377,17 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         },
                       ),
                     ),
-                    const Divider(color: outlineVariant),
+                    const Divider(color: AppColors.outlineVariant),
                     ListTile(
                       leading: const Icon(
                         Icons.add_circle,
-                        color: primaryContainer,
+                        color: AppColors.primaryContainer,
                       ),
-                      title: const Text(
+                      title: Text(
                         'Agregar nueva dirección',
-                        style: TextStyle(color: primaryContainer),
+                        style: AppTextStyles.textStyleBody.copyWith(
+                          color: AppColors.primaryContainer,
+                        ),
                       ),
                       onTap: () {
                         Navigator.pop(context);
@@ -496,9 +400,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               'Cancelar',
-              style: TextStyle(color: onSurfaceVariant),
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -517,7 +423,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Debes seleccionar un vehículo'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -528,7 +434,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Debes seleccionar una dirección de entrega'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -565,15 +471,19 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            backgroundColor: surfaceContainerHigh,
-            title: const Text(
+            backgroundColor: AppColors.surfaceContainerHigh,
+            title: Text(
               '¡Solicitud Enviada!',
-              style: TextStyle(color: onSurface),
+              style: AppTextStyles.textStyleTitle.copyWith(
+                color: AppColors.onSurface,
+              ),
             ),
-            content: const Text(
+            content: Text(
               'Tu solicitud ha sido enviada a nuestra red de proveedores. '
               'Te notificaremos cuando reciban ofertas.',
-              style: TextStyle(color: onSurfaceVariant),
+              style: AppTextStyles.textStyleBody.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
             actions: [
               TextButton(
@@ -581,9 +491,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   Navigator.pop(context); // Cerrar diálogo
                   Navigator.pop(context); // Volver a Home
                 },
-                child: const Text(
+                child: Text(
                   'OK',
-                  style: TextStyle(color: primaryContainer),
+                  style: AppTextStyles.textStyleButton.copyWith(
+                    color: AppColors.primaryContainer,
+                  ),
                 ),
               ),
             ],
@@ -596,7 +508,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al enviar solicitud: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -608,172 +520,58 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: surfaceContainerHigh,
+        backgroundColor: AppColors.surfaceContainerHigh,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Crear Solicitud',
-          style: TextStyle(
-            color: primary,
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: Text('Crear Solicitud', style: AppTextStyles.textStyleHeading),
         actions: [
           Container(
             width: 40,
             height: 40,
-            margin: const EdgeInsets.only(right: 16),
+            margin: const EdgeInsets.only(right: AppSpacing.spacingMd),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: outlineVariant),
+              border: Border.all(color: AppColors.outlineVariant),
             ),
             child: const ClipOval(
-              child: Icon(Icons.person, color: onSurfaceVariant),
+              child: Icon(Icons.person, color: AppColors.onSurfaceVariant),
             ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.spacingMd),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'NUEVA BÚSQUEDA',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: onSurfaceVariant,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: AppSpacing.spacingXxs),
                   Text(
                     '¿Qué pieza necesitas?',
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: onSurface,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTextStyles.textStyleDisplay,
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-
-              // Imagen
-              GestureDetector(
-                onTap: _isUploading ? null : _pickImage,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: primaryContainer,
-                      width: 2,
-                      style: _selectedImage == null
-                          ? BorderStyle.solid
-                          : BorderStyle.none,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  child: _isUploading
-                      ? const Column(
-                          children: [
-                            SizedBox(
-                              width: 48,
-                              height: 48,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 4,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  primaryContainer,
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              'Procesando imagen...',
-                              style: TextStyle(color: primaryContainer),
-                            ),
-                          ],
-                        )
-                      : _selectedImage != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Stack(
-                            children: [
-                              Image.file(
-                                _selectedImage!,
-                                width: double.infinity,
-                                height: 128,
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.4),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.edit,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : Column(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: primaryContainer.withOpacity(0.1),
-                              ),
-                              child: const Icon(
-                                Icons.photo_camera,
-                                size: 32,
-                                color: primaryContainer,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Subir foto del repuesto o VIN',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Formatos aceptados: JPG, PNG • Max 10MB',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Nombre del repuesto
+              const SizedBox(height: AppSpacing.spacingXl),
+              _buildImageSection(),
+              const SizedBox(height: AppSpacing.spacingXl),
               _buildTextField(
                 label: 'Nombre del repuesto',
                 controller: _piezaNombreController,
@@ -789,105 +587,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-
-              // Vehículo
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: const TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'Selecciona tu vehículo',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: onSurfaceVariant,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ' *',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: requiredAsterisk,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: outlineVariant),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedVehiculoId,
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          border: InputBorder.none,
-                        ),
-                        dropdownColor: surfaceContainerHigh,
-                        style: const TextStyle(color: onSurface),
-                        icon: const Icon(
-                          Icons.expand_more,
-                          color: onSurfaceVariant,
-                        ),
-                        items: _isLoadingVehiculos
-                            ? [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('Cargando vehículos...'),
-                                ),
-                              ]
-                            : _vehiculos.isEmpty
-                            ? [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('No hay vehículos registrados'),
-                                ),
-                              ]
-                            : _vehiculos.map((vehiculo) {
-                                final modelo =
-                                    vehiculo['modelos_vehiculo']
-                                        as Map<String, dynamic>?;
-                                final marca =
-                                    modelo?['marcas_vehiculo']
-                                        as Map<String, dynamic>?;
-                                final vin = vehiculo['vin'] as String? ?? '';
-                                final nombre = marca != null && modelo != null
-                                    ? '${marca['nombre']} ${modelo['nombre']}'
-                                    : 'Vehículo';
-                                return DropdownMenuItem(
-                                  value: vehiculo['id'] as String?,
-                                  child: Text(
-                                    '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
-                                  ),
-                                );
-                              }).toList(),
-                        onChanged: (value) =>
-                            setState(() => _selectedVehiculoId = value),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) {
-                            return 'Selecciona un vehículo';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Descripción
+              const SizedBox(height: AppSpacing.spacingMd),
+              _buildVehicleDropdown(),
+              const SizedBox(height: AppSpacing.spacingMd),
               _buildTextField(
                 label: 'Descripción del repuesto',
                 controller: _descriptionController,
@@ -905,215 +607,283 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
-
-              // Prioridad (Urgente/Estándar)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Prioridad de la solicitud',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RadioListTile<String>(
-                          title: const Text(
-                            'Estándar',
-                            style: TextStyle(color: onSurface, fontSize: 14),
-                          ),
-                          value: 'estándar',
-                          groupValue: _selectedPrioridad,
-                          onChanged: (value) =>
-                              setState(() => _selectedPrioridad = value),
-                          activeColor: primaryContainer,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                      Expanded(
-                        child: RadioListTile<String>(
-                          title: const Text(
-                            'Urgente',
-                            style: TextStyle(color: onSurface, fontSize: 14),
-                          ),
-                          value: 'urgente',
-                          groupValue: _selectedPrioridad,
-                          onChanged: (value) =>
-                              setState(() => _selectedPrioridad = value),
-                          activeColor: Colors.red,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Ubicación de entrega
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: outlineVariant.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: secondaryContainer.withOpacity(0.2),
-                      ),
-                      child: const Icon(
-                        Icons.location_on,
-                        color: secondaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Ubicación de entrega',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            _locationController.text,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: onSurface,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _changeLocation,
-                      child: const Text(
-                        'Cambiar',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: secondaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Consejo Pro
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: surfaceContainerLow.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: outlineVariant),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info, color: tertiaryContainer, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Consejo Pro',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: tertiaryContainer,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Incluir el código VIN (Número de Chasis) garantiza una compatibilidad del 100% con tu motorización específica.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 100),
+              const SizedBox(height: AppSpacing.spacingMd),
+              _buildPrioritySection(),
+              const SizedBox(height: AppSpacing.spacingMd),
+              _buildLocationSection(),
+              const SizedBox(height: AppSpacing.spacingXl),
+              _buildProTip(),
+              const SizedBox(height: AppSpacing.spacingXxl),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: background.withOpacity(0.8),
-          border: Border(top: BorderSide(color: outlineVariant)),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _handleSubmit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryContainer,
-              foregroundColor: onPrimaryContainer,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+      bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  Widget _buildImageSection() {
+    return RyImagePicker(
+      width: double.infinity,
+      height: 200,
+      currentImageUrl: _selectedImage?.path,
+      onImageSelected: (file) async {
+        setState(() => _selectedImage = file);
+        _showToast('Imagen cargada con éxito');
+      },
+      onRemove: () {
+        setState(() => _selectedImage = null);
+      },
+    );
+  }
+
+  Widget _buildVehicleDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: 'Selecciona tu vehículo',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              elevation: 0,
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        onPrimaryContainer,
-                      ),
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.search),
-                      SizedBox(width: 8),
-                      Text(
-                        'BUSCAR REPUESTO',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+              TextSpan(
+                text: ' *',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.requiredAsterisk,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: AppSpacing.spacingXs),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+            border: Border.all(color: AppColors.outlineVariant),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedVehiculoId,
+              decoration: const InputDecoration(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingSm,
+                ),
+                border: InputBorder.none,
+              ),
+              dropdownColor: AppColors.surfaceContainerHigh,
+              style: AppTextStyles.textStyleBody,
+              icon: const Icon(
+                Icons.expand_more,
+                color: AppColors.onSurfaceVariant,
+              ),
+              items: _isLoadingVehiculos
+                  ? [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Cargando vehículos...'),
+                      ),
+                    ]
+                  : _vehiculos.isEmpty
+                  ? [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('No hay vehículos registrados'),
+                      ),
+                    ]
+                  : _vehiculos.map((vehiculo) {
+                      final modelo =
+                          vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
+                      final marca =
+                          modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
+                      final vin = vehiculo['vin'] as String? ?? '';
+                      final nombre = marca != null && modelo != null
+                          ? '${marca['nombre']} ${modelo['nombre']}'
+                          : 'Vehículo';
+                      return DropdownMenuItem(
+                        value: vehiculo['id'] as String?,
+                        child: Text(
+                          '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
+                        ),
+                      );
+                    }).toList(),
+              onChanged: (value) => setState(() => _selectedVehiculoId = value),
+              validator: (v) {
+                if (v == null || v.isEmpty) {
+                  return 'Selecciona un vehículo';
+                }
+                return null;
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrioritySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Prioridad de la solicitud',
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.spacingXs),
+        RadioGroup<String>(
+          groupValue: _selectedPrioridad,
+          onChanged: (value) => setState(() => _selectedPrioridad = value),
+          child: Row(
+            children: [
+              Expanded(
+                child: RadioListTile<String>(
+                  title: Text(
+                    'Estándar',
+                    style: AppTextStyles.textStyleCaption,
+                  ),
+                  value: 'estándar',
+                  activeColor: AppColors.primaryContainer,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              Expanded(
+                child: RadioListTile<String>(
+                  title: Text('Urgente', style: AppTextStyles.textStyleCaption),
+                  value: 'urgente',
+                  activeColor: AppColors.error,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationSection() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.secondaryContainer.withValues(alpha: 0.2),
+            ),
+            child: const Icon(
+              Icons.location_on,
+              color: AppColors.secondaryContainer,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ubicación de entrega',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  _locationController.text,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          RyButton(
+            label: 'Cambiar',
+            variant: RyButtonVariant.text,
+            size: RyButtonSize.small,
+            onPressed: _changeLocation,
+          ),
+        ],
       ),
     );
   }
 
-  // Widget helper para campos de texto
+  Widget _buildProTip() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info, color: AppColors.tertiaryContainer, size: 20),
+          const SizedBox(width: AppSpacing.spacingMd),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Consejo Pro',
+                  style: AppTextStyles.textStyleTitle.copyWith(
+                    color: AppColors.tertiaryContainer,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingXxs),
+                Text(
+                  'Incluir el código VIN (Número de Chasis) garantiza una compatibilidad del 100% con tu motorización específica.',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.8),
+        border: Border(top: BorderSide(color: AppColors.outlineVariant)),
+      ),
+      child: RyButton(
+        label: 'BUSCAR REPUESTO',
+        icon: Icons.search,
+        variant: RyButtonVariant.primary,
+        size: RyButtonSize.large,
+        isLoading: _isSubmitting,
+        isFullWidth: true,
+        onPressed: _handleSubmit,
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
@@ -1122,58 +892,12 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     bool isRequired = false,
     String? Function(String?)? validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (isRequired)
-                const TextSpan(
-                  text: ' *',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: requiredAsterisk,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          style: const TextStyle(color: onSurface),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: surfaceContainerHigh,
-            hintText: hint,
-            hintStyle: const TextStyle(color: onSurfaceVariant),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: outlineVariant),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: primaryContainer, width: 2),
-            ),
-          ),
-          validator: validator,
-        ),
-      ],
+    return RyTextField(
+      label: label,
+      hint: hint,
+      controller: controller,
+      maxLines: maxLines,
+      validator: validator,
     );
   }
 }

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
-import '../services/auth_service.dart';
+import '../widgets/ry_text_field.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
 
 class AddressesPage extends StatefulWidget {
   const AddressesPage({super.key});
@@ -11,23 +16,9 @@ class AddressesPage extends StatefulWidget {
 
 class _AddressesPageState extends State<AddressesPage> {
   final DireccionService _direccionService = DireccionService();
-  final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _direcciones = [];
   bool _isLoading = false;
-
-  // Color scheme idéntico al de tu diseño original
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color error = Color(0xFFFF1744);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -50,7 +41,7 @@ class _AddressesPageState extends State<AddressesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar direcciones: $e'),
-            backgroundColor: error,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -88,7 +79,7 @@ class _AddressesPageState extends State<AddressesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al eliminar dirección: $e'),
-            backgroundColor: error,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -98,26 +89,27 @@ class _AddressesPageState extends State<AddressesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Mis Direcciones de Entrega'),
-        backgroundColor: surface,
-        foregroundColor: onSurface,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.onSurface,
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: primaryContainer),
+          ? const RyStateContainer(
+              title: 'Cargando direcciones...',
+              type: RyStateType.loading,
             )
           : _direcciones.isEmpty
-          ? Center(
-              child: Text(
-                'No tienes direcciones registradas',
-                style: TextStyle(color: onSurfaceVariant, fontSize: 16),
-              ),
+          ? const RyStateContainer(
+              title: 'Sin direcciones',
+              subtitle:
+                  'No tienes direcciones registradas. Agrega tu primera dirección.',
+              type: RyStateType.empty,
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               itemCount: _direcciones.length,
               itemBuilder: (context, index) {
                 final direccion = _direcciones[index];
@@ -131,104 +123,120 @@ class _AddressesPageState extends State<AddressesPage> {
                     direccion['calle_secundaria'] as String? ?? '';
                 final referencia = direccion['referencia'] as String? ?? '';
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  color: surfaceContainerHigh,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+                  padding: const EdgeInsets.all(AppSpacing.spacingMd),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+                    border: Border.all(color: AppColors.outlineVariant),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    title: Text(
-                      alias,
-                      style: const TextStyle(
-                        color: onSurface,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Principal: $callePrincipal',
-                            style: const TextStyle(color: onSurfaceVariant),
-                          ),
-                          if (calleSecundaria.isNotEmpty)
-                            Text(
-                              'Secundaria: $calleSecundaria',
-                              style: const TextStyle(color: onSurfaceVariant),
-                            ),
-                          if (referencia.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Ref: $referencia',
-                              style: TextStyle(
-                                color: primary.withOpacity(0.8),
-                                fontSize: 13,
+                          Text(alias, style: AppTextStyles.textStyleBody),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: AppColors.primary,
+                                ),
+                                onPressed: () => _mostrarFormulario(direccion),
                               ),
-                            ),
-                          ],
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: AppColors.error,
+                                ),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor:
+                                          AppColors.surfaceContainerHigh,
+                                      title: const Text(
+                                        'Confirmar',
+                                        style: AppTextStyles.textStyleTitle,
+                                      ),
+                                      content: Text(
+                                        '¿Estás seguro de eliminar esta dirección?',
+                                        style: AppTextStyles.textStyleBody
+                                            .copyWith(
+                                              color: AppColors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: Text(
+                                            'Cancelar',
+                                            style: AppTextStyles.textStyleButton
+                                                .copyWith(
+                                                  color: AppColors
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                            _eliminarDireccion(id);
+                                          },
+                                          child: Text(
+                                            'Eliminar',
+                                            style: AppTextStyles.textStyleButton
+                                                .copyWith(
+                                                  color: AppColors.error,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: primary),
-                          onPressed: () => _mostrarFormulario(direccion),
+                      const SizedBox(height: AppSpacing.spacingSm),
+                      Text(
+                        'Principal: $callePrincipal',
+                        style: AppTextStyles.textStyleCaption.copyWith(
+                          color: AppColors.onSurfaceVariant,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: error),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                backgroundColor: surfaceContainerHigh,
-                                title: const Text(
-                                  'Confirmar',
-                                  style: TextStyle(color: onSurface),
-                                ),
-                                content: const Text(
-                                  '¿Estás seguro de eliminar esta dirección?',
-                                  style: TextStyle(color: onSurfaceVariant),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text(
-                                      'Cancelar',
-                                      style: TextStyle(color: onSurfaceVariant),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      _eliminarDireccion(id);
-                                    },
-                                    child: const Text(
-                                      'Eliminar',
-                                      style: TextStyle(color: error),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
+                      ),
+                      if (calleSecundaria.isNotEmpty)
+                        Text(
+                          'Secundaria: $calleSecundaria',
+                          style: AppTextStyles.textStyleCaption.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                      if (referencia.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.spacingXxs),
+                        Text(
+                          'Ref: $referencia',
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 );
               },
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _mostrarFormulario(),
-        backgroundColor: primaryContainer,
-        foregroundColor: onPrimaryContainer,
+        backgroundColor: AppColors.primaryContainer,
+        foregroundColor: AppColors.onPrimaryContainer,
         child: const Icon(Icons.add),
       ),
     );
@@ -326,7 +334,7 @@ class _AddressDialogState extends State<AddressDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al guardar la dirección: $e'),
-            backgroundColor: _AddressesPageState.error,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -342,10 +350,10 @@ class _AddressDialogState extends State<AddressDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: _AddressesPageState.surfaceContainerHigh,
+      backgroundColor: AppColors.surfaceContainerHigh,
       title: Text(
         widget.direccion == null ? 'Agregar Dirección' : 'Editar Dirección',
-        style: const TextStyle(color: _AddressesPageState.onSurface),
+        style: AppTextStyles.textStyleTitle,
       ),
       content: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
@@ -355,162 +363,29 @@ class _AddressDialogState extends State<AddressDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Input Alias
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Alias (Ej. Casa, Trabajo)',
-                            style: TextStyle(
-                              color: _AddressesPageState.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(
-                              color: _AddressesPageState.requiredAsterisk,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _aliasController,
-                      style: const TextStyle(
-                        color: _AddressesPageState.onSurface,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: _AddressesPageState.onSurfaceVariant
-                            .withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: _AddressesPageState.outlineVariant,
-                          ),
-                        ),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'El alias es obligatorio';
-                        }
-                        if (v.trim().length < 2) {
-                          return 'El alias debe tener al menos 2 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                RyTextField(
+                  label: 'Alias (Ej. Casa, Trabajo)',
+                  controller: _aliasController,
+                  isRequired: true,
+                  helperText: 'Mínimo 2 caracteres',
                 ),
-                const SizedBox(height: 12),
-
-                // Input Calle Principal
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Calle Principal',
-                            style: TextStyle(
-                              color: _AddressesPageState.onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(
-                              color: _AddressesPageState.requiredAsterisk,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _callePrincipalController,
-                      style: const TextStyle(
-                        color: _AddressesPageState.onSurface,
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: _AddressesPageState.onSurfaceVariant
-                            .withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: _AddressesPageState.outlineVariant,
-                          ),
-                        ),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'La calle principal es obligatoria';
-                        }
-                        if (v.trim().length < 5) {
-                          return 'La calle debe tener al menos 5 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Calle Principal',
+                  controller: _callePrincipalController,
+                  isRequired: true,
+                  helperText: 'Mínimo 5 caracteres',
                 ),
-                const SizedBox(height: 12),
-
-                // Input Calle Secundaria
-                TextFormField(
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Calle Secundaria (Opcional)',
                   controller: _calleSecundariaController,
-                  style: const TextStyle(color: _AddressesPageState.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Calle Secundaria (Opcional)',
-                    labelStyle: const TextStyle(
-                      color: _AddressesPageState.onSurfaceVariant,
-                    ),
-                    filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(
-                      0.1,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: _AddressesPageState.outlineVariant,
-                      ),
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 12),
-
-                // Input Referencia
-                TextFormField(
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Referencia / Indicaciones (Opcional)',
                   controller: _referenciaController,
                   maxLines: 2,
-                  style: const TextStyle(color: _AddressesPageState.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Referencia / Indicaciones (Opcional)',
-                    labelStyle: const TextStyle(
-                      color: _AddressesPageState.onSurfaceVariant,
-                    ),
-                    filled: true,
-                    fillColor: _AddressesPageState.onSurfaceVariant.withOpacity(
-                      0.1,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: _AddressesPageState.outlineVariant,
-                      ),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -520,23 +395,25 @@ class _AddressDialogState extends State<AddressDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(
+          child: Text(
             'Cancelar',
-            style: TextStyle(color: _AddressesPageState.onSurfaceVariant),
+            style: AppTextStyles.textStyleButton.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
         ),
         ElevatedButton(
           onPressed: _isSaving ? null : _guardar,
           style: ElevatedButton.styleFrom(
-            backgroundColor: _AddressesPageState.primaryContainer,
-            foregroundColor: _AddressesPageState.onPrimaryContainer,
+            backgroundColor: AppColors.primaryContainer,
+            foregroundColor: AppColors.onPrimaryContainer,
           ),
           child: _isSaving
               ? const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: Colors.white,
+                    color: AppColors.onSurface,
                     strokeWidth: 2,
                   ),
                 )

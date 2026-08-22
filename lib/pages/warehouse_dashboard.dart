@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'profile_page.dart';
+import '../theme/app_colors.dart';
 import 'login_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -10,6 +9,14 @@ import 'create_quotation_page.dart';
 import 'perfil_almacen_page.dart';
 import 'register_almacen_page.dart';
 import 'almacen_orden_detalle_page.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_part_card.dart';
+import '../widgets/ry_state_container.dart';
+import '../widgets/ry_status_badge.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -19,26 +26,13 @@ class WarehouseDashboard extends StatefulWidget {
 }
 
 class _WarehouseDashboardState extends State<WarehouseDashboard> {
-  // Configuración de Colores basada en tu JSON de Tailwind
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color surfaceContainerLow = Color(0xFF1C1B1B);
-  static const Color surfaceVariant = Color(0xFF353534);
-  static const Color cardBackground = Color(0xFF1E1E1E);
-
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color secondary = Color(0xFF9ECAFF);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
   final AlmacenService _almacenService = AlmacenService();
+
+  static const String _logName = 'WarehouseDashboard';
+  static const String _filterLogName = 'WarehouseDashboard.Filter';
 
   bool _isOpen = true;
   int _selectedIndex = 0;
@@ -75,9 +69,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         }
       }
     } catch (e) {
-      print(
-        'Error al cargar almacén: $e',
-      ); // ← esto te habría mostrado el 404 de inmediato
+      // ← esto te habría mostrado el 404 de inmediato
+      AppLogger.error('Error al cargar almacén', name: _logName, error: e);
       if (mounted) {
         setState(() {
           _nombreAlmacen = 'Mi Almacén';
@@ -92,14 +85,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       final cotizaciones = await _solicitudService.obtenerMisCotizaciones();
       if (mounted) {
         setState(() {
-          _cotizacionesEnviadas = List<Map<String, dynamic>>.from(
-            cotizaciones ?? [],
-          );
+          _cotizacionesEnviadas = List<Map<String, dynamic>>.from(cotizaciones);
           _isLoadingCotizaciones = false;
         });
       }
     } catch (e) {
-      print('Error al cargar cotizaciones enviadas: $e');
+      AppLogger.error(
+        'Error al cargar cotizaciones enviadas',
+        name: _logName,
+        error: e,
+      );
       if (mounted) {
         setState(() => _isLoadingCotizaciones = false);
       }
@@ -113,17 +108,23 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     });
     try {
       final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
-      print('Solicitudes cargadas: ${solicitudes?.length ?? 0}');
-      for (var sol in solicitudes ?? []) {
-        print('Solicitud ID: ${sol['id']}, Pieza: ${sol['pieza_nombre']}');
+      AppLogger.debug(
+        'Solicitudes cargadas: ${solicitudes.length}',
+        name: _logName,
+      );
+      for (var sol in solicitudes) {
+        AppLogger.debug(
+          'Solicitud ID: ${sol['id']}, Pieza: ${sol['pieza_nombre']}',
+          name: _logName,
+        );
       }
       setState(() {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
-        _solicitudes = List<Map<String, dynamic>>.from(solicitudes ?? []);
+        _solicitudes = List<Map<String, dynamic>>.from(solicitudes);
         _isLoadingSolicitudes = false;
       });
     } catch (e) {
-      print('Error al cargar solicitudes: $e');
+      AppLogger.error('Error al cargar solicitudes', name: _logName, error: e);
       setState(() {
         _isLoadingSolicitudes = false;
       });
@@ -145,19 +146,22 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
 
       drawer: Drawer(
         child: Container(
-          color: background,
+          color: AppColors.background,
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
-                  color: surfaceContainerHigh,
+                  color: AppColors.surfaceContainerHigh,
                   border: Border(
-                    bottom: BorderSide(color: outlineVariant, width: 1),
+                    bottom: BorderSide(
+                      color: AppColors.outlineVariant,
+                      width: 1,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -166,36 +170,39 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   children: [
                     Text(
                       'RepuestosYa',
-                      style: GoogleFonts.sora(
-                        color: primaryContainer,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
+                      style: AppTextStyles.textStyleHeading.copyWith(
+                        color: AppColors.primaryContainer,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.spacingSm),
                     Text(
                       'Panel de Control (Almacén)',
-                      style: GoogleFonts.sora(
-                        color: onSurfaceVariant,
-                        fontSize: 14,
+                      style: AppTextStyles.textStyleCaption.copyWith(
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.dashboard, color: primaryContainer),
+                leading: const Icon(
+                  Icons.dashboard,
+                  color: AppColors.primaryContainer,
+                ),
                 title: Text(
                   'Panel Principal',
-                  style: GoogleFonts.sora(color: Colors.white),
+                  style: AppTextStyles.textStyleBody,
                 ),
                 onTap: () => Navigator.pop(context),
               ),
               ListTile(
-                leading: const Icon(Icons.send, color: primaryContainer),
+                leading: const Icon(
+                  Icons.send,
+                  color: AppColors.primaryContainer,
+                ),
                 title: Text(
                   'Cotizaciones Enviadas',
-                  style: GoogleFonts.sora(color: Colors.white),
+                  style: AppTextStyles.textStyleBody,
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -203,11 +210,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.store, color: primaryContainer),
-                title: Text(
-                  'Mi Almacén',
-                  style: GoogleFonts.sora(color: Colors.white),
+                leading: const Icon(
+                  Icons.store,
+                  color: AppColors.primaryContainer,
                 ),
+                title: Text('Mi Almacén', style: AppTextStyles.textStyleBody),
                 onTap: () async {
                   Navigator.pop(context);
                   final almacen = await _almacenService.obtenerMiAlmacen();
@@ -230,16 +237,18 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   }
                 },
               ),
-              const Divider(color: outlineVariant),
+              const Divider(color: AppColors.outlineVariant),
               ListTile(
-                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                leading: const Icon(Icons.logout, color: AppColors.error),
                 title: Text(
                   'Cerrar Sesión',
-                  style: GoogleFonts.sora(color: Colors.redAccent),
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.error,
+                  ),
                 ),
                 onTap: () async {
                   Navigator.pop(context);
-                  await AuthService().signOut();
+                  await _authService.signOut();
                   if (context.mounted) {
                     Navigator.pushAndRemoveUntil(
                       context,
@@ -264,113 +273,58 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               child: _selectedIndex == 0
                   ? RefreshIndicator(
                       onRefresh: _cargarSolicitudes,
-                      color: primaryContainer,
-                      backgroundColor: surfaceContainerHigh,
+                      color: AppColors.primaryContainer,
+                      backgroundColor: AppColors.surfaceContainerHigh,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
+                          horizontal: AppSpacing.spacingMd,
+                          vertical: AppSpacing.spacingLg,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Dashboard Welcome
                             Text(
                               _nombreAlmacen ?? 'Cargando...',
-                              style: GoogleFonts.sora(
-                                color: onSurface,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.textStyleHeading,
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.spacingXxs),
                             Text(
                               'Gestión de inventario y pedidos en tiempo real.',
-                              style: GoogleFonts.sora(
-                                color: onSurfaceVariant,
-                                fontSize: 14,
+                              style: AppTextStyles.textStyleCaption.copyWith(
+                                color: AppColors.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Stats Grid (Bento Style)
+                            const SizedBox(height: AppSpacing.spacingXl),
                             _buildBentoStatsGrid(),
-                            const SizedBox(height: 24),
-
-                            // Section Title
+                            const SizedBox(height: AppSpacing.spacingXl),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   'Solicitudes Cercanas',
-                                  style: GoogleFonts.sora(
-                                    color: onSurface,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: AppTextStyles.textStyleTitle,
                                 ),
-                                TextButton(
+                                RyButton(
+                                  label: 'Ver todas',
+                                  variant: RyButtonVariant.text,
+                                  size: RyButtonSize.small,
                                   onPressed: _cargarSolicitudes,
-                                  child: Text(
-                                    'Ver todas',
-                                    style: GoogleFonts.sora(
-                                      color: primary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-
-                            // Request Cards List
+                            const SizedBox(height: AppSpacing.spacingMd),
                             _isLoadingSolicitudes
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                      color: primaryContainer,
-                                    ),
+                                ? const RyStateContainer(
+                                    title: 'Cargando solicitudes...',
+                                    type: RyStateType.loading,
                                   )
                                 : _solicitudes.isEmpty
-                                ? Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 40,
-                                      horizontal: 16,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: surfaceContainerLow,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: outlineVariant),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.inbox,
-                                          size: 48,
-                                          color: onSurfaceVariant,
-                                        ),
-                                        SizedBox(height: 12),
-                                        Text(
-                                          'No hay solicitudes activas',
-                                          style: GoogleFonts.sora(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        SizedBox(height: 4),
-                                        Text(
-                                          'Las nuevas peticiones de los clientes aparecerán aquí.',
-                                          textAlign: TextAlign.center,
-                                          style: GoogleFonts.sora(
-                                            color: onSurfaceVariant,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                ? const RyStateContainer(
+                                    title: 'Sin solicitudes',
+                                    subtitle:
+                                        'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
+                                    type: RyStateType.empty,
                                   )
                                 : ListView.builder(
                                     shrinkWrap: true,
@@ -381,7 +335,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                       final solicitud = _solicitudes[index];
                                       return Padding(
                                         padding: const EdgeInsets.only(
-                                          bottom: 16,
+                                          bottom: AppSpacing.spacingMd,
                                         ),
                                         child: _buildRequestBentoCard(
                                           solicitud: solicitud,
@@ -395,166 +349,42 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     )
                   : RefreshIndicator(
                       onRefresh: _cargarCotizacionesEnviadas,
-                      color: primaryContainer,
-                      backgroundColor: surfaceContainerHigh,
+                      color: AppColors.primaryContainer,
+                      backgroundColor: AppColors.surfaceContainerHigh,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
+                          horizontal: AppSpacing.spacingMd,
+                          vertical: AppSpacing.spacingLg,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Section Title
-                            const Text(
+                            Text(
                               'Cotizaciones Enviadas',
-                              style: TextStyle(
-                                color: onSurface,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTextStyles.textStyleHeading,
                             ),
-                            const SizedBox(height: 4),
-                            const Text(
+                            const SizedBox(height: AppSpacing.spacingXxs),
+                            Text(
                               'Historial de cotizaciones enviadas a clientes.',
-                              style: TextStyle(
-                                color: onSurfaceVariant,
-                                fontSize: 14,
+                              style: AppTextStyles.textStyleCaption.copyWith(
+                                color: AppColors.onSurfaceVariant,
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Filter Chips
-                            Row(
-                              children: [
-                                FilterChip(
-                                  label: const Text('Todas'),
-                                  selected: _filtroActual == 'todas',
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _filtroActual = 'todas';
-                                    });
-                                  },
-                                  selectedColor: primaryContainer.withOpacity(
-                                    0.2,
-                                  ),
-                                  checkmarkColor: primaryContainer,
-                                  labelStyle: TextStyle(
-                                    color: _filtroActual == 'todas'
-                                        ? primaryContainer
-                                        : onSurfaceVariant,
-                                  ),
-                                  backgroundColor: surfaceContainerLow,
-                                ),
-                                const SizedBox(width: 8),
-                                FilterChip(
-                                  label: const Text('Pendientes'),
-                                  selected: _filtroActual == 'pendientes',
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _filtroActual = 'pendientes';
-                                    });
-                                  },
-                                  selectedColor: primaryContainer.withOpacity(
-                                    0.2,
-                                  ),
-                                  checkmarkColor: primaryContainer,
-                                  labelStyle: TextStyle(
-                                    color: _filtroActual == 'pendientes'
-                                        ? primaryContainer
-                                        : onSurfaceVariant,
-                                  ),
-                                  backgroundColor: surfaceContainerLow,
-                                ),
-                                const SizedBox(width: 8),
-                                FilterChip(
-                                  label: const Text('Ganadas'),
-                                  selected: _filtroActual == 'ganadas',
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _filtroActual = 'ganadas';
-                                    });
-                                  },
-                                  selectedColor: primaryContainer.withOpacity(
-                                    0.2,
-                                  ),
-                                  checkmarkColor: primaryContainer,
-                                  labelStyle: TextStyle(
-                                    color: _filtroActual == 'ganadas'
-                                        ? primaryContainer
-                                        : onSurfaceVariant,
-                                  ),
-                                  backgroundColor: surfaceContainerLow,
-                                ),
-                                const SizedBox(width: 8),
-                                FilterChip(
-                                  label: const Text('Rechazadas'),
-                                  selected: _filtroActual == 'rechazadas',
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _filtroActual = 'rechazadas';
-                                    });
-                                  },
-                                  selectedColor: Colors.red.withOpacity(0.2),
-                                  checkmarkColor: Colors.red,
-                                  labelStyle: TextStyle(
-                                    color: _filtroActual == 'rechazadas'
-                                        ? Colors.red
-                                        : onSurfaceVariant,
-                                  ),
-                                  backgroundColor: surfaceContainerLow,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Quotations List
+                            const SizedBox(height: AppSpacing.spacingXl),
+                            _buildFilterChips(),
+                            const SizedBox(height: AppSpacing.spacingMd),
                             _isLoadingCotizaciones
-                                ? const Center(
-                                    child: CircularProgressIndicator(
-                                      color: primaryContainer,
-                                    ),
+                                ? const RyStateContainer(
+                                    title: 'Cargando cotizaciones...',
+                                    type: RyStateType.loading,
                                   )
                                 : _cotizacionesEnviadas.isEmpty
-                                ? Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 40,
-                                      horizontal: 16,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: surfaceContainerLow,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: outlineVariant),
-                                    ),
-                                    child: const Column(
-                                      children: [
-                                        Icon(
-                                          Icons.send_outlined,
-                                          size: 48,
-                                          color: onSurfaceVariant,
-                                        ),
-                                        SizedBox(height: 12),
-                                        Text(
-                                          'No hay cotizaciones enviadas',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        SizedBox(height: 4),
-                                        Text(
-                                          'Las cotizaciones que envíes aparecerán aquí.',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: onSurfaceVariant,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                ? const RyStateContainer(
+                                    title: 'Sin cotizaciones',
+                                    subtitle:
+                                        'Las cotizaciones que envíes aparecerán aquí.',
+                                    type: RyStateType.empty,
                                   )
                                 : ListView.builder(
                                     shrinkWrap: true,
@@ -566,7 +396,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                           _cotizacionesEnviadas[index];
                                       return Padding(
                                         padding: const EdgeInsets.only(
-                                          bottom: 16,
+                                          bottom: AppSpacing.spacingMd,
                                         ),
                                         child: _buildQuotationCard(cotizacion),
                                       );
@@ -587,31 +417,32 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildTopAppBar() {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: const BoxDecoration(
-        color: surface,
-        border: Border(bottom: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surface,
+        border: Border(
+          bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.menu, color: primaryContainer, size: 24),
+            icon: const Icon(
+              Icons.menu,
+              color: AppColors.primaryContainer,
+              size: 24,
+            ),
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-          const SizedBox(width: 8),
-          const Text(
+          const SizedBox(width: AppSpacing.spacingSm),
+          Text(
             'REPUESTOSYA',
-            style: TextStyle(
-              color: primaryContainer,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-
+            style: AppTextStyles.textStyleHeading.copyWith(
+              color: AppColors.primaryContainer,
               letterSpacing: -0.5,
             ),
           ),
           const Spacer(),
-
-          // Status Toggle Simulation (Clickable)
           GestureDetector(
             onTap: () {
               setState(() {
@@ -619,11 +450,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               });
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingSm,
+                vertical: AppSpacing.spacingXs - 2,
+              ),
               decoration: BoxDecoration(
-                color: surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(100),
-                border: Border.all(color: outlineVariant, width: 1),
+                color: AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                border: Border.all(color: AppColors.outlineVariant, width: 1),
               ),
               child: Row(
                 children: [
@@ -631,17 +465,15 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: _isOpen ? Colors.green : Colors.red,
+                      color: _isOpen ? AppColors.success : AppColors.error,
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.spacingSm),
                   Text(
                     _isOpen ? 'Abierto' : 'Cerrado',
-                    style: const TextStyle(
-                      color: onSurface,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurface,
                     ),
                   ),
                 ],
@@ -657,19 +489,27 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     return Row(
       children: [
         Expanded(
-          child: _buildBentoStatCard('Ventas', '$_ventasCount', Colors.white),
+          child: _buildBentoStatCard(
+            'Ventas',
+            '$_ventasCount',
+            AppColors.onSurface,
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.spacingSm),
         Expanded(
           child: _buildBentoStatCard(
             'Pendientes',
             '${_solicitudes.length}',
-            primaryContainer,
+            AppColors.primaryContainer,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.spacingSm),
         Expanded(
-          child: _buildBentoStatCard('Vistas', '$_vistasCount', Colors.white),
+          child: _buildBentoStatCard(
+            'Vistas',
+            '$_vistasCount',
+            AppColors.onSurface,
+          ),
         ),
       ],
     );
@@ -700,14 +540,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildBentoStatCard(String label, String value, Color valueColor) {
     return Container(
       height: 112,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
         boxShadow: [
           BoxShadow(
-            color: primaryContainer.withOpacity(0.05),
+            color: AppColors.primaryContainer.withValues(alpha: 0.05),
             blurRadius: 15,
             spreadRadius: 0,
           ),
@@ -719,19 +559,99 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         children: [
           Text(
             label,
-            style: const TextStyle(color: onSurfaceVariant, fontSize: 12),
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
           Text(
             value,
-            style: TextStyle(
+            // fontFamily monoespaciado intencional para métricas numéricas (sin token equivalente)
+            style: AppTextStyles.textStyleHeading.copyWith(
               color: valueColor,
-              fontSize: 24,
               fontWeight: FontWeight.w700,
               fontFamily: 'JetBrains Mono',
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Row(
+      children: [
+        FilterChip(
+          label: const Text('Todas'),
+          selected: _filtroActual == 'todas',
+          onSelected: (selected) {
+            setState(() {
+              _filtroActual = 'todas';
+            });
+          },
+          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+          checkmarkColor: AppColors.primaryContainer,
+          labelStyle: AppTextStyles.textStyleCaption.copyWith(
+            color: _filtroActual == 'todas'
+                ? AppColors.primaryContainer
+                : AppColors.onSurfaceVariant,
+          ),
+          backgroundColor: AppColors.surfaceContainerLow,
+        ),
+        const SizedBox(width: AppSpacing.spacingSm),
+        FilterChip(
+          label: const Text('Pendientes'),
+          selected: _filtroActual == 'pendientes',
+          onSelected: (selected) {
+            setState(() {
+              _filtroActual = 'pendientes';
+            });
+          },
+          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+          checkmarkColor: AppColors.primaryContainer,
+          labelStyle: AppTextStyles.textStyleCaption.copyWith(
+            color: _filtroActual == 'pendientes'
+                ? AppColors.primaryContainer
+                : AppColors.onSurfaceVariant,
+          ),
+          backgroundColor: AppColors.surfaceContainerLow,
+        ),
+        const SizedBox(width: AppSpacing.spacingSm),
+        FilterChip(
+          label: const Text('Ganadas'),
+          selected: _filtroActual == 'ganadas',
+          onSelected: (selected) {
+            setState(() {
+              _filtroActual = 'ganadas';
+            });
+          },
+          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+          checkmarkColor: AppColors.primaryContainer,
+          labelStyle: AppTextStyles.textStyleCaption.copyWith(
+            color: _filtroActual == 'ganadas'
+                ? AppColors.primaryContainer
+                : AppColors.onSurfaceVariant,
+          ),
+          backgroundColor: AppColors.surfaceContainerLow,
+        ),
+        const SizedBox(width: AppSpacing.spacingSm),
+        FilterChip(
+          label: const Text('Rechazadas'),
+          selected: _filtroActual == 'rechazadas',
+          onSelected: (selected) {
+            setState(() {
+              _filtroActual = 'rechazadas';
+            });
+          },
+          selectedColor: AppColors.error.withValues(alpha: 0.2),
+          checkmarkColor: AppColors.error,
+          labelStyle: AppTextStyles.textStyleCaption.copyWith(
+            color: _filtroActual == 'rechazadas'
+                ? AppColors.error
+                : AppColors.onSurfaceVariant,
+          ),
+          backgroundColor: AppColors.surfaceContainerLow,
+        ),
+      ],
     );
   }
 
@@ -761,16 +681,15 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         ? solicitud['descripcion']
         : detallesVehiculo;
 
-    final String distance = '2.8 km';
+    // TODO(geo): la distancia es un placeholder hasta que exista geolocalización
+    // de almacén y dirección de entrega.
+    const String distance = '2.8 km';
 
     // Calcular tiempo real desde created_at
     final createdAt = solicitud['created_at'];
-    final String time = _formatTiempo(createdAt);
 
     // Validamos el tag correcto desde la columna 'es_urgente' del backend en Node
-    final String? tagType = solicitud['es_urgente'] == true
-        ? 'URGENTE'
-        : 'ESTÁNDAR';
+    final bool esUrgente = solicitud['es_urgente'] == true;
 
     // Extraer cantidad de cotizaciones (lazy loading)
     final cotizaciones = solicitud['cotizaciones'];
@@ -779,215 +698,114 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         ? (cotizaciones.first['count'] ?? 0)
         : 0;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: outlineVariant, width: 1),
-      ),
-      child: Column(
+    final String imageUrl =
+        solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
+
+    return RyPartCard(
+      partName: title,
+      imageUrl: imageUrl,
+      vehicleInfo: subtitle,
+      description: 'Cliente: $clienteNombre',
+      location: distance,
+      status: esUrgente ? 'urgente' : 'estandar',
+      createdAt: DateTime.tryParse('$createdAt') ?? DateTime.now(),
+      variant: RyPartCardVariant.warehouse,
+      showPrice: false,
+      customActions: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: onSurfaceVariant,
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cliente: $clienteNombre',
-                      style: const TextStyle(
-                        color: primary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (tagType != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tagType == 'URGENTE'
-                        ? primary.withOpacity(0.1)
-                        : Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: tagType == 'URGENTE'
-                          ? primary.withOpacity(0.3)
-                          : Colors.green.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Text(
-                    tagType,
-                    style: TextStyle(
-                      color: tagType == 'URGENTE' ? primary : Colors.green,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          _buildQuotationsCountChip(cantidadCotizaciones),
+          const SizedBox(height: AppSpacing.spacingMd),
+          RyButton(
+            label: 'COTIZAR',
+            variant: RyButtonVariant.primary,
+            isFullWidth: true,
+            onPressed: () => _abrirCotizacion(solicitud),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.location_on, color: secondary, size: 18),
-              const SizedBox(width: 4),
-              Text(
-                distance,
-                style: const TextStyle(
-                  color: secondary,
-                  fontSize: 14,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(width: 24),
-              const Icon(Icons.schedule, color: onSurfaceVariant, size: 18),
-              const SizedBox(width: 4),
-              Text(
-                time,
-                style: const TextStyle(
-                  color: onSurfaceVariant,
-                  fontSize: 14,
-                  fontFamily: 'Inter',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Badge de cotizaciones
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: cantidadCotizaciones > 0
-                  ? primaryContainer.withOpacity(0.1)
-                  : surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: cantidadCotizaciones > 0
-                    ? primaryContainer.withOpacity(0.3)
-                    : outlineVariant,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  cantidadCotizaciones > 0
-                      ? Icons.receipt_long
-                      : Icons.receipt_long_outlined,
-                  size: 16,
-                  color: cantidadCotizaciones > 0
-                      ? primaryContainer
-                      : onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  cantidadCotizaciones > 0
-                      ? '$cantidadCotizaciones cotización${cantidadCotizaciones == 1 ? '' : 'es'}'
-                      : 'Sin cotizaciones aún',
-                  style: TextStyle(
-                    color: cantidadCotizaciones > 0
-                        ? primaryContainer
-                        : onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: cantidadCotizaciones > 0
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () async {
-                final bool? vueltaConExito = await Navigator.push<bool>(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (context, animation, secondaryAnimation) =>
-                        CreateQuotationPage(solicitud: solicitud),
-                    transitionDuration: const Duration(milliseconds: 250),
-                    transitionsBuilder:
-                        (context, animation, secondaryAnimation, child) {
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1.0, 0.0),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          );
-                        },
-                  ),
-                );
+        ],
+      ),
+    );
+  }
 
-                if (vueltaConExito == true && mounted) {
-                  _cargarSolicitudes();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('¡Cotización enviada exitosamente!'),
-                      backgroundColor: Colors.green,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryContainer,
-                foregroundColor: onPrimaryContainer,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'COTIZAR',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+  /// Chip informativo con el número de cotizaciones recibidas por la solicitud.
+  Widget _buildQuotationsCountChip(int cantidadCotizaciones) {
+    final bool tieneCotizaciones = cantidadCotizaciones > 0;
+    final Color accent = tieneCotizaciones
+        ? AppColors.primaryContainer
+        : AppColors.onSurfaceVariant;
 
-                  letterSpacing: 0.5,
-                ),
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingSm,
+        vertical: AppSpacing.spacingXs,
+      ),
+      decoration: BoxDecoration(
+        color: tieneCotizaciones
+            ? AppColors.primaryContainer.withValues(alpha: 0.1)
+            : AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(
+          color: tieneCotizaciones
+              ? AppColors.primaryContainer.withValues(alpha: 0.3)
+              : AppColors.outlineVariant,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            tieneCotizaciones
+                ? Icons.receipt_long
+                : Icons.receipt_long_outlined,
+            size: 16,
+            color: accent,
+          ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Text(
+            tieneCotizaciones
+                ? '$cantidadCotizaciones cotización${cantidadCotizaciones == 1 ? '' : 'es'}'
+                : 'Sin cotizaciones aún',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: accent,
+              fontWeight: tieneCotizaciones
+                  ? FontWeight.w600
+                  : FontWeight.normal,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _abrirCotizacion(Map<String, dynamic> solicitud) async {
+    final bool? vueltaConExito = await Navigator.push<bool>(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            CreateQuotationPage(solicitud: solicitud),
+        transitionDuration: const Duration(milliseconds: 250),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1.0, 0.0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          );
+        },
+      ),
+    );
+
+    if (vueltaConExito == true && mounted) {
+      _cargarSolicitudes();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('¡Cotización enviada exitosamente!'),
+          backgroundColor: AppColors.success,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _buildQuotationCard(Map<String, dynamic> cotizacion) {
@@ -1013,18 +831,25 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final String? ordenEstado = ordenesCompra?['estado'] as String?;
 
     // Apply filter
-    print(
-      '[FILTER] Filtro actual: $_filtroActual, Estado cotización: $estado, Estado orden: $ordenEstado',
+    AppLogger.debug(
+      'Filtro actual: $_filtroActual, Estado cotización: $estado, Estado orden: $ordenEstado',
+      name: _filterLogName,
     );
 
     if (_filtroActual == 'pendientes' && estado != 'pendiente') {
-      print('[FILTER] Filtrando cotización (no es pendiente)');
+      AppLogger.debug(
+        'Filtrando cotización (no es pendiente)',
+        name: _filterLogName,
+      );
       return const SizedBox.shrink();
     }
     if (_filtroActual == 'ganadas') {
       // Solo mostrar cotizaciones aceptadas con estados de orden específicos
       if (estado != 'aceptada') {
-        print('[FILTER] Filtrando cotización (no es aceptada)');
+        AppLogger.debug(
+          'Filtrando cotización (no es aceptada)',
+          name: _filterLogName,
+        );
         return const SizedBox.shrink();
       }
       // Verificar que el estado de la orden sea uno de los permitidos
@@ -1034,69 +859,72 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             'pendiente_pago',
             'entregada',
           ].contains(ordenEstado)) {
-        print(
-          '[FILTER] Filtrando cotización (estado de orden no válido: $ordenEstado)',
+        AppLogger.debug(
+          'Filtrando cotización (estado de orden no válido: $ordenEstado)',
+          name: _filterLogName,
         );
         return const SizedBox.shrink();
       }
-      print(
-        '[FILTER] Mostrando cotización ganada (estado orden: $ordenEstado)',
+      AppLogger.debug(
+        'Mostrando cotización ganada (estado orden: $ordenEstado)',
+        name: _filterLogName,
       );
     }
     if (_filtroActual == 'rechazadas' && estado != 'rechazada') {
-      print('[FILTER] Filtrando cotización (no es rechazada)');
+      AppLogger.debug(
+        'Filtrando cotización (no es rechazada)',
+        name: _filterLogName,
+      );
       return const SizedBox.shrink();
     }
 
-    // Color según estado (usar estado de orden si la cotización está aceptada)
-    Color estadoColor;
-    String estadoText;
+    // Determinar estado para RyStatusBadge
+    String statusBadge;
+    String statusLabel;
     if (estado == 'aceptada' && ordenEstado != null) {
-      // Mostrar estado de la orden
       switch (ordenEstado) {
         case 'pendiente_pago':
-          estadoColor = Colors.orange;
-          estadoText = 'PENDIENTE DE PAGO';
+          statusBadge = 'pending';
+          statusLabel = 'PENDIENTE DE PAGO';
           break;
         case 'confirmada':
-          estadoColor = Colors.blue;
-          estadoText = 'CONFIRMADA';
+          statusBadge = 'info';
+          statusLabel = 'CONFIRMADA';
           break;
         case 'entregada':
-          estadoColor = Colors.green;
-          estadoText = 'ENTREGADA';
+          statusBadge = 'completed';
+          statusLabel = 'ENTREGADA';
           break;
         case 'cancelada':
-          estadoColor = Colors.red;
-          estadoText = 'CANCELADA';
+          statusBadge = 'error';
+          statusLabel = 'CANCELADA';
           break;
         default:
-          estadoColor = Colors.green;
-          estadoText = 'GANADA';
+          statusBadge = 'completed';
+          statusLabel = 'GANADA';
       }
     } else {
-      // Mostrar estado de la cotización
       switch (estado) {
         case 'aceptada':
-          estadoColor = Colors.green;
-          estadoText = 'GANADA';
+          statusBadge = 'completed';
+          statusLabel = 'GANADA';
           break;
         case 'rechazada':
-          estadoColor = Colors.red;
-          estadoText = 'RECHAZADA';
+          statusBadge = 'error';
+          statusLabel = 'RECHAZADA';
           break;
         default:
-          estadoColor = Colors.orange;
-          estadoText = 'PENDIENTE';
+          statusBadge = 'pending';
+          statusLabel = 'PENDIENTE';
       }
     }
 
     final cardContent = Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: estadoColor.withOpacity(0.3), width: 1),
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1108,92 +936,90 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      piezaNombre,
-                      style: const TextStyle(
-                        color: onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
+                    Text(piezaNombre, style: AppTextStyles.textStyleTitle),
+                    const SizedBox(height: AppSpacing.spacingXxs),
                     Text(
                       'Cliente: $clienteNombre',
-                      style: const TextStyle(
-                        color: onSurfaceVariant,
-                        fontSize: 12,
-                        fontFamily: 'Inter',
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: estadoColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(color: estadoColor.withOpacity(0.3)),
-                ),
-                child: Text(
-                  estadoText,
-                  style: TextStyle(
-                    color: estadoColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Inter',
-                  ),
-                ),
+              const SizedBox(width: AppSpacing.spacingSm),
+              RyStatusBadge(
+                status: statusBadge,
+                customLabel: statusLabel,
+                style: RyStatusBadgeStyle.filled,
+                size: RyStatusBadgeSize.small,
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.spacingMd),
           Row(
             children: [
-              Icon(Icons.attach_money, color: primaryContainer, size: 18),
-              const SizedBox(width: 4),
+              const Icon(
+                Icons.attach_money,
+                color: AppColors.primaryContainer,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 '\$${precio.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: primaryContainer,
-                  fontSize: 16,
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.primaryContainer,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 24),
-              Icon(Icons.access_time, color: onSurfaceVariant, size: 18),
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSpacing.spacingLg),
+              const Icon(
+                Icons.access_time,
+                color: AppColors.onSurfaceVariant,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 _formatTiempo(createdAt),
-                style: const TextStyle(color: onSurfaceVariant, fontSize: 14),
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ],
           ),
           if (tiempoEntrega != 'No especificado') ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.spacingXs),
             Row(
               children: [
-                Icon(Icons.schedule, color: onSurfaceVariant, size: 18),
-                const SizedBox(width: 4),
+                const Icon(
+                  Icons.schedule,
+                  color: AppColors.onSurfaceVariant,
+                  size: 18,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
                   'Entrega: $tiempoEntrega',
-                  style: const TextStyle(color: onSurfaceVariant, fontSize: 12),
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ],
           if (estado == 'aceptada' && ordenId != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.spacingSm),
             Row(
               children: [
-                Icon(Icons.arrow_forward, color: primaryContainer, size: 16),
-                const SizedBox(width: 4),
+                const Icon(
+                  Icons.arrow_forward,
+                  color: AppColors.primaryContainer,
+                  size: 16,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
                   'Ver orden de compra',
-                  style: TextStyle(
-                    color: primaryContainer,
-                    fontSize: 12,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.primaryContainer,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1215,7 +1041,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             ),
           );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
         child: cardContent,
       );
     }
@@ -1227,8 +1053,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     return Container(
       height: 64,
       decoration: const BoxDecoration(
-        color: surfaceContainerHigh,
-        border: Border(top: BorderSide(color: outlineVariant, width: 1)),
+        color: AppColors.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(color: AppColors.outlineVariant, width: 1),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1250,42 +1078,44 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         });
         if (index == 3) {
           final almacen = await _almacenService.obtenerMiAlmacen();
-          if (context.mounted) {
-            if (almacen != null) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const PerfilAlmacenPage(),
-                ),
-              );
-            } else {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RegisterAlmacenPage(),
-                ),
-              );
-            }
+          if (!mounted) return;
+          if (almacen != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PerfilAlmacenPage(),
+              ),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RegisterAlmacenPage(),
+              ),
+            );
           }
         }
       },
       child: Container(
         height: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingSm),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              color: isActive ? primaryContainer : onSurfaceVariant,
+              color: isActive
+                  ? AppColors.primaryContainer
+                  : AppColors.onSurfaceVariant,
               size: 24,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: AppSpacing.spacingXxs),
             Text(
               label,
-              style: TextStyle(
-                color: isActive ? primaryContainer : onSurfaceVariant,
-                fontSize: 12,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: isActive
+                    ? AppColors.primaryContainer
+                    : AppColors.onSurfaceVariant,
               ),
             ),
           ],

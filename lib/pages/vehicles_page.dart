@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/vehiculo_service.dart';
-import '../services/auth_service.dart';
 import '../services/marca_service.dart';
 import '../services/modelo_service.dart';
+import '../widgets/ry_text_field.dart';
+import '../widgets/ry_state_container.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 class VehiclesPage extends StatefulWidget {
   const VehiclesPage({super.key});
@@ -13,23 +19,9 @@ class VehiclesPage extends StatefulWidget {
 
 class _VehiclesPageState extends State<VehiclesPage> {
   final VehiculoService _vehiculoService = VehiculoService();
-  final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _vehiculos = [];
   bool _isLoading = false;
-
-  // Color scheme
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-  static const Color background = Color(0xFF131313);
-  static const Color surface = Color(0xFF131313);
-  static const Color error = Color(0xFFFF1744);
-  static const Color requiredAsterisk = Color(0xFFFF3333);
 
   @override
   void initState() {
@@ -48,7 +40,11 @@ class _VehiclesPageState extends State<VehiclesPage> {
         _vehiculos = vehiculos;
       });
     } catch (e) {
-      print('Error al cargar vehículos: $e');
+      AppLogger.error(
+        'Error al cargar vehículos',
+        name: '_VehiclesPageState',
+        error: e,
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -60,26 +56,35 @@ class _VehiclesPageState extends State<VehiclesPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: surfaceContainerHigh,
+        backgroundColor: AppColors.surfaceContainerHigh,
         title: const Text(
           'Eliminar vehículo',
-          style: TextStyle(color: onSurface),
+          style: AppTextStyles.textStyleTitle,
         ),
-        content: const Text(
+        content: Text(
           '¿Estás seguro de que deseas eliminar este vehículo?',
-          style: TextStyle(color: onSurfaceVariant),
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               'Cancelar',
-              style: TextStyle(color: onSurfaceVariant),
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar', style: TextStyle(color: error)),
+            child: Text(
+              'Eliminar',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.error,
+              ),
+            ),
           ),
         ],
       ),
@@ -93,7 +98,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Vehículo eliminado'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
         }
@@ -102,7 +107,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error al eliminar vehículo: $e'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -125,61 +130,36 @@ class _VehiclesPageState extends State<VehiclesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: surface,
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primary),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Mis Vehículos',
-          style: TextStyle(
-            color: primaryContainer,
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const Text('Mis Vehículos', style: AppTextStyles.textStyleTitle),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: primaryContainer),
+            icon: const Icon(Icons.add, color: AppColors.primaryContainer),
             onPressed: () => _mostrarFormularioVehiculo(),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: primaryContainer),
+          ? const RyStateContainer(
+              title: 'Cargando vehículos...',
+              type: RyStateType.loading,
             )
           : _vehiculos.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.directions_car,
-                    size: 64,
-                    color: onSurfaceVariant.withOpacity(0.5),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No tienes vehículos registrados',
-                    style: TextStyle(color: onSurfaceVariant, fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Agrega tu primer vehículo',
-                    style: TextStyle(
-                      color: onSurfaceVariant.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+          ? const RyStateContainer(
+              title: 'Sin vehículos',
+              subtitle:
+                  'No tienes vehículos registrados. Agrega tu primer vehículo.',
+              type: RyStateType.empty,
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
               itemCount: _vehiculos.length,
               itemBuilder: (context, index) {
                 final vehiculo = _vehiculos[index];
@@ -189,82 +169,93 @@ class _VehiclesPageState extends State<VehiclesPage> {
                     modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
                 final vin = vehiculo['vin'] as String? ?? '';
                 final anioRaw = vehiculo['anio'];
-                final anio = anioRaw != null ? anioRaw.toString() : null;
+                final anio = anioRaw?.toString();
                 final patente = vehiculo['placa'] as String?;
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  color: surfaceContainerHigh,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: outlineVariant),
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+                  padding: const EdgeInsets.all(AppSpacing.spacingMd),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+                    border: Border.all(color: AppColors.outlineVariant),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: primaryContainer.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.radiusMd,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.directions_car,
+                          color: AppColors.primaryContainer,
+                          size: 32,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.directions_car,
-                        color: primaryContainer,
-                        size: 32,
-                      ),
-                    ),
-                    title: Text(
-                      marca != null && modelo != null
-                          ? '${marca['nombre']} ${modelo['nombre']}'
-                          : 'Vehículo',
-                      style: const TextStyle(
-                        color: onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (anio != null)
-                          Text(
-                            'Año: $anio',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                      const SizedBox(width: AppSpacing.spacingMd),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              marca != null && modelo != null
+                                  ? '${marca['nombre']} ${modelo['nombre']}'
+                                  : 'Vehículo',
+                              style: AppTextStyles.textStyleBody,
                             ),
-                          ),
-                        if (patente != null && patente.isNotEmpty)
-                          Text(
-                            'Patente: $patente',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                            const SizedBox(height: AppSpacing.spacingXs),
+                            if (anio != null)
+                              Text(
+                                'Año: $anio',
+                                style: AppTextStyles.textStyleCaption.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            if (patente != null && patente.isNotEmpty)
+                              Text(
+                                'Patente: $patente',
+                                style: AppTextStyles.textStyleCaption.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                            Text(
+                              'VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin}',
+                              style: AppTextStyles.textStyleCaption.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                              ),
                             ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.spacingSm),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.primary,
+                            ),
+                            onPressed: () =>
+                                _mostrarFormularioVehiculo(vehiculo),
                           ),
-                        Text(
-                          'VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin}',
-                          style: TextStyle(
-                            color: onSurfaceVariant,
-                            fontSize: 12,
+                          IconButton(
+                            icon: const Icon(
+                              Icons.delete,
+                              color: AppColors.error,
+                            ),
+                            onPressed: () => _eliminarVehiculo(vehiculo['id']),
                           ),
-                        ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: primary),
-                          onPressed: () => _mostrarFormularioVehiculo(vehiculo),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: error),
-                          onPressed: () => _eliminarVehiculo(vehiculo['id']),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
                 );
               },
@@ -299,15 +290,6 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   bool _isLoadingMarcas = false;
   bool _isLoadingModelos = false;
 
-  // Color scheme
-  static const Color primary = Color(0xFFFFB5A0);
-  static const Color primaryContainer = Color(0xFFFF5722);
-  static const Color onPrimaryContainer = Color(0xFF541200);
-  static const Color surfaceContainerHigh = Color(0xFF2A2A2A);
-  static const Color outlineVariant = Color(0xFF5B4039);
-  static const Color onSurface = Color(0xFFE5E2E1);
-  static const Color onSurfaceVariant = Color(0xFFE4BEB4);
-
   @override
   void initState() {
     super.initState();
@@ -340,7 +322,11 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
           }
         }
       } catch (e) {
-        print('Error al extraer marca/modelo del vehículo: $e');
+        AppLogger.error(
+          'Error al extraer marca/modelo del vehículo',
+          name: '_VehicleFormDialogState',
+          error: e,
+        );
       }
     }
   }
@@ -364,12 +350,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         _marcas = marcas;
       });
     } catch (e) {
-      print('Error al cargar marcas: $e');
+      AppLogger.error(
+        'Error al cargar marcas',
+        name: '_VehicleFormDialogState',
+        error: e,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar marcas: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -393,12 +383,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         _modelos = modelos;
       });
     } catch (e) {
-      print('Error al cargar modelos: $e');
+      AppLogger.error(
+        'Error al cargar modelos',
+        name: '_VehicleFormDialogState',
+        error: e,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error al cargar modelos: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -415,7 +409,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Por favor selecciona marca y modelo'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
         return;
@@ -459,14 +453,17 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                     ? 'Vehículo actualizado'
                     : 'Vehículo creado',
               ),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
             ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: AppColors.error,
+            ),
           );
         }
       }
@@ -476,10 +473,10 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: surfaceContainerHigh,
+      backgroundColor: AppColors.surfaceContainerHigh,
       title: Text(
         widget.vehiculo != null ? 'Editar Vehículo' : 'Agregar Vehículo',
-        style: const TextStyle(color: onSurface),
+        style: AppTextStyles.textStyleTitle,
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -496,41 +493,41 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                     RichText(
                       text: TextSpan(
                         children: [
-                          const TextSpan(
+                          TextSpan(
                             text: 'Marca',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleCaption.copyWith(
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(
-                              color: _VehiclesPageState.requiredAsterisk,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.requiredAsterisk,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.spacingSm),
                     Container(
                       decoration: BoxDecoration(
-                        color: onSurfaceVariant.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: outlineVariant),
+                        color: AppColors.onSurfaceVariant.withValues(
+                          alpha: 0.1,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                        border: Border.all(color: AppColors.outlineVariant),
                       ),
                       child: _isLoadingMarcas
                           ? const Padding(
-                              padding: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(AppSpacing.spacingMd),
                               child: Center(
                                 child: SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: primaryContainer,
+                                    color: AppColors.primaryContainer,
                                   ),
                                 ),
                               ),
@@ -540,17 +537,20 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                 value: _selectedMarcaId,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: AppSpacing.spacingSm,
                                 ),
-                                dropdownColor: surfaceContainerHigh,
-                                style: const TextStyle(color: onSurface),
+                                dropdownColor: AppColors.surfaceContainerHigh,
+                                style: AppTextStyles.textStyleBody,
                                 icon: const Icon(
                                   Icons.expand_more,
-                                  color: onSurfaceVariant,
+                                  color: AppColors.onSurfaceVariant,
                                 ),
-                                hint: const Text(
+                                hint: Text(
                                   'Selecciona una marca',
-                                  style: TextStyle(color: onSurfaceVariant),
+                                  style: AppTextStyles.textStyleCaption
+                                      .copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
                                 ),
                                 items: _marcas
                                     .where((marca) {
@@ -583,50 +583,50 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.spacingMd),
 
                 // Dropdown de Modelo
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     RichText(
-                      text: const TextSpan(
+                      text: TextSpan(
                         children: [
                           TextSpan(
                             text: 'Modelo',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleCaption.copyWith(
+                              color: AppColors.onSurfaceVariant,
                             ),
                           ),
                           TextSpan(
                             text: ' *',
-                            style: TextStyle(
-                              color: _VehiclesPageState.requiredAsterisk,
-                              fontSize: 12,
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.requiredAsterisk,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.spacingSm),
                     Container(
                       decoration: BoxDecoration(
-                        color: onSurfaceVariant.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: outlineVariant),
+                        color: AppColors.onSurfaceVariant.withValues(
+                          alpha: 0.1,
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                        border: Border.all(color: AppColors.outlineVariant),
                       ),
                       child: _isLoadingModelos
                           ? const Padding(
-                              padding: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(AppSpacing.spacingMd),
                               child: Center(
                                 child: SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: primaryContainer,
+                                    color: AppColors.primaryContainer,
                                   ),
                                 ),
                               ),
@@ -636,21 +636,22 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                 value: _selectedModeloId,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: AppSpacing.spacingSm,
                                 ),
-                                dropdownColor: surfaceContainerHigh,
-                                style: const TextStyle(color: onSurface),
+                                dropdownColor: AppColors.surfaceContainerHigh,
+                                style: AppTextStyles.textStyleBody,
                                 icon: const Icon(
                                   Icons.expand_more,
-                                  color: onSurfaceVariant,
+                                  color: AppColors.onSurfaceVariant,
                                 ),
                                 hint: Text(
                                   _selectedMarcaId == null
                                       ? 'Selecciona primero una marca'
                                       : 'Selecciona un modelo',
-                                  style: const TextStyle(
-                                    color: onSurfaceVariant,
-                                  ),
+                                  style: AppTextStyles.textStyleCaption
+                                      .copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
                                 ),
                                 items: _modelos
                                     .where((modelo) {
@@ -682,124 +683,25 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          const TextSpan(
-                            text: 'Número VIN (Chasis)',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(
-                              color: _VehiclesPageState.requiredAsterisk,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _vinController,
-                      style: const TextStyle(color: onSurface),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: onSurfaceVariant.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: outlineVariant),
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'El VIN es requerido';
-                        }
-                        if (value.trim().length < 17) {
-                          return 'El VIN debe tener 17 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Número VIN (Chasis)',
+                  controller: _vinController,
+                  isRequired: true,
+                  helperText: 'Debe tener 17 caracteres',
                 ),
-                const SizedBox(height: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          const TextSpan(
-                            text: 'Año',
-                            style: TextStyle(
-                              color: onSurfaceVariant,
-                              fontSize: 12,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(
-                              color: _VehiclesPageState.requiredAsterisk,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _anioController,
-                      style: const TextStyle(color: onSurface),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: onSurfaceVariant.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: outlineVariant),
-                        ),
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'El año es requerido';
-                        }
-                        final year = int.tryParse(value.trim());
-                        if (year == null) {
-                          return 'Ingresa un año válido';
-                        }
-                        final currentYear = DateTime.now().year;
-                        if (year < 1900 || year > currentYear + 1) {
-                          return 'Año debe estar entre 1900 y ${currentYear + 1}';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Año',
+                  controller: _anioController,
+                  type: RyTextFieldType.number,
+                  isRequired: true,
+                  helperText: 'Debe estar entre 1900 y el año actual + 1',
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
+                const SizedBox(height: AppSpacing.spacingMd),
+                RyTextField(
+                  label: 'Placa (opcional)',
                   controller: _patenteController,
-                  style: const TextStyle(color: onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Placa (opcional)',
-                    labelStyle: const TextStyle(color: onSurfaceVariant),
-                    filled: true,
-                    fillColor: onSurfaceVariant.withOpacity(0.1),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: outlineVariant),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -809,16 +711,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text(
+          child: Text(
             'Cancelar',
-            style: TextStyle(color: onSurfaceVariant),
+            style: AppTextStyles.textStyleButton.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
         ),
         ElevatedButton(
           onPressed: _guardar,
           style: ElevatedButton.styleFrom(
-            backgroundColor: primaryContainer,
-            foregroundColor: onPrimaryContainer,
+            backgroundColor: AppColors.primaryContainer,
+            foregroundColor: AppColors.onPrimaryContainer,
           ),
           child: const Text('Guardar'),
         ),

@@ -217,6 +217,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                           builder: (context) => ReceivedQuotationsPage(
                             solicitudId: solicitud['id'].toString(),
                             piezaNombre: piezaNombreFinal,
+                            fotoUrl: urlFinal.isNotEmpty ? urlFinal : null,
                           ),
                         ),
                       );

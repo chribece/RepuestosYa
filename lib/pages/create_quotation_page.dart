@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/almacen_service.dart';
 import '../widgets/ry_text_field.dart';
+import '../widgets/ry_image_picker.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -32,7 +32,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   File? _selectedImage;
   bool _isSubmitting = false;
 
-  final ImagePicker _imagePicker = ImagePicker();
   final SolicitudService _solicitudService = SolicitudService();
   final AlmacenService _almacenService = AlmacenService();
 
@@ -43,184 +42,21 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     super.dispose();
   }
 
-  // Muestra un panel para elegir entre tomar una foto con la cámara o
-  // seleccionar una imagen existente de la galería.
-  Future<void> _showImageSourceSelector() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadius.radiusXl),
-        ),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingSm),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
-                  decoration: BoxDecoration(
-                    color: AppColors.outlineVariant,
-                    borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.spacingLg,
-                  ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Evidencia Visual',
-                      style: GoogleFonts.sora(
-                        textStyle: AppTextStyles.textStyleBody,
-                        color: AppColors.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.spacingXs),
-                ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondaryContainer.withValues(
-                        alpha: 0.15,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.photo_camera,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                  title: Text(
-                    'Tomar foto',
-                    style: GoogleFonts.sora(
-                      color: AppColors.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Usar la cámara del dispositivo',
-                    style: GoogleFonts.sora(
-                      textStyle: AppTextStyles.textStyleSmall,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickImage(ImageSource.camera);
-                  },
-                ),
-                ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.secondaryContainer.withValues(
-                        alpha: 0.15,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.photo_library,
-                      color: AppColors.secondary,
-                    ),
-                  ),
-                  title: Text(
-                    'Elegir de galería',
-                    style: GoogleFonts.sora(
-                      color: AppColors.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Seleccionar una imagen ya existente',
-                    style: GoogleFonts.sora(
-                      textStyle: AppTextStyles.textStyleSmall,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickImage(ImageSource.gallery);
-                  },
-                ),
-                if (_selectedImage != null)
-                  ListTile(
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.delete_outline,
-                        color: AppColors.error,
-                      ),
-                    ),
-                    title: Text(
-                      'Quitar imagen',
-                      style: GoogleFonts.sora(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.pop(context);
-                      setState(() => _selectedImage = null);
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 1600,
-      );
-      if (image != null) {
-        setState(() {
-          _selectedImage = File(image.path);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              source == ImageSource.camera
-                  ? 'No se pudo acceder a la cámara: $e'
-                  : 'Error al seleccionar la imagen: $e',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<String?> _uploadImageToSupabase(File imageFile) async {
+  /// Sube una imagen al bucket `Repuestosya` bajo la ruta:
+  /// `evidencias/cotizaciones/{almacenId}/cotizacion_{timestamp}.jpg`
+  ///
+  /// Devuelve la URL pública del archivo, o `null` si la subida falla.
+  /// Patrón unificado con `CreateRequestPage._uploadImageToSupabase`:
+  /// mismo bucket, misma carpeta base `evidencias/`, separación por dominio
+  /// (`solicitudes/{clienteId}/...` para solicitudes,
+  /// `cotizaciones/{almacenId}/...` para cotizaciones).
+  Future<String?> _uploadImageToSupabase(
+    File imageFile,
+    String almacenId,
+  ) async {
     try {
       AppLogger.debug(
-        '[UPLOAD] 🚀 Iniciando subida de imagen...',
+        '[UPLOAD] Iniciando subida de imagen de cotización...',
         name: 'CreateQuotationPage',
       );
 
@@ -230,79 +66,64 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       final session = supabase.auth.currentSession;
       if (session == null) {
         AppLogger.warning(
-          '[UPLOAD] ❌ No hay sesión activa. Intentando refrescar...',
+          '[UPLOAD] No hay sesión activa. Intentando refrescar...',
           name: 'CreateQuotationPage',
         );
         try {
           await supabase.auth.refreshSession();
           AppLogger.info(
-            '[UPLOAD] ✅ Sesión refrescada',
+            '[UPLOAD] Sesión refrescada',
             name: 'CreateQuotationPage',
           );
         } catch (e) {
           AppLogger.error(
-            '[UPLOAD] ❌ Error al refrescar sesión',
+            '[UPLOAD] Error al refrescar sesión',
             name: 'CreateQuotationPage',
             error: e,
           );
           return null;
         }
-      } else {
-        AppLogger.debug(
-          '[UPLOAD] ✅ Usuario autenticado: ${session.user.id}',
-          name: 'CreateQuotationPage',
-        );
       }
 
-      // Generar nombre único
-      final fileName =
-          'cotizacion_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final filePath = 'evidencias/$fileName';
+      // Generar nombre único y ruta por dominio funcional.
+      // Patrón unificado con solicitudes:
+      //   solicitudes  -> evidencias/solicitudes/{clienteId}/solicitud_{ts}.jpg
+      //   cotizaciones -> evidencias/cotizaciones/{almacenId}/cotizacion_{ts}.jpg
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'cotizacion_$timestamp.jpg';
+      final filePath = 'evidencias/cotizaciones/$almacenId/$fileName';
       AppLogger.debug(
-        '[UPLOAD] 📁 FilePath: $filePath',
-        name: 'CreateQuotationPage',
-      );
-      AppLogger.debug(
-        '[UPLOAD] 📦 Tamaño: ${await imageFile.length()} bytes',
+        '[UPLOAD] FilePath: $filePath (${await imageFile.length()} bytes)',
         name: 'CreateQuotationPage',
       );
 
-      // Subir al bucket
-      AppLogger.debug(
-        '[UPLOAD] ⬆️ Subiendo imagen...',
-        name: 'CreateQuotationPage',
-      );
-      final response = await supabase.storage
+      // Subir al bucket `Repuestosya` (mismo bucket que solicitudes)
+      await supabase.storage
           .from('Repuestosya')
           .upload(
             filePath,
             imageFile,
-            fileOptions: FileOptions(
+            fileOptions: const FileOptions(
               cacheControl: '3600',
               upsert: false,
               contentType: 'image/jpeg',
             ),
           );
 
-      AppLogger.debug(
-        '[UPLOAD] ✅ Upload response: $response',
-        name: 'CreateQuotationPage',
-      );
-
-      // Obtener URL pública
+      // Obtener URL pública (mismo patrón que solicitudes)
       final publicUrl = supabase.storage
           .from('Repuestosya')
           .getPublicUrl(filePath);
 
-      AppLogger.debug(
-        '[UPLOAD] 🔗 URL pública: $publicUrl',
+      AppLogger.info(
+        '[UPLOAD] URL pública: $publicUrl',
         name: 'CreateQuotationPage',
       );
 
       return publicUrl;
     } catch (e, stackTrace) {
       AppLogger.error(
-        '[UPLOAD] ❌ ERROR DETALLADO',
+        '[UPLOAD] Error al subir imagen de cotización',
         name: 'CreateQuotationPage',
         error: e,
         stackTrace: stackTrace,
@@ -336,20 +157,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         );
       }
 
-      String? uploadedImageUrl;
-      if (_selectedImage != null) {
-        setState(() => _isSubmitting = true);
-
-        uploadedImageUrl = await _uploadImageToSupabase(_selectedImage!);
-
-        if (uploadedImageUrl == null) {
-          throw Exception(
-            'La subida de imagen falló. Revisa la consola de Flutter para ver el AppColors.error detallado. '
-            'Posibles causas: 1) Bucket no existe, 2) Políticas de INSERT faltantes, 3) Usuario no autenticado',
-          );
-        }
-      }
-
+      // Obtener el almacén ANTES de subir la imagen, porque el path de
+      // Storage ahora se segmenta por dominio funcional:
+      //   evidencias/cotizaciones/{almacenId}/cotizacion_{timestamp}.jpg
       final almacen = await _almacenService.obtenerMiAlmacen();
       if (almacen == null) {
         throw Exception(
@@ -360,6 +170,32 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       final String almacenId = almacen['id']?.toString() ?? '';
       if (almacenId.isEmpty || almacenId == 'null') {
         throw Exception('El ID del almacén es inválido o está vacío.');
+      }
+
+      // Subir imagen (si hay) usando el path unificado por dominio.
+      // Si la subida falla, no se crea la cotización: se informa al usuario
+      // (mismo patrón que CreateRequestPage._handleSubmit).
+      String? uploadedImageUrl;
+      if (_selectedImage != null) {
+        uploadedImageUrl = await _uploadImageToSupabase(
+          _selectedImage!,
+          almacenId,
+        );
+
+        if (uploadedImageUrl == null || uploadedImageUrl.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'No se pudo subir la imagen. Verifica tu conexión e inténtalo de nuevo.',
+                ),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          setState(() => _isSubmitting = false);
+          return;
+        }
       }
 
       // Consumo del servicio con los nombres y valores en español ya homologados
@@ -482,7 +318,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildDeliveryTimeDropdown(),
                           const SizedBox(height: AppSpacing.spacingXl),
-                          _buildImageUploadArea(),
+                          _buildEvidenciaVisualSection(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildNotesField(),
                           const SizedBox(height: AppSpacing.spacingXl),
@@ -872,10 +708,23 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       label: 'Precio de Venta (USD)',
       hint: '0.00',
       controller: _priceController,
-      type: RyTextFieldType.number,
+      type: RyTextFieldType.decimal,
       isRequired: true,
       prefixIcon: Icons.attach_money,
       helperText: 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN',
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Ingresa el precio de venta';
+        }
+        final parsed = double.tryParse(value.trim());
+        if (parsed == null) {
+          return 'Ingresa un precio válido (ej: 15.50)';
+        }
+        if (parsed <= 0) {
+          return 'El precio debe ser mayor a 0';
+        }
+        return null;
+      },
     );
   }
 
@@ -989,7 +838,11 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
-  Widget _buildImageUploadArea() {
+  /// Sección unificada de evidencia visual usando `RyImagePicker` (mismo
+  /// widget que `CreateRequestPage`). Mantiene el label "Evidencia Visual"
+  /// y el helper "Foto del repuesto en stock" del diseño original, pero
+  /// delega selección/preview/eliminar al widget reutilizable.
+  Widget _buildEvidenciaVisualSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1001,87 +854,50 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           ),
         ),
         const SizedBox(height: AppSpacing.spacingXs),
-        GestureDetector(
-          onTap: _showImageSourceSelector,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              vertical: AppSpacing.spacingLg,
-              horizontal: AppSpacing.spacingMd,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.secondaryContainer.withValues(alpha: 0.02),
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-              border: Border.all(
-                color: AppColors.secondaryContainer.withValues(alpha: 0.4),
-                width: 1.5,
-                style: BorderStyle.solid,
-              ),
-            ),
-            child: _selectedImage != null
-                ? Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-                        child: Image.file(
-                          _selectedImage!,
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.spacingXs),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(
-                            Icons.edit,
-                            color: AppColors.secondary,
-                            size: 14,
-                          ),
-                          SizedBox(width: AppSpacing.spacingXxs),
-                          Text(
-                            'Cambiar imagen',
-                            style: AppTextStyles.textStyleCaption,
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: AppColors.secondaryContainer.withValues(
-                            alpha: 0.12,
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.add_a_photo,
-                          color: AppColors.secondary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.spacingSm),
-                      Text(
-                        'Foto del repuesto en stock',
-                        style: AppTextStyles.textStyleCaption.copyWith(
-                          color: AppColors.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.spacingXxs / 2),
-                      Text(
-                        'Toca para usar la cámara o elegir de galería',
-                        style: AppTextStyles.textStyleSmall.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+        RyImagePicker(
+          width: double.infinity,
+          height: 180,
+          currentFile: _selectedImage,
+          onImageSelected: (file) {
+            setState(() => _selectedImage = file);
+          },
+          onRemove: () {
+            setState(() => _selectedImage = null);
+          },
+          customPlaceholder: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.secondaryContainer.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
                   ),
+                  child: const Icon(
+                    Icons.add_a_photo,
+                    color: AppColors.secondary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingSm),
+                Text(
+                  'Foto del repuesto en stock',
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingXxs / 2),
+                Text(
+                  'Toca para usar la cámara o elegir de galería',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

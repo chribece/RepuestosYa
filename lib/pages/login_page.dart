@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import 'role_selection_page.dart';
 import 'home_page.dart';
 import 'warehouse_dashboard.dart';
+import 'complete_profile_page.dart';
 import '../services/auth_service.dart';
+import '../services/almacen_service.dart';
+import '../utils/app_logger.dart';
 import '../providers/user_role_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -26,6 +29,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _rememberMe = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
+  final AlmacenService _almacenService = AlmacenService();
 
   @override
   void dispose() {
@@ -71,51 +75,53 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        setState(() {
-          _isLoading = false;
-        });
-
-        // Navegar según el rol del usuario con animación suave
+        // Navegar según el rol del usuario con animación suave.
+        // Para rol almacen, validar primero que exista el perfil comercial
+        // (GET /warehouse/my-warehouse). Si responde 404, redirigir a
+        // CompleteProfilePage en lugar de WarehouseDashboard para evitar
+        // que se disparen /requests/active y /quotations/my-quotations
+        // contra un usuario sin almacén (que devuelven 404).
         if (userRoleProvider.isCliente) {
-          Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const HomePage(),
-              transitionDuration: const Duration(milliseconds: 250),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-            ),
-          );
+          setState(() => _isLoading = false);
+          _navigateTo(const HomePage());
         } else if (userRoleProvider.isAlmacen) {
-          Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const WarehouseDashboard(),
-              transitionDuration: const Duration(milliseconds: 250),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-            ),
-          );
+          try {
+            final hasProfile = await _almacenService.hasWarehouseProfile();
+            if (!mounted) return;
+            setState(() => _isLoading = false);
+            if (hasProfile) {
+              _navigateTo(const WarehouseDashboard());
+            } else {
+              AppLogger.info(
+                'Almacén sin perfil comercial. Redirigiendo a CompleteProfilePage.',
+                name: 'LoginPage',
+              );
+              _navigateTo(const CompleteProfilePage());
+            }
+          } catch (e) {
+            // Error distinto de 404 (401/403/500/timeout/red): mostrar al
+            // usuario en lugar de adivinar. No redirige al dashboard.
+            if (!mounted) return;
+            setState(() => _isLoading = false);
+            AppLogger.error(
+              'Error al validar perfil de almacén post-login',
+              name: 'LoginPage',
+              error: e,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No se pudo verificar tu perfil de almacén: $e'),
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
         } else if (userRoleProvider.isAdmin) {
           // Para admin, también navegar al dashboard de almacén por ahora
-          Navigator.pushReplacement(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const WarehouseDashboard(),
-              transitionDuration: const Duration(milliseconds: 250),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-            ),
-          );
+          setState(() => _isLoading = false);
+          _navigateTo(const WarehouseDashboard());
+        } else {
+          setState(() => _isLoading = false);
         }
       } catch (e) {
         if (!mounted) return;
@@ -134,6 +140,21 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     }
+  }
+
+  /// Reemplaza la pantalla actual con fade transition (250 ms), patrón
+  /// usado para todas las navegaciones post-login.
+  void _navigateTo(Widget page) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => page,
+        transitionDuration: const Duration(milliseconds: 250),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
   }
 
   @override
@@ -384,7 +405,7 @@ class _LoginPageState extends State<LoginPage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
-            '© 2026 RepuestosYa S.A. Todos los derechos reservados. El acceso no autorizado a este sistema técnico está prohibido.',
+            '© 2026 VCore Tech S.A. Todos los derechos reservados.',
             style: AppTextStyles.textStyleSmall.copyWith(
               color: AppColors.onSurfaceVariant,
             ),

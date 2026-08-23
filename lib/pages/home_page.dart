@@ -676,6 +676,7 @@ class _HomePageState extends State<HomePage> {
                       builder: (context) => ReceivedQuotationsPage(
                         solicitudId: solicitud['id'].toString(),
                         piezaNombre: piezaNombreFinal,
+                        fotoUrl: urlFinal.isNotEmpty ? urlFinal : null,
                         ofertasPendientes: cantidadCotizaciones,
                       ),
                     ),
@@ -685,28 +686,41 @@ class _HomePageState extends State<HomePage> {
                     ? Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.spacingSm,
-                          vertical: AppSpacing.spacingXxs,
+                          vertical: AppSpacing.spacingXs,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.primaryContainer.withValues(
-                            alpha: 0.1,
+                            alpha: 0.15,
                           ),
                           borderRadius: BorderRadius.circular(
                             AppRadius.radiusSm,
                           ),
                           border: Border.all(
                             color: AppColors.primaryContainer.withValues(
-                              alpha: 0.3,
+                              alpha: 0.5,
                             ),
+                            width: 1.2,
                           ),
                         ),
-                        child: Text(
-                          cantidadCotizaciones == 1
-                              ? '1 Cotización nueva'
-                              : '$cantidadCotizaciones Cotizaciones',
-                          style: AppTextStyles.textStyleSmall.copyWith(
-                            color: AppColors.primaryContainer,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.notifications_active,
+                              color: AppColors.primaryContainer,
+                              size: 16,
+                            ),
+                            const SizedBox(width: AppSpacing.spacingXxs),
+                            Text(
+                              cantidadCotizaciones == 1
+                                  ? '1 Cotización nueva'
+                                  : '$cantidadCotizaciones Cotizaciones nuevas',
+                              style: AppTextStyles.textStyleSmall.copyWith(
+                                color: AppColors.primaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     : null,

@@ -93,7 +93,7 @@ const getAlmacenByEncargado = async (req, res) => {
 const updateAlmacen = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_comercial, direccion_texto, latitude, longitude, verificado, estado_abierto } = req.body;
+    const { nombre_comercial, direccion_texto, latitude, longitude, verificado, estado_abierto, telefono, ruc, representante_legal, email } = req.body;
 
     // Verify ownership
     const { data: existing, error: existingError } = await supabase
@@ -117,6 +117,10 @@ const updateAlmacen = async (req, res) => {
     if (longitude !== undefined) updateData.longitude = longitude;
     if (verificado !== undefined) updateData.verificado = verificado;
     if (estado_abierto !== undefined) updateData.estado_abierto = estado_abierto;
+    if (telefono !== undefined) updateData.telefono = telefono;
+    if (ruc !== undefined) updateData.ruc = ruc;
+    if (representante_legal !== undefined) updateData.representante_legal = representante_legal;
+    if (email !== undefined) updateData.email = email;
 
     const { data: almacen, error } = await supabase
       .from('almacenes')

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_colors.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
@@ -414,6 +415,93 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   // ========== ENVÍO DEL FORMULARIO ==========
 
+  /// Sube una imagen al bucket `Repuestosya` (mismo bucket/carpeta base que
+  /// usa el flujo de cotizaciones) bajo la ruta:
+  /// `evidencias/solicitudes/{clienteId}/solicitud_{timestamp}.jpg`
+  ///
+  /// Devuelve la URL pública del archivo, o `null` si la subida falla.
+  /// Sigue el mismo patrón que [CreateQuotationPage._uploadImageToSupabase]:
+  /// verifica/refresca sesión, sube con `contentType: image/jpeg` y obtiene
+  /// la URL pública con `getPublicUrl`.
+  Future<String?> _uploadImageToSupabase(
+    File imageFile,
+    String clienteId,
+  ) async {
+    try {
+      AppLogger.debug(
+        '[UPLOAD] Iniciando subida de imagen de solicitud...',
+        name: 'CreateRequestPage',
+      );
+
+      final supabase = Supabase.instance.client;
+
+      // Verificar sesión de autenticación (mismo patrón que cotizaciones)
+      final session = supabase.auth.currentSession;
+      if (session == null) {
+        AppLogger.warning(
+          '[UPLOAD] No hay sesión activa. Intentando refrescar...',
+          name: 'CreateRequestPage',
+        );
+        try {
+          await supabase.auth.refreshSession();
+          AppLogger.info(
+            '[UPLOAD] Sesión refrescada',
+            name: 'CreateRequestPage',
+          );
+        } catch (e) {
+          AppLogger.error(
+            '[UPLOAD] Error al refrescar sesión',
+            name: 'CreateRequestPage',
+            error: e,
+          );
+          return null;
+        }
+      }
+
+      // Generar nombre único y ruta por dominio funcional
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'solicitud_$timestamp.jpg';
+      final filePath = 'evidencias/solicitudes/$clienteId/$fileName';
+      AppLogger.debug(
+        '[UPLOAD] FilePath: $filePath (${await imageFile.length()} bytes)',
+        name: 'CreateRequestPage',
+      );
+
+      // Subir al bucket `Repuestosya` (mismo bucket que cotizaciones)
+      await supabase.storage
+          .from('Repuestosya')
+          .upload(
+            filePath,
+            imageFile,
+            fileOptions: const FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      // Obtener URL pública (mismo patrón que cotizaciones)
+      final publicUrl = supabase.storage
+          .from('Repuestosya')
+          .getPublicUrl(filePath);
+
+      AppLogger.info(
+        '[UPLOAD] URL pública: $publicUrl',
+        name: 'CreateRequestPage',
+      );
+
+      return publicUrl;
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '[UPLOAD] Error al subir imagen de solicitud',
+        name: 'CreateRequestPage',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
   Future<void> _handleSubmit() async {
     // Validar campos del formulario
     if (!_formKey.currentState!.validate()) return;
@@ -446,11 +534,25 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final user = _authService.currentUser;
       if (user == null) throw Exception('No hay usuario autenticado');
 
-      // TODO: Subir imagen a Supabase Storage y obtener URL pública
+      // Subir imagen a Supabase Storage ANTES de crear la solicitud.
+      // Si la subida falla, NO se crea la solicitud: se informa al usuario.
       String? fotoUrl;
       if (_selectedImage != null) {
-        // fotoUrl = await _uploadImageToStorage(_selectedImage!);
-        fotoUrl = _selectedImage!.path; // Placeholder
+        fotoUrl = await _uploadImageToSupabase(_selectedImage!, user.id);
+        if (fotoUrl == null || fotoUrl.isEmpty) {
+          setState(() => _isSubmitting = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'No se pudo subir la imagen. Verifica tu conexión e inténtalo de nuevo.',
+                ),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+          return;
+        }
       }
 
       await _solicitudService.crearSolicitud(
@@ -626,7 +728,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     return RyImagePicker(
       width: double.infinity,
       height: 200,
-      currentImageUrl: _selectedImage?.path,
+      currentFile: _selectedImage,
       onImageSelected: (file) async {
         setState(() => _selectedImage = file);
         _showToast('Imagen cargada con éxito');

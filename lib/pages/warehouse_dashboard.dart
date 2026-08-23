@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'login_page.dart';
+import 'complete_profile_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
@@ -25,6 +26,9 @@ class WarehouseDashboard extends StatefulWidget {
   State<WarehouseDashboard> createState() => _WarehouseDashboardState();
 }
 
+/// Estado de la validación del perfil comercial al entrar al dashboard.
+enum _ProfileCheckState { validating, needsProfile, error, ready }
+
 class _WarehouseDashboardState extends State<WarehouseDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SolicitudService _solicitudService = SolicitudService();
@@ -43,6 +47,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   String? _nombreAlmacen;
   String _filtroActual = 'todas';
 
+  /// Estado de la validación del perfil comercial al entrar al dashboard.
+  /// Evita llamar a /requests/active y /quotations/my-quotations hasta
+  /// confirmar que existe el almacén.
+  _ProfileCheckState _profileCheck = _ProfileCheckState.validating;
+  String? _profileCheckError;
+
   // Variables dinámicas para el panel de estadísticas Bento
   final int _ventasCount = 42;
   final int _vistasCount = 850;
@@ -50,9 +60,47 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   @override
   void initState() {
     super.initState();
-    _cargarSolicitudes();
-    _cargarAlmacen();
-    _cargarCotizacionesEnviadas();
+    _validateAndLoad();
+  }
+
+  /// Validación centralizada: primero confirma que existe el perfil de
+  /// almacén (GET /warehouse/my-warehouse). Solo si existe (200) procede a
+  /// cargar solicitudes, datos del almacén y cotizaciones. Si responde 404
+  /// redirige a CompleteProfilePage. Si hay otro error, lo muestra.
+  Future<void> _validateAndLoad() async {
+    try {
+      final hasProfile = await _almacenService.hasWarehouseProfile();
+      if (!mounted) return;
+      if (hasProfile) {
+        setState(() => _profileCheck = _ProfileCheckState.ready);
+        _cargarSolicitudes();
+        _cargarAlmacen();
+        _cargarCotizacionesEnviadas();
+      } else {
+        AppLogger.info(
+          'WarehouseDashboard: perfil de almacén no existe (404). '
+          'Redirigiendo a CompleteProfilePage.',
+          name: _logName,
+        );
+        setState(() => _profileCheck = _ProfileCheckState.needsProfile);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const CompleteProfilePage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      AppLogger.error(
+        'WarehouseDashboard: error al validar perfil de almacén',
+        name: _logName,
+        error: e,
+      );
+      if (!mounted) return;
+      setState(() {
+        _profileCheck = _ProfileCheckState.error;
+        _profileCheckError = e.toString();
+      });
+    }
   }
 
   Future<void> _cargarAlmacen() async {
@@ -193,7 +241,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   'Panel Principal',
                   style: AppTextStyles.textStyleBody,
                 ),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _selectedIndex = 0);
+                },
               ),
               ListTile(
                 leading: const Icon(
@@ -270,142 +321,166 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           children: [
             _buildTopAppBar(),
             Expanded(
-              child: _selectedIndex == 0
-                  ? RefreshIndicator(
-                      onRefresh: _cargarSolicitudes,
-                      color: AppColors.primaryContainer,
-                      backgroundColor: AppColors.surfaceContainerHigh,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.spacingMd,
-                          vertical: AppSpacing.spacingLg,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _nombreAlmacen ?? 'Cargando...',
-                              style: AppTextStyles.textStyleHeading,
+              child: switch (_profileCheck) {
+                _ProfileCheckState.validating => const RyStateContainer(
+                  title: 'Verificando perfil de almacén...',
+                  type: RyStateType.loading,
+                ),
+                _ProfileCheckState.error => RyStateContainer(
+                  title: 'No se pudo verificar tu perfil de almacén',
+                  subtitle: _profileCheckError,
+                  type: RyStateType.error,
+                ),
+                _ProfileCheckState.needsProfile =>
+                  // Redirección gestionada en _validateAndLoad; estado
+                  // intermedio para no renderizar el dashboard.
+                  const RyStateContainer(
+                    title: 'Redirigiendo a completar perfil...',
+                    type: RyStateType.loading,
+                  ),
+                _ProfileCheckState.ready =>
+                  _selectedIndex == 0
+                      ? RefreshIndicator(
+                          onRefresh: _cargarSolicitudes,
+                          color: AppColors.primaryContainer,
+                          backgroundColor: AppColors.surfaceContainerHigh,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.spacingMd,
+                              vertical: AppSpacing.spacingLg,
                             ),
-                            const SizedBox(height: AppSpacing.spacingXxs),
-                            Text(
-                              'Gestión de inventario y pedidos en tiempo real.',
-                              style: AppTextStyles.textStyleCaption.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.spacingXl),
-                            _buildBentoStatsGrid(),
-                            const SizedBox(height: AppSpacing.spacingXl),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Solicitudes Cercanas',
-                                  style: AppTextStyles.textStyleTitle,
+                                  _nombreAlmacen ?? 'Cargando...',
+                                  style: AppTextStyles.textStyleHeading,
                                 ),
-                                RyButton(
-                                  label: 'Ver todas',
-                                  variant: RyButtonVariant.text,
-                                  size: RyButtonSize.small,
-                                  onPressed: _cargarSolicitudes,
+                                const SizedBox(height: AppSpacing.spacingXxs),
+                                Text(
+                                  'Gestión de inventario y pedidos en tiempo real.',
+                                  style: AppTextStyles.textStyleCaption
+                                      .copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
                                 ),
+                                const SizedBox(height: AppSpacing.spacingXl),
+                                _buildBentoStatsGrid(),
+                                const SizedBox(height: AppSpacing.spacingXl),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Solicitudes Cercanas',
+                                      style: AppTextStyles.textStyleTitle,
+                                    ),
+                                    RyButton(
+                                      label: 'Ver todas',
+                                      variant: RyButtonVariant.text,
+                                      size: RyButtonSize.small,
+                                      onPressed: _cargarSolicitudes,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppSpacing.spacingMd),
+                                _isLoadingSolicitudes
+                                    ? const RyStateContainer(
+                                        title: 'Cargando solicitudes...',
+                                        type: RyStateType.loading,
+                                      )
+                                    : _solicitudes.isEmpty
+                                    ? const RyStateContainer(
+                                        title: 'Sin solicitudes',
+                                        subtitle:
+                                            'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
+                                        type: RyStateType.empty,
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: _solicitudes.length,
+                                        itemBuilder: (context, index) {
+                                          final solicitud = _solicitudes[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: AppSpacing.spacingMd,
+                                            ),
+                                            child: _buildRequestBentoCard(
+                                              solicitud: solicitud,
+                                            ),
+                                          );
+                                        },
+                                      ),
                               ],
                             ),
-                            const SizedBox(height: AppSpacing.spacingMd),
-                            _isLoadingSolicitudes
-                                ? const RyStateContainer(
-                                    title: 'Cargando solicitudes...',
-                                    type: RyStateType.loading,
-                                  )
-                                : _solicitudes.isEmpty
-                                ? const RyStateContainer(
-                                    title: 'Sin solicitudes',
-                                    subtitle:
-                                        'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
-                                    type: RyStateType.empty,
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: _solicitudes.length,
-                                    itemBuilder: (context, index) {
-                                      final solicitud = _solicitudes[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: AppSpacing.spacingMd,
-                                        ),
-                                        child: _buildRequestBentoCard(
-                                          solicitud: solicitud,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ],
-                        ),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _cargarCotizacionesEnviadas,
-                      color: AppColors.primaryContainer,
-                      backgroundColor: AppColors.surfaceContainerHigh,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.spacingMd,
-                          vertical: AppSpacing.spacingLg,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Cotizaciones Enviadas',
-                              style: AppTextStyles.textStyleHeading,
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _cargarCotizacionesEnviadas,
+                          color: AppColors.primaryContainer,
+                          backgroundColor: AppColors.surfaceContainerHigh,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.spacingMd,
+                              vertical: AppSpacing.spacingLg,
                             ),
-                            const SizedBox(height: AppSpacing.spacingXxs),
-                            Text(
-                              'Historial de cotizaciones enviadas a clientes.',
-                              style: AppTextStyles.textStyleCaption.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Cotizaciones Enviadas',
+                                  style: AppTextStyles.textStyleHeading,
+                                ),
+                                const SizedBox(height: AppSpacing.spacingXxs),
+                                Text(
+                                  'Historial de cotizaciones enviadas a clientes.',
+                                  style: AppTextStyles.textStyleCaption
+                                      .copyWith(
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                ),
+                                const SizedBox(height: AppSpacing.spacingXl),
+                                _buildFilterChips(),
+                                const SizedBox(height: AppSpacing.spacingMd),
+                                _isLoadingCotizaciones
+                                    ? const RyStateContainer(
+                                        title: 'Cargando cotizaciones...',
+                                        type: RyStateType.loading,
+                                      )
+                                    : _cotizacionesEnviadas.isEmpty
+                                    ? const RyStateContainer(
+                                        title: 'Sin cotizaciones',
+                                        subtitle:
+                                            'Las cotizaciones que envíes aparecerán aquí.',
+                                        type: RyStateType.empty,
+                                      )
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: _cotizacionesEnviadas.length,
+                                        itemBuilder: (context, index) {
+                                          final cotizacion =
+                                              _cotizacionesEnviadas[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: AppSpacing.spacingMd,
+                                            ),
+                                            child: _buildQuotationCard(
+                                              cotizacion,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                              ],
                             ),
-                            const SizedBox(height: AppSpacing.spacingXl),
-                            _buildFilterChips(),
-                            const SizedBox(height: AppSpacing.spacingMd),
-                            _isLoadingCotizaciones
-                                ? const RyStateContainer(
-                                    title: 'Cargando cotizaciones...',
-                                    type: RyStateType.loading,
-                                  )
-                                : _cotizacionesEnviadas.isEmpty
-                                ? const RyStateContainer(
-                                    title: 'Sin cotizaciones',
-                                    subtitle:
-                                        'Las cotizaciones que envíes aparecerán aquí.',
-                                    type: RyStateType.empty,
-                                  )
-                                : ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: _cotizacionesEnviadas.length,
-                                    itemBuilder: (context, index) {
-                                      final cotizacion =
-                                          _cotizacionesEnviadas[index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: AppSpacing.spacingMd,
-                                        ),
-                                        child: _buildQuotationCard(cotizacion),
-                                      );
-                                    },
-                                  ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
+              },
             ),
           ],
         ),

@@ -326,7 +326,15 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             label: '¿Ya tienes cuenta? Inicia sesión',
             variant: RyButtonVariant.text,
             onPressed: () {
-              Navigator.pop(context);
+              // La pila es WelcomePage → RoleSelectionPage → RegisterClientePage.
+              // Navigator.pop solo subiría a RoleSelection. Reemplazamos toda
+              // la pila por LoginPage para no dejar huérfanas las pantallas
+              // de selección de rol/registro.
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+                (route) => false,
+              );
             },
           ),
         ),

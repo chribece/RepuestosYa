@@ -9,6 +9,7 @@ enum RyTextFieldType {
   email,
   password,
   number,
+  decimal,
   phone,
   url,
   multiline,
@@ -105,6 +106,11 @@ class _RyTextFieldState extends State<RyTextField> {
         return TextInputType.phone;
       case RyTextFieldType.number:
         return TextInputType.number;
+      case RyTextFieldType.decimal:
+        return const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        );
       case RyTextFieldType.url:
         return TextInputType.url;
       case RyTextFieldType.multiline:
@@ -123,6 +129,11 @@ class _RyTextFieldState extends State<RyTextField> {
     switch (widget.type) {
       case RyTextFieldType.number:
         return [FilteringTextInputFormatter.digitsOnly];
+      case RyTextFieldType.decimal:
+        // Permite dígitos, un único punto decimal y un signo negativo
+        // opcional al inicio (necesario para lat/long). Bloquea todo lo
+        // demás (letras, comas, signo en medio, múltiples puntos, etc.).
+        return [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*$'))];
       case RyTextFieldType.phone:
         return [FilteringTextInputFormatter.digitsOnly];
       default:

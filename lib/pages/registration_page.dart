@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -86,7 +87,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(ApiErrorHandler.userMessage(e)),
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 3),
           ),

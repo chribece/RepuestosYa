@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import 'api_client.dart';
 
@@ -117,9 +118,14 @@ class AuthService {
       await _syncSupabaseSession(email, password);
 
       return AuthResponse(user: _currentUser!, token: token);
+    } on ApiException {
+      rethrow;
     } catch (e) {
       AppLogger.error('Error en registro: $e', name: 'AuthService', error: e);
-      throw Exception('Error al registrar usuario: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'signUp: $e',
+      );
     }
   }
 
@@ -152,8 +158,14 @@ class AuthService {
       await _syncSupabaseSession(email, password);
 
       return AuthResponse(user: _currentUser!, token: token);
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al iniciar sesión: $e');
+      AppLogger.error('Error en login: $e', name: 'AuthService', error: e);
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'signIn: $e',
+      );
     }
   }
 
@@ -213,7 +225,10 @@ class AuthService {
       await _apiClient.clearToken();
       _currentUser = null;
       _authStateController.add(AuthState(user: null));
-      throw Exception('Error al cerrar sesión: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'signOut: $e',
+      );
     }
   }
 
@@ -233,12 +248,11 @@ class AuthService {
 
   // Recuperar contraseña (no implementado en el backend aún)
   Future<void> resetPassword(String email) async {
-    try {
-      // TODO: Implementar cuando el backend tenga este endpoint
-      throw Exception('Función no implementada en el backend');
-    } catch (e) {
-      throw Exception('Error al enviar correo de recuperación: $e');
-    }
+    // TODO: Implementar cuando el backend tenga este endpoint
+    throw ApiException(
+      'Esta función aún no está disponible.',
+      technicalMessage: 'resetPassword: no implementado en el backend',
+    );
   }
 
   // Dispose

@@ -8,6 +8,7 @@ import '../widgets/ry_status_badge.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
@@ -78,7 +79,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error al cargar cotizaciones: $e';
+        _errorMessage = ApiErrorHandler.userMessage(e);
         _isLoading = false;
       });
     }
@@ -188,7 +189,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al aceptar cotización: $e'),
+            content: Text(
+              'Error al aceptar cotización: ${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -227,7 +230,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al rechazar cotización: $e'),
+            content: Text(
+              'Error al rechazar cotización: ${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );

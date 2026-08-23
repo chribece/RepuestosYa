@@ -12,6 +12,7 @@ import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_section_card.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class PerfilAlmacenPage extends StatefulWidget {
@@ -101,7 +102,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString();
+        _errorMessage = ApiErrorHandler.userMessage(e);
       });
     }
   }
@@ -185,7 +186,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al actualizar perfil: $e'),
+          content: Text(
+            'Error al actualizar perfil: ${ApiErrorHandler.userMessage(e)}',
+          ),
           backgroundColor: AppColors.error,
         ),
       );

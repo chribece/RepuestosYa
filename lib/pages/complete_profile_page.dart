@@ -7,6 +7,7 @@ import '../widgets/ry_text_field.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import 'warehouse_dashboard.dart';
 
 class CompleteProfilePage extends StatefulWidget {
@@ -108,7 +109,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: $e'),
+            content: Text(ApiErrorHandler.userMessage(e)),
             backgroundColor: AppColors.error,
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/orden_compra.dart';
 import '../services/orden_compra_service.dart';
+import '../utils/api_error_handler.dart';
 
 class OrdenCompraProvider extends ChangeNotifier {
   final OrdenCompraService _ordenCompraService = OrdenCompraService();
@@ -42,19 +43,7 @@ class OrdenCompraProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      String message = 'Error al cargar el detalle de la orden';
-
-      if (e is BadRequestException) {
-        message = e.message;
-      } else if (e is ForbiddenException) {
-        message = e.message;
-      } else if (e is NotFoundException) {
-        message = e.message;
-      } else if (e is ServerException) {
-        message = e.message;
-      }
-
-      _setErrorMessage(message);
+      _setErrorMessage(ApiErrorHandler.userMessage(e));
     } finally {
       _setLoading(false);
     }

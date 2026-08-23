@@ -11,6 +11,7 @@ import '../widgets/ry_image_picker.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class CreateQuotationPage extends StatefulWidget {
@@ -223,7 +224,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al procesar la cotización: $e'),
+            content: Text(
+              'Error al procesar la cotización: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),

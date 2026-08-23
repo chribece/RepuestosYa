@@ -7,6 +7,7 @@ import 'warehouse_dashboard.dart';
 import 'complete_profile_page.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../providers/user_role_provider.dart';
 import '../widgets/ry_button.dart';
@@ -28,14 +29,34 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isLoading = false;
+  // Mensaje de error de inicio de sesión mostrado dentro del formulario,
+  // debajo del campo contraseña. Se limpia automáticamente cuando el usuario
+  // edita correo o contraseña.
+  String? _loginError;
   final AuthService _authService = AuthService();
   final AlmacenService _almacenService = AlmacenService();
 
   @override
+  void initState() {
+    super.initState();
+    // Limpiar el error de login en cuanto el usuario toque cualquier campo.
+    _emailController.addListener(_clearLoginError);
+    _passwordController.addListener(_clearLoginError);
+  }
+
+  @override
   void dispose() {
+    _emailController.removeListener(_clearLoginError);
+    _passwordController.removeListener(_clearLoginError);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _clearLoginError() {
+    if (_loginError != null) {
+      setState(() => _loginError = null);
+    }
   }
 
   void _handleLogin() async {
@@ -110,7 +131,10 @@ class _LoginPageState extends State<LoginPage> {
             );
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('No se pudo verificar tu perfil de almacén: $e'),
+                content: Text(
+                  'No se pudo verificar tu perfil de almacén: '
+                  '${ApiErrorHandler.userMessage(e)}',
+                ),
                 backgroundColor: AppColors.error,
                 duration: const Duration(seconds: 4),
               ),
@@ -126,18 +150,21 @@ class _LoginPageState extends State<LoginPage> {
       } catch (e) {
         if (!mounted) return;
 
+        // Traducir el error con contexto de Login: un 401 aquí significa
+        // credenciales inválidas, no sesión expirada.
+        final friendly = ApiErrorHandler.userMessage(
+          e,
+          context: ApiErrorContext.auth,
+        );
+        AppLogger.error(
+          'Error en inicio de sesión',
+          name: 'LoginPage',
+          error: e,
+        );
         setState(() {
           _isLoading = false;
+          _loginError = friendly;
         });
-
-        // Mostrar mensaje de error
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 3),
-          ),
-        );
       }
     }
   }
@@ -224,10 +251,46 @@ class _LoginPageState extends State<LoginPage> {
             _buildEmailField(),
             const SizedBox(height: AppSpacing.spacingMd),
             _buildPasswordField(),
+            if (_loginError != null) ...[
+              const SizedBox(height: AppSpacing.spacingSm),
+              _buildLoginError(),
+            ],
             const SizedBox(height: AppSpacing.spacingMd),
             _buildRememberMe(),
             const SizedBox(height: AppSpacing.spacingLg),
             _buildActionButtons(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Mensaje de error de inicio de sesión, dentro del formulario y debajo del
+  /// campo contraseña. Usa `Semantics(liveRegion: true)` para que los lectores
+  /// de pantalla anuncien el error automáticamente cuando aparece.
+  Widget _buildLoginError() {
+    return Semantics(
+      liveRegion: true,
+      label: 'Error de inicio de sesión: $_loginError',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 18,
+              color: SemanticColors.colorErrorText,
+            ),
+            const SizedBox(width: AppSpacing.spacingXs),
+            Expanded(
+              child: Text(
+                _loginError!,
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: SemanticColors.colorErrorText,
+                ),
+              ),
+            ),
           ],
         ),
       ),

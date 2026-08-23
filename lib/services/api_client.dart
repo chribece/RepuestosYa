@@ -1,11 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
   static const String _tokenKey = 'auth_token';
+
+  /// Duración máxima de cada request HTTP antes de declarar timeout.
+  /// Centralizado para que todos los verbos compartan el mismo umbral.
+  static const Duration _requestTimeout = Duration(seconds: 10);
 
   String? _token;
 
@@ -58,27 +64,38 @@ class ApiClient {
     return headers;
   }
 
-  // Manejo de errores
-  Exception _handleError(http.Response response) {
-    String message = 'Error desconocido';
+  /// Traduce una respuesta HTTP fallida a una [ApiException] con mensaje
+  /// amigable. Conserva el log técnico a través de [ApiErrorHandler] y
+  /// preserva el `statusCode` en la excepción para que la lógica de negocio
+  /// (p. ej. distinguir un 404 de "perfil no existe" de un 404 de "recurso
+  /// no encontrado") pueda seguir tomándolo mediante `e.statusCode`.
+  ApiException _handleError(http.Response response) =>
+      ApiErrorHandler.fromResponse(response);
 
-    AppLogger.warning(
-      'Error: Status ${response.statusCode} - Body ${response.body}',
-      name: 'ApiClient',
-    );
-
+  /// Ejecuta [request] aplicando timeout, normalización de respuestas 2xx y
+  /// traducción centralizada de errores HTTP / de red a [ApiException].
+  ///
+  /// [onSuccess] decodifica el body de la respuesta 2xx al tipo esperado
+  /// (`Map<String, dynamic>` o `List<Map<String, dynamic>>`).
+  Future<T> _execute<T>(
+    Future<http.Response> Function() request,
+    T Function(http.Response response) onSuccess,
+  ) async {
     try {
-      final body = json.decode(response.body);
-      if (body is Map && body.containsKey('error')) {
-        message = body['error'] as String;
-      } else if (body is Map && body.containsKey('message')) {
-        message = body['message'] as String;
+      final response = await request().timeout(_requestTimeout);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return onSuccess(response);
       }
+      throw _handleError(response);
+    } on ApiException {
+      // Ya traducida: se propaga sin doble envoltura.
+      rethrow;
+    } on TimeoutException {
+      throw ApiErrorHandler.timeoutException();
     } catch (e) {
-      message = 'Error ${response.statusCode}: ${response.reasonPhrase}';
+      // SocketException, ClientException, errores de parseo, etc.
+      throw ApiErrorHandler.fromException(e);
     }
-
-    return Exception(message);
   }
 
   // GET request
@@ -91,23 +108,13 @@ class ApiClient {
       '$baseUrl$endpoint',
     ).replace(queryParameters: queryParams);
 
-    final response = await http
-        .get(uri, headers: _getHeaders(requireAuth: requireAuth))
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw Exception('La conexión está lenta. Intenta nuevamente.');
-          },
-        );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return {};
-      }
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw _handleError(response);
-    }
+    return _execute(
+      () => http.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      (response) {
+        if (response.body.isEmpty) return {};
+        return json.decode(response.body) as Map<String, dynamic>;
+      },
+    );
   }
 
   // GET request para listas
@@ -120,27 +127,17 @@ class ApiClient {
       '$baseUrl$endpoint',
     ).replace(queryParameters: queryParams);
 
-    final response = await http
-        .get(uri, headers: _getHeaders(requireAuth: requireAuth))
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw Exception('La conexión está lenta. Intenta nuevamente.');
-          },
-        );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return [];
-      }
-      final data = json.decode(response.body);
-      if (data is List) {
-        return List<Map<String, dynamic>>.from(data);
-      }
-      return [data as Map<String, dynamic>];
-    } else {
-      throw _handleError(response);
-    }
+    return _execute(
+      () => http.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      (response) {
+        if (response.body.isEmpty) return [];
+        final data = json.decode(response.body);
+        if (data is List) {
+          return List<Map<String, dynamic>>.from(data);
+        }
+        return [data as Map<String, dynamic>];
+      },
+    );
   }
 
   // POST request
@@ -151,27 +148,17 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$endpoint');
 
-    final response = await http
-        .post(
-          uri,
-          headers: _getHeaders(requireAuth: requireAuth),
-          body: body != null ? json.encode(body) : null,
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw Exception('La conexión está lenta. Intenta nuevamente.');
-          },
-        );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return {};
-      }
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw _handleError(response);
-    }
+    return _execute(
+      () => http.post(
+        uri,
+        headers: _getHeaders(requireAuth: requireAuth),
+        body: body != null ? json.encode(body) : null,
+      ),
+      (response) {
+        if (response.body.isEmpty) return {};
+        return json.decode(response.body) as Map<String, dynamic>;
+      },
+    );
   }
 
   // PUT request
@@ -182,44 +169,26 @@ class ApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$endpoint');
 
-    final response = await http
-        .put(
-          uri,
-          headers: _getHeaders(requireAuth: requireAuth),
-          body: body != null ? json.encode(body) : null,
-        )
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw Exception('La conexión está lenta. Intenta nuevamente.');
-          },
-        );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return {};
-      }
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw _handleError(response);
-    }
+    return _execute(
+      () => http.put(
+        uri,
+        headers: _getHeaders(requireAuth: requireAuth),
+        body: body != null ? json.encode(body) : null,
+      ),
+      (response) {
+        if (response.body.isEmpty) return {};
+        return json.decode(response.body) as Map<String, dynamic>;
+      },
+    );
   }
 
   // DELETE request
   Future<void> delete(String endpoint, {bool requireAuth = true}) async {
     final uri = Uri.parse('$baseUrl$endpoint');
 
-    final response = await http
-        .delete(uri, headers: _getHeaders(requireAuth: requireAuth))
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw Exception('La conexión está lenta. Intenta nuevamente.');
-          },
-        );
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw _handleError(response);
-    }
+    await _execute(
+      () => http.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      (_) => null,
+    );
   }
 }

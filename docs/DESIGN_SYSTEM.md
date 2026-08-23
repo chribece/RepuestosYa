@@ -1346,9 +1346,96 @@ código a los tokens y componentes del design system (actualización 2026-08-21)
 - **Antes:** 32 issues (1 error de compilación, 3 warnings, 28 infos).
 - **Después:** 0 issues — `No issues found!`.
 
+### 9.9 Traducción de códigos de estado API
+
+El cliente HTTP central (`lib/services/api_client.dart`) canaliza todas sus
+respuestas fallidas a través de `lib/utils/api_error_handler.dart`, un mapper
+único que traduce códigos HTTP y errores de red a mensajes comprensibles en
+español. La excepción transportada es `ApiException`, que expone:
+
+- `message` — texto amigable listo para mostrar en `SnackBar` /
+  `RyStateContainer` (su `toString()` devuelve solo este campo, sin prefijos
+  técnicos).
+- `statusCode` — código HTTP preservado para que la lógica de negocio (p. ej.
+  distinguir un 404 de "perfil de almacén incompleto" de un 404 de "recurso
+  no encontrado") pueda seguir tomándolo.
+- `technicalMessage` — mensaje crudo del backend o de la excepción de red, que
+  se persiste en `AppLogger.warning` para depuración pero jamás se muestra en
+  la UI.
+
+Las pantallas y providers consumen el mapper mediante
+`ApiErrorHandler.userMessage(e)`, que devuelve directamente el `message` si la
+excepción ya es una `ApiException`, o limpia los prefijos `Exception: ` /
+tipados (`BadRequestException: `, `SocketException: `, etc.) y cae en el
+mensaje por defecto si el texto resultante sigue siendo técnico o vacío.
+
+| Código / caso | Significado técnico | Mensaje al usuario | Pantallas donde aplica |
+|---------------|---------------------|--------------------|------------------------|
+| 400 | Bad Request — el backend rechaza el payload por validación semántica | "Revisa los datos ingresados e intenta nuevamente." | `login_page`, `registration_page`, `create_request_page`, `create_quotation_page`, `received_quotations_page`, `perfil_almacen_page`, `complete_profile_page`, `vehicles_page`, `addresses_page`, `warehouse_dashboard`, `almacen_orden_detalle_page` |
+| 401 | Unauthorized — JWT ausente, inválido o expirado | "Tu sesión expiró. Inicia sesión nuevamente." | Todas las que requieren `requireAuth: true` (servicios de almacén, solicitudes, cotizaciones, órdenes, vehículos, direcciones, perfil) |
+| 403 | Forbidden — el rol del usuario no tiene permiso sobre el recurso | "No tienes permisos para realizar esta acción." | `received_quotations_page` (aceptar/rechazar cotización ajena), `almacen_orden_detalle_page` (actualizar estado de orden ajena), `perfil_almacen_page` (editar almacén ajeno) |
+| 404 | Not Found — recurso inexistente o, en `GET /warehouse/my-warehouse`, perfil de almacén incompleto | "No encontramos la información solicitada." (para 404 de error). El 404 de negocio de `hasWarehouseProfile()` se interpreta como `false` y redirige a `CompleteProfilePage`, sin mostrar error. | `warehouse_dashboard`, `login_page`, `perfil_almacen_page`, `almacen_orden_detalle_page`, `received_quotations_page` |
+| 409 | Conflict — violación de unicidad (email duplicado, placa repetida, etc.) | "Ya existe un registro con esos datos." | `registration_page`, `register_cliente_page`, `register_almacen_page`, `vehicles_page`, `addresses_page` |
+| 422 | Unprocessable Entity — el payload pasa validación semántica pero falla de formato (email mal formado, UUID inválido) | "Algunos datos no cumplen con el formato requerido." | `create_request_page`, `create_quotation_page`, `complete_profile_page`, `vehicles_page`, `addresses_page`, `perfil_almacen_page` |
+| 500 | Internal Server Error — excepción no controlada en el backend | "Ocurrió un problema en el servidor. Intenta más tarde." | Todas las pantallas que consumen API |
+| timeout | `TimeoutException` tras 10 s sin respuesta | "La conexión está tardando demasiado. Revisa tu internet e intenta nuevamente." | Todas (centralizado en `ApiClient._execute`) |
+| sin conexión | `SocketException` / `http.ClientException` / DNS / connection refused | "No pudimos conectarnos. Revisa tu conexión a internet." | Todas (centralizado en `ApiClient._execute` y `ApiErrorHandler.fromException`) |
+| default | Cualquier otro código o excepción no clasificada | "No pudimos completar la operación. Intenta nuevamente." | Todas |
+
+**Caso especial preservado:** `AlmacenService.hasWarehouseProfile()`
+intercepta manualmente el `GET /warehouse/my-warehouse` y traduce el 404 a una
+señal de negocio `false` (perfil de almacén incompleto → redirección a
+`CompleteProfilePage`), mientras que cualquier otro status code se propaga
+como `ApiException` amigable con `statusCode` intacto. Esto evita que un error
+de red o un 500 se confunda con "aún no completaste tu perfil comercial".
+
+### 9.10 Registro del uso de herramientas de inteligencia artificial
+
+| Herramienta IA | Consulta / tarea realizada | Resultado utilizado | Modificación aplicada | Verificación técnica |
+|-----------------|----------------------------|---------------------|------------------------|----------------------|
+| Asistente IA del IDE | Análisis de endpoints del backend e inventario de pantallas Flutter que consumen API | Lista de servicios (`AuthService`, `AlmacenService`, `SolicitudService`, `CotizacionService`, `OrdenCompraService`, `VehiculoService`, `DireccionService`, `MarcaService`, `ModeloService`, `ProfileService`) y mapeo de pantallas afectadas | Creación de `lib/utils/api_error_handler.dart` y refactor de `api_client.dart` | `flutter analyze` — 0 issues |
+| Asistente IA del IDE | Propuesta de tokens de diseño y componentes reutilizables (`RyButton`, `RyPartCard`, `RyTextField`, `RyStatusBadge`, `RyStateContainer`, `RyImagePicker`, `RySectionCard`) | Catálogo documentado en §4 y aplicado en pantallas | Sustitución de estilos inline por tokens y componentes | `dart format --set-exit-if-changed` — sin cambios |
+| Asistente IA del IDE | Auditoría de contraste WCAG 2.2 AA sobre pares foreground/background de tokens semánticos | Tabla §8.2 con ratios de contraste corregidos | Ajuste de tokens de color (`AppColors`) para cumplir ≥ 4.5:1 (texto) y ≥ 3:1 (UI) | Inspección de código y verificación manual de ratios |
+| Asistente IA del IDE | Corrección de área táctil mínima 48×48 dp y etiquetas `Semantics` en componentes interactivos | Identificación de `IconButton`/`InkWell` con área < 48 dp y de `TextField` sin `Semantics` | Añadido `SizedBox`/`constraints` para cumplir 48×48 y `Semantics(label:)` / `Semantics(textField:)` | `flutter analyze` — 0 issues; inspección de código |
+| Asistente IA del IDE | Revisión de pantalla de cotizaciones (`received_quotations_page.dart`) — ordenamiento por precio, tabs, aceptar/rechazar | Confirmación de ordenamiento "Más baratas" con empates, manejo de estados vacío/error/loading | Sin cambios funcionales; documentación del comportamiento | Pruebas manuales en emulador |
+| Asistente IA del IDE | Auditoría de cumplimiento de criterios de accesibilidad y arquitectura (desacoplamiento, composición, interfaces obligatorias/default) | Matriz de cumplimiento y lista de hallazgos por criterio | Migración a `RadioGroup`, guards `if (!mounted)`, eliminación de `withOpacity`, logger centralizado | `flutter analyze` — 0 issues |
+| ChatGPT / Runable | Generación y refinamiento de prompts para el asistente del IDE, estructuración del informe final y revisión de resultados de cada criterio | Prompts optimizados por criterio y plantilla de matriz de cumplimiento | Estructura de secciones de este documento y redacción de tablas | Revisión de logs backend y de la documentación generada |
+
+### 9.11 Matriz final de cumplimiento
+
+| # | Criterio | Estado | Evidencia |
+|---|----------|--------|-----------|
+| 1 | Inventario de pantallas y flujos (cliente/almén/admin) | ✅ Cumplido | §1 — `docs/DESIGN_SYSTEM.md` |
+| 2 | Tokens de tipografía (`AppTextStyles`) | ✅ Cumplido | §2 — `lib/theme/app_text_styles.dart` |
+| 3 | Tokens de color, espaciado y radio (`AppColors`, `AppSpacing`, `AppRadius`) | ✅ Cumplido | §3 — `lib/theme/` |
+| 4 | Componentes reutilizables (`RyButton`, `RyPartCard`, `RyTextField`, `RyStatusBadge`, `RyStateContainer`, `RyImagePicker`, `RySectionCard`) | ✅ Cumplido | §4 — `lib/widgets/` |
+| 5 | Patrones visuales repetidos en el inventario | ✅ Cumplido | §4bis |
+| 6 | Desacoplamiento de componentes | ✅ Cumplido | §4ter |
+| 7 | Implementación por composición | ✅ Cumplido | §4quater |
+| 8 | Interfaces públicas — parámetros obligatorios y valores por defecto | ✅ Cumplido | §4quinquies |
+| 9 | Pantalla ensamblada con componentes del catálogo | ✅ Cumplido | §4sexies |
+| 10 | Recorrido con lector de pantalla | ⚠️ Pendiente manual | §4septies — `Semantics` añadidos, pero falta verificación real con TalkBack/VoiceOver en dispositivo |
+| 11 | Rutas API principales y pantallas detectadas | ✅ Cumplido | §5 |
+| 12 | Próximos pasos | ✅ Cumplido | §6 |
+| 13 | Convenciones de código (nomenclatura, estructura de archivos) | ✅ Cumplido | §7 |
+| 14 | Verificación de calidad y accesibilidad (tema claro, contraste WCAG, área táctil, `Semantics`, foco visible, `textScaleFactor`) | ✅ Cumplido | §8 |
+| 15 | Decisiones de implementación (tokens adicionales, logger, `withOpacity`→`withValues`, estilos inline, `RyPartCard`, `RadioGroup`, `BuildContext` tras async, `flutter analyze`) | ✅ Cumplido | §9.1–9.8 |
+| 16 | Traducción de códigos de estado API a mensajes comprensibles | ✅ Cumplido | §9.9 — `lib/utils/api_error_handler.dart` + `api_client.dart` + integración en pantallas y providers |
+| 17 | Registro del uso de herramientas de IA | ✅ Cumplido | §9.10 |
+| 18 | `dart format` sin cambios pendientes | ✅ Cumplido | `dart format --set-exit-if-changed lib/` — exit 0 |
+| 19 | `flutter analyze` sin issues | ✅ Cumplido | `flutter analyze` — `No issues found! (ran in 27.2s)` |
+
+**Pendientes manuales:**
+
+- **Criterio 10 — Lector de pantalla:** las etiquetas `Semantics` están
+  implementadas en todos los componentes y pantallas críticas, pero la
+  verificación real con TalkBack (Android) / VoiceOver (iOS) en un
+  dispositivo físico o emulador con servicio de accesibilidad activo no se
+  ejecutó en esta iteración. Se marca como ⚠️ Pendiente manual.
+
 ---
 
 **Documento generado el: 2026-08-19**
-**Última actualización: 2026-08-22 — patrones visuales, interfaces con obligatorio/default, WCAG 2.2 AA, desacoplamiento, composición, RySectionCard, pantalla ensamblada, lector de pantalla**
-**Versión: 1.3.0**
+**Última actualización: 2026-08-23 — traducción de códigos de estado API, registro de uso de IA, matriz final de cumplimiento**
+**Versión: 1.4.0**
 **Basado en análisis de código existente - RepuestosYa App Móvil**

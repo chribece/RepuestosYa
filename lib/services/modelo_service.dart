@@ -1,3 +1,4 @@
+import '../utils/api_error_handler.dart';
 import 'api_client.dart';
 
 class ModeloService {
@@ -14,8 +15,13 @@ class ModeloService {
         return List<Map<String, dynamic>>.from(response['datos']);
       }
       return [];
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener modelos: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'getModelosPorMarca: $e',
+      );
     }
   }
 }

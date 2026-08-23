@@ -1,3 +1,4 @@
+import '../utils/api_error_handler.dart';
 import 'api_client.dart';
 
 class VehiculoService {
@@ -8,8 +9,13 @@ class VehiculoService {
     try {
       final response = await _apiClient.getList('/vehicles');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener vehículos: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'getVehiculos: $e',
+      );
     }
   }
 
@@ -31,8 +37,13 @@ class VehiculoService {
       final response = await _apiClient.post('/vehicles', body: data);
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al crear vehículo: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'createVehiculo: $e',
+      );
     }
   }
 
@@ -57,8 +68,13 @@ class VehiculoService {
       final response = await _apiClient.put('/vehicles/$id', body: data);
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al actualizar vehículo: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'updateVehiculo: $e',
+      );
     }
   }
 
@@ -66,8 +82,13 @@ class VehiculoService {
   Future<void> deleteVehiculo(String id) async {
     try {
       await _apiClient.delete('/vehicles/$id');
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al eliminar vehículo: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'deleteVehiculo: $e',
+      );
     }
   }
 }

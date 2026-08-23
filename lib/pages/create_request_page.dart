@@ -13,6 +13,7 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class CreateRequestPage extends StatefulWidget {
@@ -119,7 +120,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar direcciones: $e'),
+            content: Text(
+              'Error al cargar direcciones: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -150,16 +154,23 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle, color: AppColors.primaryContainer),
+            const Icon(Icons.check_circle, color: SemanticColors.colorSuccess),
             const SizedBox(width: AppSpacing.spacingSm),
-            Text(message, style: AppTextStyles.textStyleBody),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
           ],
         ),
         backgroundColor: AppColors.surfaceContainerHigh,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-          side: const BorderSide(color: AppColors.primaryContainer),
+          side: const BorderSide(color: SemanticColors.colorSuccess),
         ),
         duration: const Duration(seconds: 3),
       ),
@@ -609,7 +620,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al enviar solicitud: $e'),
+            content: Text(
+              'Error al enviar solicitud: ${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -911,6 +924,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   _locationController.text,
                   style: AppTextStyles.textStyleCaption.copyWith(
                     fontWeight: FontWeight.w500,
+                    color: AppColors.onSurface,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

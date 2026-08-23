@@ -14,6 +14,7 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class HomePage extends StatefulWidget {
@@ -289,7 +290,10 @@ class _HomePageState extends State<HomePage> {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Error al cerrar sesión: $e'),
+                      content: Text(
+                        'Error al cerrar sesión: '
+                        '${ApiErrorHandler.userMessage(e)}',
+                      ),
                       backgroundColor: AppColors.error,
                     ),
                   );

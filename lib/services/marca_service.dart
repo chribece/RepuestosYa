@@ -1,3 +1,4 @@
+import '../utils/api_error_handler.dart';
 import 'api_client.dart';
 
 class MarcaService {
@@ -11,8 +12,13 @@ class MarcaService {
         return List<Map<String, dynamic>>.from(response['datos']);
       }
       return [];
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener marcas: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'getMarcas: $e',
+      );
     }
   }
 }

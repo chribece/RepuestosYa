@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
+import '../utils/api_error_handler.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
@@ -40,7 +41,10 @@ class _AddressesPageState extends State<AddressesPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar direcciones: $e'),
+            content: Text(
+              'Error al cargar direcciones: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -78,7 +82,10 @@ class _AddressesPageState extends State<AddressesPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al eliminar dirección: $e'),
+            content: Text(
+              'Error al eliminar dirección: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -333,7 +340,10 @@ class _AddressDialogState extends State<AddressDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al guardar la dirección: $e'),
+            content: Text(
+              'Error al guardar la dirección: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );

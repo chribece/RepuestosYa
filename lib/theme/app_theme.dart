@@ -137,11 +137,11 @@ ThemeData get darkTheme {
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        borderSide: const BorderSide(color: AppColors.error),
+        borderSide: const BorderSide(color: SemanticColors.colorErrorText),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        borderSide: const BorderSide(color: AppColors.error, width: 2),
+        borderSide: BorderSide(color: SemanticColors.colorErrorText, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.spacingMd,
@@ -153,7 +153,9 @@ ThemeData get darkTheme {
       hintStyle: AppTextStyles.textStyleCaption.copyWith(
         color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
       ),
-      errorStyle: AppTextStyles.textStyleSmall.copyWith(color: AppColors.error),
+      errorStyle: AppTextStyles.textStyleSmall.copyWith(
+        color: SemanticColors.colorErrorText,
+      ),
     ),
 
     // Icon theme

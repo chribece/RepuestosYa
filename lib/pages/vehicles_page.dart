@@ -8,6 +8,7 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class VehiclesPage extends StatefulWidget {
@@ -106,7 +107,10 @@ class _VehiclesPageState extends State<VehiclesPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error al eliminar vehículo: $e'),
+              content: Text(
+                'Error al eliminar vehículo: '
+                '${ApiErrorHandler.userMessage(e)}',
+              ),
               backgroundColor: AppColors.error,
             ),
           );
@@ -358,7 +362,10 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar marcas: $e'),
+            content: Text(
+              'Error al cargar marcas: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -391,7 +398,10 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar modelos: $e'),
+            content: Text(
+              'Error al cargar modelos: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -461,7 +471,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: $e'),
+              content: Text(ApiErrorHandler.userMessage(e)),
               backgroundColor: AppColors.error,
             ),
           );

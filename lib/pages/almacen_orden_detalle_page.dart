@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
+import '../utils/api_error_handler.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_state_container.dart';
@@ -46,7 +47,9 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al cargar la orden: $e'),
+            content: Text(
+              'Error al cargar la orden: ${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -73,7 +76,10 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         setState(() => _isUpdating = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al actualizar el estado: $e'),
+            content: Text(
+              'Error al actualizar el estado: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );

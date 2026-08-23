@@ -17,6 +17,7 @@ import '../widgets/ry_status_badge.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 
 class WarehouseDashboard extends StatefulWidget {
@@ -98,7 +99,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       if (!mounted) return;
       setState(() {
         _profileCheck = _ProfileCheckState.error;
-        _profileCheckError = e.toString();
+        _profileCheckError = ApiErrorHandler.userMessage(e);
       });
     }
   }
@@ -178,7 +179,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar solicitudes: $e')),
+          SnackBar(
+            content: Text(
+              'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
+            ),
+          ),
         );
       }
     }

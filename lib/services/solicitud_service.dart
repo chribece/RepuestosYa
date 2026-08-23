@@ -1,3 +1,4 @@
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import 'api_client.dart';
 
@@ -53,8 +54,13 @@ class SolicitudService {
         '/requests?page=$page&limit=$limit',
       );
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener solicitudes paginadas: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerSolicitudesPaginadas: $e',
+      );
     }
   }
 
@@ -68,9 +74,12 @@ class SolicitudService {
         page: 1,
         limit: 50,
       );
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception(
-        'Error en SolicitudService.obtenerSolicitudesCliente: $e',
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerSolicitudesCliente: $e',
       );
     }
   }
@@ -111,8 +120,13 @@ class SolicitudService {
       );
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al crear la solicitud: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'crearSolicitud: $e',
+      );
     }
   }
 
@@ -125,8 +139,13 @@ class SolicitudService {
     try {
       final response = await _apiClient.getList('/requests/active');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener solicitudes activas: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerSolicitudesActivas: $e',
+      );
     }
   }
 
@@ -135,8 +154,13 @@ class SolicitudService {
     try {
       final response = await _apiClient.getList('/quotations/my-quotations');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener mis cotizaciones: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerMisCotizaciones: $e',
+      );
     }
   }
 
@@ -178,8 +202,13 @@ class SolicitudService {
       );
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error en SolicitudService.crearCotizacion: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'crearCotizacion: $e',
+      );
     }
   }
 
@@ -192,8 +221,13 @@ class SolicitudService {
         '/quotations/request/$solicitudId',
       );
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener cotizaciones recibidas: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerCotizacionesRecibidas: $e',
+      );
     }
   }
 
@@ -213,13 +247,18 @@ class SolicitudService {
         name: 'SolicitudService',
       );
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
       AppLogger.error(
         'Error en aceptarCotizacion: $e',
         name: 'SolicitudService',
         error: e,
       );
-      throw Exception('Error al aceptar cotización: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'aceptarCotizacion: $e',
+      );
     }
   }
 
@@ -236,13 +275,18 @@ class SolicitudService {
       );
       AppLogger.debug('Respuesta exitosa: $response', name: 'SolicitudService');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
       AppLogger.error(
         'Error en rechazarCotizacion: $e',
         name: 'SolicitudService',
         error: e,
       );
-      throw Exception('Error al rechazar cotización: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'rechazarCotizacion: $e',
+      );
     }
   }
 
@@ -251,8 +295,13 @@ class SolicitudService {
     try {
       final response = await _apiClient.get('/requests/stats');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener estadísticas del cliente: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerEstadisticasCliente: $e',
+      );
     }
   }
 
@@ -266,8 +315,13 @@ class SolicitudService {
         '/orders?page=$page&limit=$limit',
       );
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener mis órdenes: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerMisOrdenes: $e',
+      );
     }
   }
 }

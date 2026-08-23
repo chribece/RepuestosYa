@@ -1,3 +1,4 @@
+import '../utils/api_error_handler.dart';
 import 'api_client.dart';
 
 class DireccionService {
@@ -8,8 +9,13 @@ class DireccionService {
     try {
       final response = await _apiClient.getList('/addresses');
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al obtener direcciones: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'getDirecciones: $e',
+      );
     }
   }
 
@@ -33,8 +39,13 @@ class DireccionService {
       final response = await _apiClient.post('/addresses', body: data);
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al crear dirección: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'createDireccion: $e',
+      );
     }
   }
 
@@ -67,8 +78,13 @@ class DireccionService {
       final response = await _apiClient.put('/addresses/$id', body: data);
 
       return response;
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al actualizar dirección: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'updateDireccion: $e',
+      );
     }
   }
 
@@ -76,8 +92,13 @@ class DireccionService {
   Future<void> deleteDireccion(String id) async {
     try {
       await _apiClient.delete('/addresses/$id');
+    } on ApiException {
+      rethrow;
     } catch (e) {
-      throw Exception('Error al eliminar dirección: $e');
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'deleteDireccion: $e',
+      );
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/cotizacion.dart';
 import '../services/cotizacion_service.dart';
+import '../utils/api_error_handler.dart';
 
 class CotizacionProvider extends ChangeNotifier {
   final CotizacionService _cotizacionService = CotizacionService();
@@ -62,19 +63,7 @@ class CotizacionProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      String message = 'Error al cargar cotizaciones';
-
-      if (e is BadRequestException) {
-        message = e.message;
-      } else if (e is ForbiddenException) {
-        message = e.message;
-      } else if (e is NotFoundException) {
-        message = e.message;
-      } else if (e is ServerException) {
-        message = e.message;
-      }
-
-      _setErrorMessage(message);
+      _setErrorMessage(ApiErrorHandler.userMessage(e));
     } finally {
       _setLoading(false);
     }
@@ -100,19 +89,7 @@ class CotizacionProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      String message = 'Error al aceptar cotización';
-
-      if (e is BadRequestException) {
-        message = e.message;
-      } else if (e is ForbiddenException) {
-        message = e.message;
-      } else if (e is NotFoundException) {
-        message = e.message;
-      } else if (e is ServerException) {
-        message = e.message;
-      }
-
-      _setErrorMessage(message);
+      _setErrorMessage(ApiErrorHandler.userMessage(e));
     } finally {
       _setCotizacionProcesando(cotizacionId, false);
     }
@@ -138,19 +115,7 @@ class CotizacionProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      String message = 'Error al rechazar cotización';
-
-      if (e is BadRequestException) {
-        message = e.message;
-      } else if (e is ForbiddenException) {
-        message = e.message;
-      } else if (e is NotFoundException) {
-        message = e.message;
-      } else if (e is ServerException) {
-        message = e.message;
-      }
-
-      _setErrorMessage(message);
+      _setErrorMessage(ApiErrorHandler.userMessage(e));
     } finally {
       _setCotizacionProcesando(cotizacionId, false);
     }

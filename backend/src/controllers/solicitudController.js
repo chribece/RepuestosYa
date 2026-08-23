@@ -21,7 +21,7 @@ const getMisSolicitudes = async (req, res) => {
 
     let query = supabase
       .from('solicitudes_repuesto')
-      .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))), cotizaciones(count)')
+      .select('*, categorias_repuestos(nombre), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))), cotizaciones(count)')
       .eq('cliente_id', req.user.id)
       .order('created_at', { ascending: false });
 
@@ -72,6 +72,7 @@ const getSolicitudesActivas = async (req, res) => {
         const { data, error } = await supabase
           .from('solicitudes_repuesto')
           .select(`*, profiles(nombre_completo, email),
+            categorias_repuestos(nombre),
             vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))),
             cotizaciones(count)`)
           .eq('estado', 'en_proceso')
@@ -116,15 +117,62 @@ const getSolicitudesActivas = async (req, res) => {
 // POST /requests
 const createSolicitud = async (req, res) => {
   try {
-    const { vehiculo_id, pieza_nombre, descripcion, foto_url, vin_busqueda, direccion_entrega_id, es_urgente } = req.body;
+    const { 
+      vehiculo_id, 
+      pieza_nombre, 
+      descripcion, 
+      foto_url, 
+      vin_busqueda, 
+      direccion_entrega_id, 
+      es_urgente,
+      categoria_id,
+      repuesto_id,
+      repuesto_nombre_snapshot,
+      descripcion_problema
+    } = req.body;
 
-    if (!pieza_nombre) {
-      return res.status(400).json({ error: 'pieza_nombre is required' });
+    if (!pieza_nombre && !repuesto_nombre_snapshot) {
+      return res.status(400).json({ error: 'pieza_nombre or repuesto_nombre_snapshot is required' });
+    }
+
+    // Si viene repuesto_id, validamos que exista y obtenemos su nombre si no viene snapshot
+    let finalPiezaNombre = pieza_nombre;
+    let finalSnapshot = repuesto_nombre_snapshot;
+
+    if (repuesto_id) {
+      const { data: repuesto, error: repuestoError } = await supabase
+        .from('repuestos_catalogo')
+        .select('nombre, categoria_id, activo')
+        .eq('id', repuesto_id)
+        .single();
+
+      if (repuestoError || !repuesto) {
+        return res.status(400).json({ error: 'Invalid repuesto_id' });
+      }
+
+      if (!repuesto.activo) {
+        return res.status(400).json({ error: 'Selected part is not active' });
+      }
+
+      // Validar que la categoría coincida si se envió
+      if (categoria_id && repuesto.categoria_id !== categoria_id) {
+        return res.status(400).json({ error: 'repuesto_id does not belong to the selected category' });
+      }
+
+      // Si no viene snapshot, usamos el nombre del catálogo
+      if (!finalSnapshot) {
+        finalSnapshot = repuesto.nombre;
+      }
+      
+      // Si no viene pieza_nombre (flujo nuevo), usamos el del catálogo para compatibilidad
+      if (!finalPiezaNombre) {
+        finalPiezaNombre = repuesto.nombre;
+      }
     }
 
     const data = {
       cliente_id: req.user.id,
-      pieza_nombre,
+      pieza_nombre: finalPiezaNombre,
       estado: 'en_proceso'
     };
 
@@ -134,6 +182,12 @@ const createSolicitud = async (req, res) => {
     if (vin_busqueda) data.vin_busqueda = vin_busqueda;
     if (direccion_entrega_id) data.direccion_entrega_id = direccion_entrega_id;
     if (es_urgente) data.es_urgente = es_urgente;
+    
+    // Nuevos campos
+    if (categoria_id) data.categoria_id = categoria_id;
+    if (repuesto_id) data.repuesto_id = repuesto_id;
+    if (finalSnapshot) data.repuesto_nombre_snapshot = finalSnapshot;
+    if (descripcion_problema) data.descripcion_problema = descripcion_problema;
 
     const { data: solicitud, error } = await supabase
       .from('solicitudes_repuesto')
@@ -163,6 +217,7 @@ const getSolicitudPorId = async (req, res) => {
     const { data: solicitud, error } = await supabase
       .from('solicitudes_repuesto')
       .select(`*, profiles(nombre_completo, email), 
+        categorias_repuestos(nombre),
         vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))`)
       .eq('id', id)
       .single();

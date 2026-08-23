@@ -183,7 +183,7 @@ class _WelcomePageState extends State<WelcomePage> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
           child: Text(
-            '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
+            '© 2026 VCore Tech S.A. Todos los derechos reservados.',
             style: AppTextStyles.textStyleSmall.copyWith(
               color: AppColors.onSurfaceVariant,
             ),

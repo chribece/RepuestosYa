@@ -174,6 +174,7 @@ const { auth, requireRole } = require('../middleware/auth');
 // Importación de controladores
 const authController = require('../controllers/authController');
 const vehiculoController = require('../controllers/vehiculoController');
+const catalogoController = require('../controllers/catalogoController');
 const solicitudController = require('../controllers/solicitudController');
 const cotizacionController = require('../controllers/cotizacionController');
 const adminController = require('../controllers/adminController');
@@ -185,6 +186,10 @@ router.post('/auth/login', authController.login);
 // Rutas protegidas (requieren autenticación)
 router.get('/vehicles', auth, vehiculoController.getVehiculos);
 router.post('/vehicles', auth, vehiculoController.createVehiculo);
+
+// Catálogo de repuestos
+router.get('/catalog/part-categories', auth, catalogoController.getCategorias);
+router.get('/catalog/parts', auth, catalogoController.getRepuestos);
 
 // Rutas por rol (requieren rol específico)
 router.get('/requests/active', auth, requireRole('almacen'), solicitudController.getSolicitudesActivas);

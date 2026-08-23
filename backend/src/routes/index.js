@@ -14,6 +14,7 @@ const modeloController = require('../controllers/modeloController');
 const almacenController = require('../controllers/almacenController');
 const ordenController = require('../controllers/ordenController');
 const adminController = require('../controllers/adminController');
+const catalogoController = require('../controllers/catalogoController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
@@ -36,6 +37,10 @@ router.get('/brands', marcaController.getMarcas);
 
 // Modelo routes (public - catálogo con filtro)
 router.get('/models', modeloController.getModelos);
+
+// Catálogo de repuestos (public/authenticated)
+router.get('/catalog/part-categories', catalogoController.getCategorias);
+router.get('/catalog/parts', catalogoController.getRepuestos);
 
 // Direccion routes (protected)
 router.get('/addresses', auth, direccionController.getDirecciones);

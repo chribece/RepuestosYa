@@ -209,10 +209,13 @@ class SemanticColors {
 }
 ```
 
-### 3.3 Verificación de Contraste WCAG AA
+### 3.3 Verificación de Contraste WCAG 2.2 AA
 
-> Ratios recalculados el 2026-08-22 con la fórmula WCAG 2.1 (luminancia
-> relativa + `(L1+0.05)/(L2+0.05)`). La versión anterior sobreestimaba
+> Ratios recalculados el 2026-08-22 con la fórmula WCAG 2.2 AA (luminancia
+> relativa + `(L1+0.05)/(L2+0.05)`). La fórmula de contraste por
+> luminancia relativa se mantiene igual entre WCAG 2.1 y 2.2; la
+> verificación de área táctil mínima (§2.5.8) y foco visible (§2.4.11)
+> se aborda en §8.4 y §8.5 respectivamente. La versión anterior sobreestimaba
 > varios pares; ver §8 para el detalle de la corrección y los tokens
 > ajustados.
 
@@ -597,9 +600,304 @@ enum RyImagePickerMode {
 }
 ```
 
+### 4.7 Tarjeta de Sección (`RySectionCard`)
+
+**Justificación:** Múltiples pantallas agrupan campos o información en
+bloques visuales con un encabezado consistente (icono + título + contenido
+delegado dentro de una tarjeta con `surfaceContainerHigh`). Este patrón
+aparece en Perfil Almacén, Perfil Cliente, Detalle Orden y Dashboard.
+Extraído del helper `_buildSectionCard` de `perfil_almacen_page.dart`.
+
+**Interfaz Pública:**
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `title` | `String` | Sí | — | Título de la sección |
+| `icon` | `IconData?` | No | `null` | Icono junto al título. Si es `null`, solo se muestra el título |
+| `children` | `List<Widget>` | Sí | — | Contenido de la sección (campos, texto, widgets) |
+| `iconColor` | `Color?` | No | `null` → `AppColors.primaryContainer` | Color del icono |
+
+**Semantics:** `Semantics(container: true, label: 'Sección: $title')`.
+
 ---
 
-## 5. Resumen de Rutas y Pantallas Detectadas
+## 4bis. Patrones visuales repetidos en el inventario de pantallas
+
+Los siguientes patrones visuales aparecen en tres o más pantallas y son
+cubiertos por componentes del catálogo o candidatos futuros.
+
+| Patrón visual | Pantallas donde aparece | Componente asociado | Justificación |
+|---------------|--------------------------|---------------------|---------------|
+| **Tarjeta contenedora** (surfaceContainerHigh + outlineVariant + radiusLg, encabezado con icono + título) | Perfil Almacén, Perfil Cliente, Detalle Orden, Dashboard | `RySectionCard` | Agrupa campos o información en bloques visuales con encabezado consistente |
+| **Botones de acción principal/secundaria** | Login, Registro Cliente, Registro Almacén, Crear Solicitud, Crear Cotización, Perfil Almacén, Cotizaciones Recibidas | `RyButton` | Unifica variantes (primary, secondary, outline, text, danger) y tamaños (small, medium, large) |
+| **Campos de formulario** (label + icono + validación + helper/error) | Login, Registro Cliente, Registro Almacén, Completar Perfil, Crear Solicitud, Crear Cotización, Perfil Almacén, Perfil Cliente | `RyTextField` | Unifica tipo de input, validación, estados readOnly/error, formatters por tipo (email, phone, decimal, etc.) |
+| **Badges de estado** (color + label según estado de solicitud/cotización/orden) | Home Cliente, Todas Solicitudes, Cotizaciones Recibidas, Dashboard Almacén, Perfil Almacén, Detalle Orden | `RyStatusBadge` | Garantiza consistencia de color y texto para estados (pendiente, en_proceso, completado, error, etc.) |
+| **Estados loading/empty/error** (icono + título + subtítulo + acción opcional) | Home Cliente, Todas Solicitudes, Cotizaciones Recibidas, Perfil Almacén, Dashboard Almacén, Mis Órdenes, Detalle Orden | `RyStateContainer` | Proporciona visualización consistente para 5 estados (empty, error, loading, success, network) |
+| **Selector de imagen** (cámara/galería + preview + quitar) | Crear Solicitud, Crear Cotización | `RyImagePicker` | Unifica selección entre cámara y galería con preview y eliminación |
+| **Navegación lateral (drawer)** | Home Cliente, Dashboard Almacén, Perfil Almacén | _Candidato futuro (`RyDrawer`)_ | Patrón repetido con las mismas opciones (inicio, secciones, cerrar sesión). Actualmente cada página construye su propio `Drawer` inline |
+| **Navegación inferior (bottom nav bar)** | Home Cliente, Dashboard Almacén | _Candidato futuro (`RyBottomNav`)_ | Barra con 4 items (icono + label), estado seleccionado. Actualmente construida inline en cada página |
+
+---
+
+## 4ter. Desacoplamiento de componentes
+
+Se verificó estáticamente en `lib/widgets/` que ningún componente del
+catálogo tiene dependencias con la capa de datos o navegación:
+
+| Verificación | Resultado |
+|-------------|:---------:|
+| Ningún componente importa `services/` | ✅ |
+| Ningún componente importa `pages/` | ✅ |
+| Ningún componente importa `api_client.dart` | ✅ |
+| Ningún componente usa `Navigator` o `MaterialPageRoute` | ✅ |
+| Ningún componente consulta backend | ✅ |
+| Ningún componente conoce rutas de navegación | ✅ |
+
+**Verificación estática: cumplida.**
+
+Los únicos imports externos en `lib/widgets/` son:
+- `package:flutter/material.dart` (framework)
+- `package:flutter/services.dart` (`RyTextField` — `TextInputFormatter`)
+- `package:cached_network_image/` (`RyPartCard`, `RyImagePicker`)
+- `package:image_picker/` (`RyImagePicker`)
+- `../theme/*` (tokens de diseño)
+- Imports entre widgets (`ry_status_badge` → `ry_part_card`, `ry_button` → `ry_part_card`)
+
+---
+
+## 4quater. Implementación por composición
+
+Cada componente se implementa mediante composición de widgets de Material
+consumiendo tokens desde el tema (`AppColors`, `AppTextStyles`,
+`AppSpacing`, `AppRadius`). Ningún componente usa `StatefulWidget` con
+lógica de negocio — todos son `StatelessWidget` (excepto `RyTextField`
+que es `StatefulWidget` para gestionar `TextEditingController` y
+`obscureText`).
+
+| Componente | Composición interna | Tokens consumidos | Elementos de reutilización |
+|------------|---------------------|-------------------|---------------------------|
+| `RyButton` | `Semantics` + `Material`/`InkWell` + `Container` + `Row` + `CircularProgressIndicator`/`Text`/`Icon` | `AppColors`, `AppRadius`, `AppSpacing`, `AppTextStyles` | — |
+| `RyPartCard` | `Semantics` + `Material`/`InkWell` + `Column`/`Row` + `CachedNetworkImage` + `RyStatusBadge` + `RyButton` | `AppColors`, `AppRadius`, `AppSpacing`, `AppTextStyles` | `RyStatusBadge`, `RyButton` |
+| `RyTextField` | `Semantics` + `TextFormField` + `InputDecoration` (tema) | `AppColors`, `AppSpacing`, `AppTextStyles` | — |
+| `RyStatusBadge` | `Semantics` + `Container` + `Text` | `AppColors`, `AppRadius`, `AppSpacing`, `AppTextStyles` | — |
+| `RyStateContainer` | `Column` + `Icon` + `Text` + `CircularProgressIndicator` + `ElevatedButton` | `AppColors`, `AppSpacing`, `AppTextStyles` | — |
+| `RyImagePicker` | `Semantics` + `GestureDetector` + `Container` + `Image.file`/`CachedNetworkImage` + `Material`/`InkWell` | `AppColors`, `AppRadius`, `AppSpacing`, `AppTextStyles` | — |
+| `RySectionCard` | `Semantics` + `Container` + `Column` + `Row` + `Icon` + `Text` | `AppColors`, `AppRadius`, `AppSpacing`, `AppTextStyles` | — |
+
+---
+
+## 4quinquies. Interfaces públicas — parámetros obligatorios y valores por defecto
+
+Las tablas siguientes documentan la interfaz pública exacta de cada
+componente, extraída del código real de los constructores.
+
+### RyButton
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `label` | `String` | Sí | — | Texto del botón |
+| `icon` | `IconData?` | No | `null` | Icono al inicio |
+| `trailingIcon` | `IconData?` | No | `null` | Icono al final |
+| `variant` | `RyButtonVariant` | No | `primary` | Variante visual |
+| `size` | `RyButtonSize` | No | `medium` | Tamaño (small=48dp, medium=48dp, large=56dp) |
+| `isLoading` | `bool` | No | `false` | Muestra spinner |
+| `isDisabled` | `bool` | No | `false` | Deshabilita el botón |
+| `isFullWidth` | `bool` | No | `false` | Ocupa todo el ancho |
+| `customChild` | `Widget?` | No | `null` | Contenido delegado (reemplaza label+iconos) |
+
+| Callback | Tipo | Obligatorio | Default | Descripción |
+|----------|------|:-----------:|:-------:|-------------|
+| `onPressed` | `VoidCallback?` | No | `null` | Acción al presionar |
+
+### RyPartCard
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `partName` | `String` | Sí | — | Nombre del repuesto |
+| `imageUrl` | `String?` | No | `null` | URL de la imagen |
+| `vehicleInfo` | `String?` | No | `null` | Info del vehículo |
+| `description` | `String?` | No | `null` | Descripción del repuesto |
+| `status` | `String` | Sí | — | Estado (mapea a color/label) |
+| `price` | `String?` | No | `null` | Precio formateado |
+| `location` | `String?` | No | `null` | Ubicación |
+| `createdAt` | `DateTime` | Sí | — | Fecha de creación |
+| `variant` | `RyPartCardVariant` | No | `client` | Variante (client, warehouse, compact) |
+| `showImage` | `bool` | No | `true` | Mostrar imagen |
+| `showPrice` | `bool` | No | `true` | Mostrar precio |
+| `showStatus` | `bool` | No | `true` | Mostrar badge de estado |
+| `isCompact` | `bool` | No | `false` | Forzar variante compact |
+
+| Callback | Tipo | Obligatorio | Default | Descripción |
+|----------|------|:-----------:|:-------:|-------------|
+| `onTap` | `VoidCallback?` | No | `null` | Tap en la tarjeta |
+| `onLongPress` | `VoidCallback?` | No | `null` | Long press |
+| `onStatusTap` | `VoidCallback?` | No | `null` | Tap en badge de estado |
+| `onQuoteTap` | `VoidCallback?` | No | `null` | Tap en botón "Cotizar" |
+
+| Slot delegado | Tipo | Obligatorio | Default | Descripción |
+|---------------|------|:-----------:|:-------:|-------------|
+| `customActions` | `Widget?` | No | `null` | Acciones personalizadas (reemplaza botón Cotizar) |
+| `customFooter` | `Widget?` | No | `null` | Contenido al pie de la tarjeta |
+
+### RyTextField
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `label` | `String?` | No | `null` | Etiqueta del campo |
+| `hint` | `String?` | No | `null` | Placeholder |
+| `initialValue` | `String?` | No | `null` | Valor inicial (si no hay controller) |
+| `controller` | `TextEditingController?` | No | `null` | Controller del campo |
+| `helperText` | `String?` | No | `null` | Texto de ayuda |
+| `errorText` | `String?` | No | `null` | Texto de error externo |
+| `type` | `RyTextFieldType` | No | `text` | Tipo (text, email, password, number, decimal, phone, url, multiline, search) |
+| `isRequired` | `bool` | No | `false` | Muestra asterisco rojo |
+| `isReadOnly` | `bool` | No | `false` | Solo lectura |
+| `isDense` | `bool` | No | `false` | Padding reducido |
+| `maxLines` | `int?` | No | `1` | Número de líneas |
+| `maxLength` | `int?` | No | `null` | Longitud máxima |
+| `keyboardType` | `TextInputType?` | No | `null` (deriva de `type`) | Tipo de teclado |
+| `inputFormatters` | `List<TextInputFormatter>?` | No | `null` (deriva de `type`) | Formatters |
+| `prefixIcon` | `IconData?` | No | `null` | Icono al inicio |
+| `suffixIcon` | `IconData?` | No | `null` | Icono al final |
+| `prefixWidget` | `Widget?` | No | `null` | Widget delegado al inicio |
+| `suffixWidget` | `Widget?` | No | `null` | Widget delegado al final |
+
+| Callback | Tipo | Obligatorio | Default | Descripción |
+|----------|------|:-----------:|:-------:|-------------|
+| `onSuffixIconTap` | `VoidCallback?` | No | `null` | Tap en icono sufijo |
+| `onChanged` | `ValueChanged<String>?` | No | `null` | Cambio de texto |
+| `onSubmitted` | `ValueChanged<String>?` | No | `null` | Submit del campo |
+| `onTap` | `VoidCallback?` | No | `null` | Tap en el campo |
+| `validator` | `FormFieldValidator<String>?` | No | `null` | Validador de formulario |
+
+### RyStatusBadge
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `status` | `String` | Sí | — | Estado (mapea a color/label: pendiente, en_proceso, completado, etc.) |
+| `customLabel` | `String?` | No | `null` | Etiqueta personalizada (sobreescribe la derivada de `status`) |
+| `style` | `RyStatusBadgeStyle` | No | `filled` | Estilo (filled, outlined, subtle) |
+| `size` | `RyStatusBadgeSize` | No | `medium` | Tamaño (small, medium, large) |
+| `customColor` | `Color?` | No | `null` | Color personalizado (sobreescribe el derivado de `status`) |
+
+### RyStateContainer
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `title` | `String` | Sí | — | Título del estado |
+| `subtitle` | `String?` | No | `null` | Subtítulo descriptivo |
+| `actionLabel` | `String?` | No | `null` | Texto del botón de acción |
+| `type` | `RyStateType` | Sí | — | Tipo (empty, error, loading, success, network) |
+| `customIcon` | `IconData?` | No | `null` | Icono personalizado (sobreescribe el derivado de `type`) |
+
+| Callback | Tipo | Obligatorio | Default | Descripción |
+|----------|------|:-----------:|:-------:|-------------|
+| `onAction` | `VoidCallback?` | No | `null` | Acción del botón (requiere `actionLabel`) |
+
+| Slot delegado | Tipo | Obligatorio | Default | Descripción |
+|---------------|------|:-----------:|:-------:|-------------|
+| `customContent` | `Widget?` | No | `null` | Contenido entre subtítulo y botón |
+
+### RyImagePicker
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `currentImageUrl` | `String?` | No | `null` | URL de imagen actual (preview remoto) |
+| `currentFile` | `File?` | No | `null` | Archivo local actual (preview local) |
+| `mode` | `RyImagePickerMode` | No | `single` | Modo (single, multiple — multiple futuro) |
+| `width` | `double?` | No | `null` → `200` | Ancho del selector |
+| `height` | `double?` | No | `null` → `200` | Alto del selector |
+| `fit` | `BoxFit` | No | `cover` | Ajuste de la imagen |
+| `allowCamera` | `bool` | No | `true` | Permitir cámara |
+| `allowGallery` | `bool` | No | `true` | Permitir galería |
+
+| Callback | Tipo | Obligatorio | Default | Descripción |
+|----------|------|:-----------:|:-------:|-------------|
+| `onImageSelected` | `ValueChanged<File?>?` | No | `null` | Imagen seleccionada |
+| `onImageUrlChanged` | `ValueChanged<String?>?` | No | `null` | URL cambiada |
+| `onRemove` | `VoidCallback?` | No | `null` | Quitar imagen |
+
+| Slot delegado | Tipo | Obligatorio | Default | Descripción |
+|---------------|------|:-----------:|:-------:|-------------|
+| `customPreview` | `Widget?` | No | `null` | Preview personalizado (reemplaza Image.file/CachedNetworkImage) |
+| `customPlaceholder` | `Widget?` | No | `null` | Placeholder personalizado |
+
+### RySectionCard
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `title` | `String` | Sí | — | Título de la sección |
+| `icon` | `IconData?` | No | `null` | Icono junto al título |
+| `children` | `List<Widget>` | Sí | — | Contenido de la sección |
+| `iconColor` | `Color?` | No | `null` → `primaryContainer` | Color del icono |
+
+---
+
+## 4sexies. Pantalla ensamblada con componentes del catálogo
+
+**Pantalla:** `perfil_almacen_page.dart` (Perfil de Almacén)
+
+Esta pantalla se ensambla utilizando exclusivamente componentes del
+catálogo (`RyButton`, `RyTextField`, `RyStatusBadge`, `RyStateContainer`,
+`RySectionCard`) y widgets estándar de Flutter/Material (`Scaffold`,
+`Drawer`, `AppBar`, `SafeArea`, `SingleChildScrollView`, `Form`,
+`Container`, `Row`, `Column`, `Text`, `Icon`, `SizedBox`, `Divider`,
+`ListTile`, `DrawerHeader`, `AlertDialog`, `TextButton`). Los helpers
+visuales locales (`_buildHeader`, `_buildTopAppBar`, `_buildDrawer`) usan
+widgets estándar de Flutter — no son componentes custom reutilizables.
+
+**Componentes del catálogo usados:**
+
+| Componente | Uso en la pantalla |
+|------------|-------------------|
+| `RySectionCard` | Sección "Información de Contacto" y sección "Ubicación" |
+| `RyTextField` | Campos: Nombre Comercial, Teléfono, Dirección, Latitud, Longitud |
+| `RyButton` | Botones: Guardar Cambios (primary), Cancelar (outline), Cerrar Sesión (danger) |
+| `RyStatusBadge` | Badges: Verificado/En verificación, Abierto/Cerrado |
+| `RyStateContainer` | Estados: loading, error, empty, saving |
+
+**Helpers locales restantes** (widgets estándar de Flutter, no candidatos
+a componente reutilizable por ahora):
+- `_buildHeader`: avatar + nombre + encargado + badges
+- `_buildTopAppBar`: appbar con menú + editar
+- `_buildDrawer`: drawer de navegación (candidato futuro `RyDrawer`)
+- `_buildActionsSection`: wrapper de botones Guardar/Cancelar
+- `_buildLogoutButton`: wrapper de `RyButton(danger)`
+- `_buildFooter`: texto de versión
+
+**Estado: cumplido.** La pantalla usa componentes del catálogo para todos
+los elementos interactivos y de contenido. Los helpers restantes son
+composiciones de widgets estándar de Flutter, no lógica de negocio.
+
+---
+
+## 4septies. Recorrido con lector de pantalla
+
+**Estado: pendiente de verificación manual en dispositivo.**
+
+No se ha ejecutado TalkBack (Android) ni VoiceOver (iOS) sobre ninguna
+pantalla del proyecto. Las etiquetas `Semantics` añadidas (§8.5) se
+verificaron por inspección del árbol de widgets, no por prueba con lector
+real.
+
+**Checklist para verificación manual:**
+
+- [ ] Leer encabezado de la pantalla (título de AppBar)
+- [ ] Leer acción principal (botón "Guardar Cambios" / "Editar")
+- [ ] Leer campos de formulario (label, hint, error, helper)
+- [ ] Leer botones sin texto visible (icono de menú, icono de cerrar)
+- [ ] Leer badges de estado (Verificado, Abierto, Pendiente)
+- [ ] Leer navegación inferior / drawer (items del menú)
+- [ ] Confirmar orden lógico de lectura (de arriba a abajo, izquierda a derecha)
+- [ ] Confirmar que las imágenes tienen label comprensible ("Imagen del repuesto X")
+- [ ] Confirmar que los estados de carga anuncian "Cargando" (pendiente: `RyStateContainer.loading` no anuncia texto)
+- [ ] Verificar navegación por swipe (orden de foco)
+- [ ] Verificar activación con doble tap (botones, tarjetas)
+
+**Resultado de la verificación manual:** _Pendiente — ejecutar en
+dispositivo físico o emulador con TalkBack/VoiceOver activado._
+
+---
 
 ### 5.1 Rutas API Principales (Backend)
 
@@ -746,7 +1044,7 @@ lib/
 > Sección añadida el 2026-08-22 tras una auditoría de accesibilidad
 > (contraste WCAG, área táctil 48 dp, Semantics, responsividad y reflujo
 > con `textScaleFactor`). Las relaciones de contraste se calcularon con la
-> fórmula WCAG 2.1 (luminancia relativa + `(L1+0.05)/(L2+0.05)`) mediante
+> fórmula WCAG 2.2 AA (luminancia relativa + `(L1+0.05)/(L2+0.05)`) mediante
 > un script Dart independiente; el resto de verificaciones se hizo por
 > inspección del árbol de widgets. Las correcciones se aplicaron por
 > bloques (color → touch target → Semantics → reflujo) y se documentan a
@@ -862,8 +1160,29 @@ visual del badge.
 | `RyImagePicker` botón "Quitar" | ✅ (nuevo) | `Semantics(button: true, label: 'Quitar imagen', enabled: onRemove != null)`. |
 | `RyStatusBadge` (standalone) | ✅ (nuevo) | `Semantics(label: 'Estado: $label', excludeSemantics: true)`. |
 | `RyStateContainer` acción | ✅ | Heredado del `ElevatedButton`. El indicador `loading` no anuncia "Cargando" (mejora futura). |
+| `RySectionCard` | ✅ (nuevo) | `Semantics(container: true, label: 'Sección: $title')`. |
 
-### 8.6 Responsividad — Home Cliente
+### 8.5bis Foco visible (WCAG 2.2 §2.4.11)
+
+WCAG 2.2 añade el criterio 2.4.11 "Foco no oscurecido" y el existente
+2.4.7 "Foco visible" (heredado de 2.1). Se verificó que los componentes
+interactivos principales tienen foco visible mediante el comportamiento
+estándar de Material 3 en Flutter:
+
+| Componente | Foco visible | Mecanismo |
+|------------|:------------:|-----------|
+| `RyButton` | ✅ | `Material`/`InkWell` expone ripple + estado highlighted al recibir foco. Flutter Material 3 gestiona `FocusHighlightType` automáticamente. |
+| `RyTextField` | ✅ | `TextFormField` hereda el `focusColor` y `focusedBorder` del `inputDecorationTheme` de `app_theme.dart` (border `primaryContainer` + `borderWidth: 2` en foco). |
+| `RyPartCard` | ✅ | `Material`/`InkWell` con `borderRadius` expone ripple al foco. |
+| `RyImagePicker` | ✅ | `GestureDetector` envuelto en `Semantics(button:)`. El `Container` reciene highlight por el `GestureDetector` tap. |
+| `RyStatusBadge` accionable | ✅ | `InkWell` con `borderRadius` en `_buildStatusAction()` expone ripple al foco. |
+| `RySectionCard` | N/A | No es interactivo (contenedor pasivo). |
+
+**Nota:** Flutter Material 3 gestiona el foco visible automáticamente
+vía `FocusManager` y `ThemeData.focusColor`. No se requiere código
+custom para mostrar el foco — el framework dibuja el indicador cuando
+un widget recibe foco por teclado o TalkBack. La verificación visual
+en dispositivo con teclado Bluetooth/USB queda como pendiente manual.
 
 Análisis manual sobre `lib/pages/home_page.dart` con `MediaQuery`
 simulado a 360 dp y 800 dp. El layout es 100% `Expanded`/`fill`/
@@ -1030,6 +1349,6 @@ código a los tokens y componentes del design system (actualización 2026-08-21)
 ---
 
 **Documento generado el: 2026-08-19**
-**Última actualización: 2026-08-22 — eliminación de `lightTheme` (§8.1 aplicada)**
-**Versión: 1.2.1**
+**Última actualización: 2026-08-22 — patrones visuales, interfaces con obligatorio/default, WCAG 2.2 AA, desacoplamiento, composición, RySectionCard, pantalla ensamblada, lector de pantalla**
+**Versión: 1.3.0**
 **Basado en análisis de código existente - RepuestosYa App Móvil**

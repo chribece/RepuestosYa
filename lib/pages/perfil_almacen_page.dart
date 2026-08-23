@@ -9,8 +9,8 @@ import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
+import '../widgets/ry_section_card.dart';
 import '../theme/app_spacing.dart';
-import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_logger.dart';
 
@@ -589,7 +589,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   // ========== SECCIÓN: INFORMACIÓN DE CONTACTO ==========
 
   Widget _buildContactSection() {
-    return _buildSectionCard(
+    return RySectionCard(
       title: 'Información de Contacto',
       icon: Icons.contact_phone_outlined,
       children: [
@@ -656,7 +656,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   // ========== SECCIÓN: UBICACIÓN ==========
 
   Widget _buildLocationSection() {
-    return _buildSectionCard(
+    return RySectionCard(
       title: 'Ubicación',
       icon: Icons.map_outlined,
       children: [
@@ -756,37 +756,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           color: AppColors.outlineVariant,
         ),
         textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  // ========== HELPER: SECTION CARD ==========
-
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.outlineVariant, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.primaryContainer, size: 20),
-              const SizedBox(width: AppSpacing.spacingSm),
-              Text(title, style: AppTextStyles.textStyleTitle),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingMd),
-          ...children,
-        ],
       ),
     );
   }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
-import 'orden_compra_page.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
@@ -10,6 +10,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class MisOrdenesPage extends StatefulWidget {
   const MisOrdenesPage({super.key});
@@ -170,7 +171,9 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
                 final precio =
                     cotizacion?['precio_venta']?.toString() ?? '0.00';
                 final piezaNombre =
-                    solicitud?['pieza_nombre'] as String? ?? 'Repuesto';
+                    solicitud?['repuesto_nombre_snapshot'] ??
+                    solicitud?['pieza_nombre'] as String? ??
+                    'Repuesto';
                 final almacenNombre =
                     almacen?['nombre_comercial'] as String? ?? 'Almacén';
 
@@ -269,12 +272,9 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
                 variant: RyButtonVariant.primary,
                 size: RyButtonSize.small,
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const OrdenCompraPage(),
-                      settings: RouteSettings(arguments: ordenId),
-                    ),
+                  context.pushNamed(
+                    RouteNames.ordenDetalle,
+                    pathParameters: {'id': ordenId},
                   );
                 },
               ),

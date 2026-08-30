@@ -37,6 +37,7 @@ class AuthService {
   // Constructor privado para singleton
   AuthService._privateConstructor() {
     _initAuth();
+    _apiClient.onUnauthorized = clearLocalSession;
   }
 
   static final AuthService _instance = AuthService._privateConstructor();
@@ -199,6 +200,14 @@ class AuthService {
       );
       // No fallar el login si Supabase falla - el login del backend es el principal
     }
+  }
+
+  // Limpiar sesión local (usado por ApiClient ante 401)
+  void clearLocalSession() {
+    _currentUser = null;
+    _apiClient.clearToken();
+    _authStateController.add(AuthState(user: null));
+    AppLogger.info('Sesión local limpiada', name: 'AuthService');
   }
 
   // Cerrar sesión

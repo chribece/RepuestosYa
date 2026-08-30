@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/ry_button.dart';
-import 'login_page.dart';
-import 'role_selection_page.dart';
+import '../router/route_names.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -107,10 +107,7 @@ class _WelcomePageState extends State<WelcomePage> {
           size: RyButtonSize.large,
           isFullWidth: true,
           onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const LoginPage()),
-            );
+            context.pushNamed(RouteNames.login);
           },
         ),
         const SizedBox(height: AppSpacing.spacingMd),
@@ -122,12 +119,7 @@ class _WelcomePageState extends State<WelcomePage> {
           isFullWidth: true,
           onPressed: () {
             // Navigate to role selection for registration
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const RoleSelectionPage(),
-              ),
-            );
+            context.pushNamed(RouteNames.roleSelection);
           },
         ),
       ],

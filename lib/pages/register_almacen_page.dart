@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
@@ -7,7 +8,7 @@ import '../utils/app_logger.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
-import 'complete_profile_page.dart';
+import '../router/route_names.dart';
 
 class RegisterAlmacenPage extends StatefulWidget {
   const RegisterAlmacenPage({super.key});
@@ -65,10 +66,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           ),
         );
         // Navegar a la página de completar perfil
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const CompleteProfilePage()),
-        );
+        context.goNamed(RouteNames.completeProfile);
       }
     } catch (e) {
       AppLogger.error(
@@ -103,7 +101,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             color: AppColors.primary,
             size: 28,
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: Text(
           'Registrar Almacén',

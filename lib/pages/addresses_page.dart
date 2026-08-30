@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
 import '../utils/api_error_handler.dart';
@@ -102,6 +103,10 @@ class _AddressesPageState extends State<AddressesPage> {
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.onSurface,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
       ),
       body: _isLoading
           ? const RyStateContainer(

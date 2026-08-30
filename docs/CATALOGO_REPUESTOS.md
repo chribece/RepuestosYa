@@ -80,3 +80,31 @@ El sistema incluye categorías y repuestos base para:
 
 ---
 *Implementado por Devin para RepuestosYa (Agosto 2026)*
+
+## Implementación en Flutter
+
+Se ha refactorizado el flujo de creación de solicitudes para utilizar el catálogo normalizado.
+
+### Componentes y Servicios
+- **`CatalogService`**: Gestiona las llamadas a los nuevos endpoints del catálogo.
+- **`RyDropdownField`**: Nuevo componente de UI genérico para selección de categorías y repuestos.
+- **Modelos**: `PartCategory` y `CatalogPart` mapean las respuestas del backend.
+
+### Flujo de Usuario (Crear Solicitud)
+1. El usuario selecciona una **Categoría** de una lista precargada.
+2. Se cargan los **Repuestos** asociados a esa categoría.
+3. El usuario selecciona el repuesto específico.
+4. El campo `pieza_nombre` (legacy) se llena automáticamente con el nombre oficial.
+5. El usuario puede añadir **Detalles adicionales** en un campo de texto libre (mapeado a `descripcion_problema`).
+
+### Visualización y Fallback Legacy
+Para asegurar que las solicitudes antiguas sigan siendo legibles, se ha implementado una lógica de fallback en el modelo `Solicitud` y en las pantallas de visualización (`Home`, `Mis Solicitudes`, `Dashboard Almacén`):
+
+- **Nombre del Repuesto**:
+  - Prioridad 1: `repuesto_nombre_snapshot`
+  - Prioridad 2: `pieza_nombre` (legacy)
+- **Descripción**:
+  - Prioridad 1: `descripcion_problema`
+  - Prioridad 2: `descripcion` (legacy)
+
+Esto garantiza una transición fluida mientras se normalizan los datos históricos.

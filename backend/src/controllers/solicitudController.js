@@ -1,6 +1,17 @@
 const supabase = require('../services/supabase');
 const { getOrSet, invalidatePattern } = require('../services/cache');
 
+// Helpers para normalización de errores de validación (422)
+const validationError = (field, message) => ({
+  message: 'Errores de validación',
+  errors: [{ field, message }]
+});
+
+const validationErrors = (errors) => ({
+  message: 'Errores de validación',
+  errors
+});
+
 /**
  * ESTRATEGIA DE CARGA DE DATOS
  * 
@@ -131,64 +142,95 @@ const createSolicitud = async (req, res) => {
       descripcion_problema
     } = req.body;
 
+    const errors = [];
+
+    // 1. Validaciones de presencia (Contrato legacy + normalizado)
     if (!pieza_nombre && !repuesto_nombre_snapshot) {
-      return res.status(400).json({ error: 'pieza_nombre or repuesto_nombre_snapshot is required' });
+      errors.push({
+        field: "repuesto_nombre_snapshot",
+        message: "Debes indicar el nombre del repuesto o seleccionar uno del catálogo."
+      });
     }
 
-    // Si viene repuesto_id, validamos que exista y obtenemos su nombre si no viene snapshot
-    let finalPiezaNombre = pieza_nombre;
-    let finalSnapshot = repuesto_nombre_snapshot;
-
-    if (repuesto_id) {
-      const { data: repuesto, error: repuestoError } = await supabase
-        .from('repuestos_catalogo')
-        .select('nombre, categoria_id, activo')
-        .eq('id', repuesto_id)
-        .single();
-
-      if (repuestoError || !repuesto) {
-        return res.status(400).json({ error: 'Invalid repuesto_id' });
-      }
-
-      if (!repuesto.activo) {
-        return res.status(400).json({ error: 'Selected part is not active' });
-      }
-
-      // Validar que la categoría coincida si se envió
-      if (categoria_id && repuesto.categoria_id !== categoria_id) {
-        return res.status(400).json({ error: 'repuesto_id does not belong to the selected category' });
-      }
-
-      // Si no viene snapshot, usamos el nombre del catálogo
-      if (!finalSnapshot) {
-        finalSnapshot = repuesto.nombre;
-      }
-      
-      // Si no viene pieza_nombre (flujo nuevo), usamos el del catálogo para compatibilidad
-      if (!finalPiezaNombre) {
-        finalPiezaNombre = repuesto.nombre;
-      }
+    if (!vehiculo_id) {
+      errors.push({
+        field: "vehiculo_id",
+        message: "El vehículo seleccionado no es válido. Selecciona un vehículo de tu garaje."
+      });
     }
+
+    if (!direccion_entrega_id) {
+      errors.push({
+        field: "direccion_entrega_id",
+        message: "La dirección seleccionada no es válida. Selecciona una dirección registrada."
+      });
+    }
+
+    if (!categoria_id) {
+      errors.push({
+        field: "categoria_id",
+        message: "La categoría seleccionada no es válida. Selecciona una categoría del catálogo."
+      });
+    }
+
+    if (!repuesto_id) {
+      errors.push({
+        field: "repuesto_id",
+        message: "El repuesto seleccionado no es válido. Selecciona un repuesto del catálogo."
+      });
+    }
+
+    if (descripcion_problema && descripcion_problema.length < 10) {
+      errors.push({
+        field: "descripcion_problema",
+        message: "La descripción del problema debe tener al menos 10 caracteres."
+      });
+    }
+
+    if (errors.length > 0) {
+      return res.status(422).json(validationErrors(errors));
+    }
+
+    // 2. Validar que el repuesto exista, esté activo y pertenezca a la categoría
+    const { data: repuesto, error: repuestoError } = await supabase
+      .from('repuestos_catalogo')
+      .select('nombre, categoria_id, activo')
+      .eq('id', repuesto_id)
+      .single();
+
+    if (repuestoError || !repuesto) {
+      return res.status(422).json(validationError('repuesto_id', 'El repuesto seleccionado no existe en nuestro catálogo.'));
+    }
+
+    if (!repuesto.activo) {
+      return res.status(422).json(validationError('repuesto_id', 'Este repuesto no está disponible actualmente en el catálogo.'));
+    }
+
+    if (categoria_id && repuesto.categoria_id !== categoria_id) {
+      return res.status(422).json(validationError('categoria_id', 'El repuesto seleccionado no pertenece a la categoría indicada.'));
+    }
+
+    // 3. Preparar datos para inserción
+    let finalPiezaNombre = pieza_nombre || repuesto.nombre;
+    let finalSnapshot = repuesto_nombre_snapshot || repuesto.nombre;
 
     const data = {
       cliente_id: req.user.id,
       pieza_nombre: finalPiezaNombre,
-      estado: 'en_proceso'
+      estado: 'en_proceso',
+      vehiculo_id,
+      descripcion,
+      foto_url,
+      vin_busqueda,
+      direccion_entrega_id,
+      es_urgente: !!es_urgente,
+      categoria_id,
+      repuesto_id,
+      repuesto_nombre_snapshot: finalSnapshot,
+      descripcion_problema
     };
 
-    if (vehiculo_id) data.vehiculo_id = vehiculo_id;
-    if (descripcion) data.descripcion = descripcion;
-    if (foto_url) data.foto_url = foto_url;
-    if (vin_busqueda) data.vin_busqueda = vin_busqueda;
-    if (direccion_entrega_id) data.direccion_entrega_id = direccion_entrega_id;
-    if (es_urgente) data.es_urgente = es_urgente;
-    
-    // Nuevos campos
-    if (categoria_id) data.categoria_id = categoria_id;
-    if (repuesto_id) data.repuesto_id = repuesto_id;
-    if (finalSnapshot) data.repuesto_nombre_snapshot = finalSnapshot;
-    if (descripcion_problema) data.descripcion_problema = descripcion_problema;
-
+    // 4. Inserción con manejo de errores de base de datos (422 si es FK violation)
     const { data: solicitud, error } = await supabase
       .from('solicitudes_repuesto')
       .insert(data)
@@ -196,6 +238,30 @@ const createSolicitud = async (req, res) => {
       .single();
 
     if (error) {
+      // Manejo específico de errores de integridad referencial
+      if (error.code === '23503') {
+        if (error.message.includes('vehiculo_id')) {
+          return res.status(422).json(validationError('vehiculo_id', 'El vehículo seleccionado no es válido o no pertenece a tu cuenta.'));
+        }
+        if (error.message.includes('direccion_entrega_id')) {
+          return res.status(422).json(validationError('direccion_entrega_id', 'La dirección seleccionada no es válida.'));
+        }
+        if (error.message.includes('categoria_id')) {
+          return res.status(422).json(validationError('categoria_id', 'La categoría seleccionada no es válida.'));
+        }
+        if (error.message.includes('repuesto_id')) {
+          return res.status(422).json(validationError('repuesto_id', 'El repuesto seleccionado no es válido.'));
+        }
+      }
+      
+      // Error de formato UUID
+      if (error.code === '22P02') {
+        return res.status(422).json({
+          message: 'Error de formato en los identificadores',
+          errors: [{ field: 'identificador', message: 'Uno de los IDs enviados no tiene el formato correcto (UUID).' }]
+        });
+      }
+
       return res.status(400).json({ error: error.message });
     }
 

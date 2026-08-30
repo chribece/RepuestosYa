@@ -822,6 +822,21 @@ componente, extraída del código real de los constructores.
 | `customPreview` | `Widget?` | No | `null` | Preview personalizado (reemplaza Image.file/CachedNetworkImage) |
 | `customPlaceholder` | `Widget?` | No | `null` | Placeholder personalizado |
 
+### RyDropdownField
+
+| Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |
+|-----------|------|:-----------:|:-----------------:|-------------|
+| `label` | `String?` | No | `null` | Etiqueta superior del campo |
+| `hint` | `String?` | No | `null` | Texto de sugerencia cuando no hay valor |
+| `value` | `T?` | No | `null` | Valor seleccionado |
+| `items` | `List<T>` | Sí | — | Lista de opciones |
+| `itemLabelBuilder` | `String Function(T)` | Sí | — | Función para obtener el texto de cada item |
+| `onChanged` | `ValueChanged<T?>?` | No | `null` | Callback al cambiar selección |
+| `errorText` | `String?` | No | `null` | Texto de error |
+| `isRequired` | `bool` | No | `false` | Muestra asterisco de obligatoriedad |
+| `isLoading` | `bool` | No | `false` | Muestra indicador de carga en lugar de icono |
+| `enabled` | `bool` | No | `true` | Habilita/deshabilita el campo |
+
 ### RySectionCard
 
 | Propiedad | Tipo | Obligatoria | Valor por defecto | Descripción |

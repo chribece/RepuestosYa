@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
@@ -8,7 +9,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
-import 'warehouse_dashboard.dart';
+import '../router/route_names.dart';
 
 class CompleteProfilePage extends StatefulWidget {
   const CompleteProfilePage({super.key});
@@ -97,10 +98,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           ),
         );
         // Navegar al dashboard
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
-          (route) => false,
-        );
+        context.goNamed(RouteNames.dashboard);
       }
     } catch (e) {
       if (mounted) {
@@ -130,7 +128,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             color: AppColors.primary,
             size: 28,
           ),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: Text(
           'Completar Perfil',

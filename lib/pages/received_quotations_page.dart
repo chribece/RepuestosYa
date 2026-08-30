@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/realtime_notification_service.dart';
@@ -10,17 +11,18 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
   final String solicitudId;
-  final String piezaNombre;
+  final String? piezaNombre;
   final String? fotoUrl;
   final int ofertasPendientes;
 
   const ReceivedQuotationsPage({
     super.key,
     required this.solicitudId,
-    required this.piezaNombre,
+    this.piezaNombre,
     this.fotoUrl,
     this.ofertasPendientes = 0,
   });
@@ -43,11 +45,45 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   String? _errorMessage;
   final Map<String, bool> _loadingCotizaciones = {};
 
+  // Para deep linking: si no vienen los datos por constructor, los cargamos.
+  String? _piezaNombreOverride;
+  String? _fotoUrlOverride;
+  int? _ofertasPendientesOverride;
+
   @override
   void initState() {
     super.initState();
+    _piezaNombreOverride = widget.piezaNombre;
+    _fotoUrlOverride = widget.fotoUrl;
+    _ofertasPendientesOverride = widget.ofertasPendientes;
+
     _cargarCotizaciones();
+    _cargarDetallesSolicitudSiEsNecesario();
     RealtimeNotificationService().subscribeToCotizaciones(widget.solicitudId);
+  }
+
+  Future<void> _cargarDetallesSolicitudSiEsNecesario() async {
+    if (_piezaNombreOverride == null || _piezaNombreOverride == 'Solicitud') {
+      try {
+        final solicitudData = await _solicitudService.obtenerSolicitudPorId(
+          widget.solicitudId,
+        );
+        if (mounted) {
+          setState(() {
+            final solicitud = Solicitud(solicitudData);
+            _piezaNombreOverride = solicitud.displayPartName;
+            _fotoUrlOverride = solicitud.fotoUrl;
+            _ofertasPendientesOverride = solicitud.cantidadCotizaciones;
+          });
+        }
+      } catch (e) {
+        AppLogger.error(
+          'Error al cargar detalles de solicitud',
+          name: 'ReceivedQuotationsPage',
+          error: e,
+        );
+      }
+    }
   }
 
   @override
@@ -173,9 +209,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
         final ordenId = response['ordenId'] as String?;
         if (ordenId != null) {
-          Navigator.of(
-            context,
-          ).pushReplacementNamed('/orden-compra', arguments: ordenId);
+          context.pushReplacementNamed(
+            RouteNames.ordenDetalle,
+            pathParameters: {'id': ordenId},
+          );
         } else {
           Navigator.pop(context, true);
         }
@@ -287,6 +324,12 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   }
 
   Widget _buildSummaryCard() {
+    final fotoUrl = _fotoUrlOverride ?? widget.fotoUrl;
+    final piezaNombre =
+        _piezaNombreOverride ?? widget.piezaNombre ?? 'Cargando...';
+    final ofertasPendientes =
+        _ofertasPendientesOverride ?? widget.ofertasPendientes;
+
     return Container(
       margin: const EdgeInsets.all(AppSpacing.spacingMd),
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -306,13 +349,13 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
               border: Border.all(color: AppColors.outlineVariant, width: 1),
             ),
             child:
-                widget.fotoUrl != null &&
-                    widget.fotoUrl!.isNotEmpty &&
-                    widget.fotoUrl!.startsWith('http')
+                fotoUrl != null &&
+                    fotoUrl.isNotEmpty &&
+                    fotoUrl.startsWith('http')
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadius.radiusSm),
                     child: Image.network(
-                      widget.fotoUrl!,
+                      fotoUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
                         return const Icon(
@@ -335,14 +378,14 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.piezaNombre,
+                  piezaNombre,
                   style: AppTextStyles.textStyleBody,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.spacingXxs),
                 Text(
-                  '${widget.ofertasPendientes} ofertas pendientes',
+                  '$ofertasPendientes ofertas pendientes',
                   style: AppTextStyles.textStyleCaption.copyWith(
                     color: AppColors.secondary,
                   ),

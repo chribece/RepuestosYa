@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
-import 'role_selection_page.dart';
-import 'home_page.dart';
-import 'warehouse_dashboard.dart';
-import 'complete_profile_page.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
 import '../utils/api_error_handler.dart';
@@ -15,6 +12,7 @@ import '../widgets/ry_text_field.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../router/route_names.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -80,12 +78,17 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        // Cargar el rol del usuario desde la base de datos
+        // Cargar el rol del usuario en el provider inmediatamente desde la respuesta de login
         final userRoleProvider = Provider.of<UserRoleProvider>(
           context,
           listen: false,
         );
-        await userRoleProvider.loadUserRole(user.id);
+        userRoleProvider.setRoleFromString(user.rol);
+
+        // Si por alguna razón el rol en el token es nulo o unknown, intentamos cargar desde API
+        if (userRoleProvider.isUnknown) {
+          await userRoleProvider.loadUserRole(user.id);
+        }
 
         // Verificar si se obtuvo el rol correctamente
         if (userRoleProvider.isUnknown) {
@@ -96,32 +99,24 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        // Navegar según el rol del usuario con animación suave.
-        // Para rol almacen, validar primero que exista el perfil comercial
-        // (GET /warehouse/my-warehouse). Si responde 404, redirigir a
-        // CompleteProfilePage en lugar de WarehouseDashboard para evitar
-        // que se disparen /requests/active y /quotations/my-quotations
-        // contra un usuario sin almacén (que devuelven 404).
-        if (userRoleProvider.isCliente) {
-          setState(() => _isLoading = false);
-          _navigateTo(const HomePage());
-        } else if (userRoleProvider.isAlmacen) {
+        // Con GoRouter + refreshListenable, el router detectará el cambio de estado
+        // y redirigirá automáticamente según el rol.
+        // Solo necesitamos manejar el caso de CompleteProfilePage para almacenes.
+
+        if (userRoleProvider.isAlmacen) {
           try {
             final hasProfile = await _almacenService.hasWarehouseProfile();
             if (!mounted) return;
             setState(() => _isLoading = false);
-            if (hasProfile) {
-              _navigateTo(const WarehouseDashboard());
-            } else {
+            if (!hasProfile) {
               AppLogger.info(
                 'Almacén sin perfil comercial. Redirigiendo a CompleteProfilePage.',
                 name: 'LoginPage',
               );
-              _navigateTo(const CompleteProfilePage());
+              context.goNamed(RouteNames.completeProfile);
+              return;
             }
           } catch (e) {
-            // Error distinto de 404 (401/403/500/timeout/red): mostrar al
-            // usuario en lugar de adivinar. No redirige al dashboard.
             if (!mounted) return;
             setState(() => _isLoading = false);
             AppLogger.error(
@@ -139,13 +134,20 @@ class _LoginPageState extends State<LoginPage> {
                 duration: const Duration(seconds: 4),
               ),
             );
+            return;
           }
-        } else if (userRoleProvider.isAdmin) {
-          // Para admin, también navegar al dashboard de almacén por ahora
-          setState(() => _isLoading = false);
-          _navigateTo(const WarehouseDashboard());
+        }
+
+        setState(() => _isLoading = false);
+        // Si no es un caso especial, dejamos que el redirect global actúe
+        // o forzamos la navegación a Home si no hay redirect pendiente.
+        final String? from = GoRouterState.of(
+          context,
+        ).uri.queryParameters['from'];
+        if (from != null && from != '/welcome') {
+          context.go(from);
         } else {
-          setState(() => _isLoading = false);
+          // El redirect global se encargará
         }
       } catch (e) {
         if (!mounted) return;
@@ -167,21 +169,6 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     }
-  }
-
-  /// Reemplaza la pantalla actual con fade transition (250 ms), patrón
-  /// usado para todas las navegaciones post-login.
-  void _navigateTo(Widget page) {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => page,
-        transitionDuration: const Duration(milliseconds: 250),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
   }
 
   @override
@@ -408,12 +395,7 @@ class _LoginPageState extends State<LoginPage> {
             label: '¿Aún no tienes cuenta? Regístrate',
             variant: RyButtonVariant.text,
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RoleSelectionPage(),
-                ),
-              );
+              context.pushNamed(RouteNames.roleSelection);
             },
           ),
         ),

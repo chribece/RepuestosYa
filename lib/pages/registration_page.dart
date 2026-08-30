@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
@@ -7,8 +8,8 @@ import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
-import 'login_page.dart';
 import '../services/auth_service.dart';
+import '../router/route_names.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -67,10 +68,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
         );
 
         // Navigate back to login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
+        context.goNamed(RouteNames.login);
       } catch (e) {
         AppLogger.error(
           'Error al registrar usuario',
@@ -327,13 +325,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             label: '¿Ya tienes cuenta? Inicia sesión',
             variant: RyButtonVariant.text,
             onPressed: () {
-              // Reemplazamos toda la pila por LoginPage para no volver a la
-              // pantalla de selección de rol (mismo fix que register_cliente).
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginPage()),
-                (route) => false,
-              );
+              context.goNamed(RouteNames.login);
             },
           ),
         ),

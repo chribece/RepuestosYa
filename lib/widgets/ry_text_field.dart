@@ -194,6 +194,7 @@ class _RyTextFieldState extends State<RyTextField> {
       excludeSemantics: true,
       child: TextFormField(
         controller: _controller,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         keyboardType: _getKeyboardType(),
         inputFormatters: _getInputFormatters(),
         obscureText: _getObscureText(),

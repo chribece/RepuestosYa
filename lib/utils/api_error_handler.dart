@@ -89,7 +89,11 @@ class ApiErrorHandler {
   static ApiException fromResponse(http.Response response) {
     final code = response.statusCode;
     final friendly = _statusMessages[code] ?? defaultMessage;
-    final technical = _extractTechnical(response.body, code);
+
+    // Para 422, preservamos el body completo para mapear errores a campos.
+    final technical = code == 422
+        ? response.body
+        : _extractTechnical(response.body, code);
 
     AppLogger.warning(
       'API $code · técnico: ${technical ?? '<empty>'} · body: ${response.body}',
@@ -180,8 +184,54 @@ class ApiErrorHandler {
       if (apiError?.statusCode == 401) {
         return _statusMessages[401]!;
       }
+      if (apiError?.statusCode == 403) {
+        return _statusMessages[403]!;
+      }
     }
     return _userMessageDefault(error);
+  }
+
+  /// Extrae errores de validación del backend (422) y los mapea a un [Map]
+  /// de campo -> mensaje.
+  ///
+  /// Soporta formatos:
+  /// - { "errors": [{ "field": "email", "message": "..." }] } (Normalizado)
+  /// - { "errores": [{ "campo": "email", "mensaje": "..." }] } (Legacy)
+  static Map<String, String> mapValidationErrors(Object error) {
+    if (error is! ApiException || error.statusCode != 422) return {};
+
+    try {
+      final technical = error.technicalMessage;
+      if (technical == null) return {};
+
+      final decoded = json.decode(technical);
+      if (decoded is! Map) return {};
+
+      final errorsList = decoded['errors'] ?? decoded['errores'];
+      if (errorsList is List) {
+        final Map<String, String> result = {};
+        for (var err in errorsList) {
+          if (err is Map) {
+            // Soporte para campo/field y mensaje/message
+            final field = err['field'] ?? err['campo'];
+            final message = err['message'] ?? err['mensaje'];
+
+            if (field != null && message != null) {
+              result[field.toString()] = message.toString();
+            }
+          }
+        }
+        return result;
+      }
+    } catch (e) {
+      AppLogger.error(
+        'Error al parsear errores 422',
+        name: 'ApiErrorHandler',
+        error: e,
+      );
+    }
+
+    return {};
   }
 
   /// Implementación base de [userMessage] sin contexto.

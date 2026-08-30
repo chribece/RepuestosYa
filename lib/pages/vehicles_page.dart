@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/vehiculo_service.dart';
 import '../services/marca_service.dart';
@@ -140,7 +141,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: const Text('Mis Vehículos', style: AppTextStyles.textStyleTitle),
         actions: [
@@ -544,7 +545,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                             )
                           : DropdownButtonHideUnderline(
                               child: DropdownButton<int>(
-                                value: _selectedMarcaId,
+                                value:
+                                    _marcas.any(
+                                      (m) =>
+                                          int.tryParse(
+                                            m['id']?.toString() ?? '',
+                                          ) ==
+                                          _selectedMarcaId,
+                                    )
+                                    ? _selectedMarcaId
+                                    : null,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.spacingSm,
@@ -568,12 +578,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                       return id != null &&
                                           int.tryParse(id.toString()) != null;
                                     })
-                                    .map((marca) {
-                                      final idInt = int.parse(
-                                        marca['id'].toString(),
+                                    .map(
+                                      (marca) =>
+                                          int.parse(marca['id'].toString()),
+                                    )
+                                    .toSet() // Deduplicar
+                                    .map((id) {
+                                      final marca = _marcas.firstWhere(
+                                        (m) =>
+                                            int.parse(m['id'].toString()) == id,
                                       );
                                       return DropdownMenuItem<int>(
-                                        value: idInt,
+                                        value: id,
                                         child: Text(
                                           marca['nombre']?.toString() ?? '',
                                         ),
@@ -643,7 +659,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                             )
                           : DropdownButtonHideUnderline(
                               child: DropdownButton<int>(
-                                value: _selectedModeloId,
+                                value:
+                                    _modelos.any(
+                                      (m) =>
+                                          int.tryParse(
+                                            m['id']?.toString() ?? '',
+                                          ) ==
+                                          _selectedModeloId,
+                                    )
+                                    ? _selectedModeloId
+                                    : null,
                                 isExpanded: true,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: AppSpacing.spacingSm,
@@ -669,12 +694,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                       return id != null &&
                                           int.tryParse(id.toString()) != null;
                                     })
-                                    .map((modelo) {
-                                      final idInt = int.parse(
-                                        modelo['id'].toString(),
+                                    .map(
+                                      (modelo) =>
+                                          int.parse(modelo['id'].toString()),
+                                    )
+                                    .toSet() // Deduplicar
+                                    .map((id) {
+                                      final modelo = _modelos.firstWhere(
+                                        (m) =>
+                                            int.parse(m['id'].toString()) == id,
                                       );
                                       return DropdownMenuItem<int>(
-                                        value: idInt,
+                                        value: id,
                                         child: Text(
                                           modelo['nombre']?.toString() ?? '',
                                         ),

@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
-import 'login_page.dart';
-import 'home_page.dart';
-import 'vehicles_page.dart';
-import 'addresses_page.dart';
-import 'warehouse_dashboard.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../router/route_names.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -104,17 +101,9 @@ class _ProfilePageState extends State<ProfilePage> {
     final user = _authService.currentUser;
 
     if (user?.rol == 'almacen' || user?.rol == 'warehouse') {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const WarehouseDashboard()),
-        (route) => false,
-      );
+      context.goNamed(RouteNames.dashboard);
     } else {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-        (route) => false,
-      );
+      context.goNamed(RouteNames.home);
     }
   }
 
@@ -145,12 +134,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onPressed: () async {
                 Navigator.pop(context);
                 await _authService.signOut();
-                if (!mounted) return;
-                Navigator.pushAndRemoveUntil(
-                  this.context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
+                // Router redirigirá automáticamente
               },
               child: Text(
                 'Salir',
@@ -411,32 +395,21 @@ class _ProfilePageState extends State<ProfilePage> {
             icon: Icons.directions_car_outlined,
             title: 'Mis Vehículos',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const VehiclesPage()),
-              );
+              context.pushNamed(RouteNames.vehicles);
             },
           ),
           _buildMenuItem(
             icon: Icons.location_on_outlined,
             title: 'Mis Direcciones',
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AddressesPage()),
-              );
+              context.pushNamed(RouteNames.addresses);
             },
           ),
           _buildMenuItem(
             icon: Icons.shopping_cart_outlined,
             title: 'Mis Órdenes',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Próximamente: Lista de órdenes de compra'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+              context.pushNamed(RouteNames.misOrdenes);
             },
             isLast: true,
           ),

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import '../providers/orden_compra_provider.dart';
-import 'home_page.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../router/route_names.dart';
 
 class OrdenCompraPage extends StatefulWidget {
-  const OrdenCompraPage({super.key});
+  final String? ordenId;
+  const OrdenCompraPage({super.key, this.ordenId});
 
   @override
   State<OrdenCompraPage> createState() => _OrdenCompraPageState();
@@ -24,7 +26,9 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ordenId = ModalRoute.of(context)?.settings.arguments as String?;
+      final ordenId =
+          widget.ordenId ??
+          ModalRoute.of(context)?.settings.arguments as String?;
       if (ordenId != null) {
         final provider = context.read<OrdenCompraProvider>();
         provider.clearError();
@@ -43,10 +47,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
           onPressed: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const HomePage()),
-              (route) => false,
-            );
+            context.goNamed(RouteNames.home);
           },
         ),
         title: Text('Orden de Compra', style: AppTextStyles.textStyleTitle),
@@ -357,13 +358,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                     variant: RyButtonVariant.primary,
                     size: RyButtonSize.large,
                     onPressed: () {
-                      // Navegar directamente al HomePage
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (context) => const HomePage(),
-                        ),
-                        (route) => false,
-                      );
+                      context.goNamed(RouteNames.home);
                     },
                   ),
                 ],

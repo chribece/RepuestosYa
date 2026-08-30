@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
@@ -96,7 +97,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primaryContainer),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: const Text(
           'Detalle de Orden',

@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_colors.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/keys.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
@@ -21,6 +24,9 @@ class ApiClient {
   static final ApiClient _instance = ApiClient._privateConstructor();
 
   factory ApiClient() => _instance;
+
+  /// Callback para notificar errores 401 sin crear dependencias circulares.
+  VoidCallback? onUnauthorized;
 
   // Inicializar el cliente cargando el token desde SharedPreferences
   Future<void> init() async {
@@ -69,8 +75,40 @@ class ApiClient {
   /// preserva el `statusCode` en la excepción para que la lógica de negocio
   /// (p. ej. distinguir un 404 de "perfil no existe" de un 404 de "recurso
   /// no encontrado") pueda seguir tomándolo mediante `e.statusCode`.
-  ApiException _handleError(http.Response response) =>
-      ApiErrorHandler.fromResponse(response);
+  ApiException _handleError(http.Response response) {
+    final apiException = ApiErrorHandler.fromResponse(response);
+
+    if (apiException.statusCode == 401) {
+      // Centralización 401: Sesión expirada o token inválido.
+      if (onUnauthorized != null) {
+        onUnauthorized!();
+      } else {
+        clearToken();
+      }
+      AppLogger.warning('Sesión expirada (401).', name: 'ApiClient');
+    } else if (apiException.statusCode == 403) {
+      // Centralización 403: Prohibido.
+      // Mostramos mensaje sin cerrar sesión.
+      _showForbiddenMessage(apiException.message);
+      AppLogger.warning('Acceso prohibido (403).', name: 'ApiClient');
+    }
+
+    return apiException;
+  }
+
+  void _showForbiddenMessage(String message) {
+    // Usamos el RyKeys.rootNavigatorKey para acceder al contexto global y mostrar SnackBar
+    final context = RyKeys.rootNavigatorKey.currentContext;
+    if (context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   /// Ejecuta [request] aplicando timeout, normalización de respuestas 2xx y
   /// traducción centralizada de errores HTTP / de red a [ApiException].

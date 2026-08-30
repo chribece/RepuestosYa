@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'dart:io';
+import '../models/part_catalog.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/vehiculo_service.dart';
 import '../services/direccion_service.dart';
+import '../services/catalog_service.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
+import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_image_picker.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
@@ -15,6 +20,8 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
+import '../providers/create_request_provider.dart';
 
 class CreateRequestPage extends StatefulWidget {
   const CreateRequestPage({super.key});
@@ -25,16 +32,19 @@ class CreateRequestPage extends StatefulWidget {
 
 class _CreateRequestPageState extends State<CreateRequestPage> {
   final _formKey = GlobalKey<FormState>();
-  final _piezaNombreController = TextEditingController();
-  final _descriptionController = TextEditingController();
   final _locationController = TextEditingController(); // Solo para mostrar
 
-  File? _selectedImage;
   bool _isSubmitting = false;
+  Map<String, String> _fieldErrors = {};
 
-  String? _selectedVehiculoId;
-  String? _selectedDireccionId;
-  String? _selectedPrioridad = 'estándar'; // 'urgente' o 'estándar'
+  // Catálogo (mantener listas locales para los dropdowns)
+  List<PartCategory> _categories = [];
+  List<CatalogPart> _parts = [];
+  bool _isLoadingCategories = false;
+  bool _isLoadingParts = false;
+  String? _categoryError;
+  String? _partError;
+
   List<Map<String, dynamic>> _vehiculos = [];
   List<Map<String, dynamic>> _direcciones = [];
   bool _isLoadingVehiculos = false;
@@ -44,18 +54,26 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   final AuthService _authService = AuthService();
   final VehiculoService _vehiculoService = VehiculoService();
   final DireccionService _direccionService = DireccionService();
+  final CatalogService _catalogService = CatalogService();
 
   @override
   void initState() {
     super.initState();
     _cargarVehiculos();
     _cargarDirecciones();
+    _cargarCategorias();
+
+    // Restaurar categoría/repuestos si ya hay una seleccionada en el provider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<CreateRequestProvider>();
+      if (provider.selectedCategoryId != null) {
+        _cargarRepuestos(provider.selectedCategoryId!);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _piezaNombreController.dispose();
-    _descriptionController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -66,50 +84,124 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     setState(() => _isLoadingVehiculos = true);
     try {
       final vehiculos = await _vehiculoService.getVehiculos();
+      if (!mounted) return;
+
+      // Deduplicar por ID
+      final Map<String, Map<String, dynamic>> uniqueVehiculos = {};
+      for (var v in vehiculos) {
+        if (v['id'] != null) {
+          uniqueVehiculos[v['id'].toString()] = v;
+        }
+      }
+
       setState(() {
-        _vehiculos = vehiculos;
+        _vehiculos = uniqueVehiculos.values.toList();
       });
     } catch (e) {
       AppLogger.warning('Error al cargar vehículos: $e', name: 'CreateRequest');
     } finally {
-      setState(() => _isLoadingVehiculos = false);
+      if (mounted) setState(() => _isLoadingVehiculos = false);
+    }
+  }
+
+  Future<void> _cargarCategorias() async {
+    setState(() {
+      _isLoadingCategories = true;
+      _categoryError = null;
+    });
+    try {
+      final categories = await _catalogService.getPartCategories();
+      if (!mounted) return;
+
+      // Deduplicar por ID
+      final Map<String, PartCategory> uniqueCategories = {};
+      for (var cat in categories) {
+        uniqueCategories[cat.id] = cat;
+      }
+
+      setState(() {
+        _categories = uniqueCategories.values.toList();
+      });
+    } catch (e) {
+      AppLogger.error('Error al cargar categorías: $e', name: 'CreateRequest');
+      if (mounted) {
+        setState(() {
+          _categoryError = 'Error al cargar categorías';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingCategories = false);
+    }
+  }
+
+  Future<void> _cargarRepuestos(String categoryId) async {
+    setState(() {
+      _isLoadingParts = true;
+      _partError = null;
+      _parts = [];
+    });
+    try {
+      final parts = await _catalogService.getParts(categoryId: categoryId);
+      if (!mounted) return;
+
+      // Deduplicar por ID
+      final Map<String, CatalogPart> uniqueParts = {};
+      for (var part in parts) {
+        uniqueParts[part.id] = part;
+      }
+
+      setState(() {
+        _parts = uniqueParts.values.toList();
+      });
+    } catch (e) {
+      AppLogger.error('Error al cargar repuestos: $e', name: 'CreateRequest');
+      if (mounted) {
+        setState(() {
+          _partError = 'Error al cargar repuestos';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingParts = false);
     }
   }
 
   Future<void> _cargarDirecciones() async {
     setState(() => _isLoadingDirecciones = true);
     try {
-      AppLogger.debug(
-        'Iniciando carga de direcciones...',
-        name: 'CreateRequest.Direcciones',
-      );
       final direcciones = await _direccionService.getDirecciones();
-      AppLogger.debug(
-        'Direcciones cargadas: ${direcciones.length}',
-        name: 'CreateRequest.Direcciones',
-      );
+      if (!mounted) return;
+
+      // Deduplicar por ID
+      final Map<String, Map<String, dynamic>> uniqueDirecciones = {};
+      for (var d in direcciones) {
+        if (d['id'] != null) {
+          uniqueDirecciones[d['id'].toString()] = d;
+        }
+      }
 
       setState(() {
-        _direcciones = direcciones;
-        // Seleccionar la dirección principal (si existe) o la primera
+        _direcciones = uniqueDirecciones.values.toList();
+        final provider = context.read<CreateRequestProvider>();
+
+        // Seleccionar la dirección principal (si existe) o la primera,
+        // pero solo si el provider no tiene una ya seleccionada.
         if (direcciones.isNotEmpty) {
           final principal = direcciones.firstWhere(
             (d) => d['es_principal'] == true,
             orElse: () => direcciones.first,
           );
-          _selectedDireccionId = principal['id'] as String?;
-          _locationController.text = _formatDireccion(principal);
-          AppLogger.debug(
-            'Dirección seleccionada: $_selectedDireccionId',
-            name: 'CreateRequest.Direcciones',
+
+          if (provider.selectedDireccionId == null) {
+            provider.updateDireccion(principal['id'] as String?);
+          }
+
+          // Actualizar controlador de texto con la dirección actual del provider (o la principal)
+          final currentId = provider.selectedDireccionId ?? principal['id'];
+          final currentDir = direcciones.firstWhere(
+            (d) => d['id'] == currentId,
+            orElse: () => principal,
           );
-        } else {
-          _selectedDireccionId = null;
-          _locationController.text = 'Selecciona o agrega una dirección';
-          AppLogger.debug(
-            'No hay direcciones disponibles',
-            name: 'CreateRequest.Direcciones',
-          );
+          _locationController.text = _formatDireccion(currentDir);
         }
       });
     } catch (e) {
@@ -117,19 +209,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         'Error al cargar direcciones: $e',
         name: 'CreateRequest.Direcciones',
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error al cargar direcciones: '
-              '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
     } finally {
-      setState(() => _isLoadingDirecciones = false);
+      if (mounted) setState(() => _isLoadingDirecciones = false);
     }
   }
 
@@ -279,12 +360,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                 // Recargar lista y seleccionar la nueva dirección
                                 await _cargarDirecciones();
                                 // Forzar selección de la nueva (por si no es principal)
-                                setState(() {
-                                  _selectedDireccionId = nueva['id'] as String?;
-                                  _locationController.text = _formatDireccion(
-                                    nueva,
-                                  );
-                                });
+                                if (context.mounted) {
+                                  context
+                                      .read<CreateRequestProvider>()
+                                      .updateDireccion(nueva['id'] as String?);
+                                  setState(() {
+                                    _locationController.text = _formatDireccion(
+                                      nueva,
+                                    );
+                                  });
+                                }
                                 _showToast('Dirección agregada correctamente');
                               } catch (e) {
                                 if (!context.mounted) return;
@@ -362,7 +447,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         itemBuilder: (context, index) {
                           final direccion = _direcciones[index];
                           final isSelected =
-                              direccion['id'] == _selectedDireccionId;
+                              direccion['id'] ==
+                              context
+                                  .read<CreateRequestProvider>()
+                                  .selectedDireccionId;
                           return ListTile(
                             title: Text(
                               _formatDireccion(direccion),
@@ -375,9 +463,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                   )
                                 : null,
                             onTap: () {
+                              context
+                                  .read<CreateRequestProvider>()
+                                  .updateDireccion(direccion['id'] as String?);
                               setState(() {
-                                _selectedDireccionId =
-                                    direccion['id'] as String?;
                                 _locationController.text = _formatDireccion(
                                   direccion,
                                 );
@@ -514,30 +603,49 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   }
 
   Future<void> _handleSubmit() async {
-    // Validar campos del formulario
+    // 1. Limpiar errores previos
+    setState(() => _fieldErrors = {});
+
+    // 2. Validar campos del formulario (incluye autovalidate)
     if (!_formKey.currentState!.validate()) return;
 
-    // Validar vehículo
-    if (_selectedVehiculoId == null) {
+    final provider = context.read<CreateRequestProvider>();
+
+    // 3. Validaciones contextuales manuales (para dropdowns/estado no gestionado por Form)
+    bool hasManualErrors = false;
+    if (provider.selectedCategoryId == null) {
+      setState(
+        () => _categoryError =
+            'Debes seleccionar una categoría para filtrar los repuestos.',
+      );
+      hasManualErrors = true;
+    }
+    if (provider.selectedPartId == null) {
+      setState(() => _partError = 'Debes seleccionar un repuesto de la lista.');
+      hasManualErrors = true;
+    }
+    if (provider.selectedVehiculoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Debes seleccionar un vehículo'),
+          content: Text(
+            'Debes seleccionar un vehículo para asegurar la compatibilidad.',
+          ),
           backgroundColor: AppColors.warning,
         ),
       );
-      return;
+      hasManualErrors = true;
+    }
+    if (provider.selectedDireccionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Indica dónde deseas recibir el repuesto.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      hasManualErrors = true;
     }
 
-    // Validar dirección
-    if (_selectedDireccionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debes seleccionar una dirección de entrega'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
-      return;
-    }
+    if (hasManualErrors) return;
 
     setState(() => _isSubmitting = true);
 
@@ -545,18 +653,20 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final user = _authService.currentUser;
       if (user == null) throw Exception('No hay usuario autenticado');
 
-      // Subir imagen a Supabase Storage ANTES de crear la solicitud.
-      // Si la subida falla, NO se crea la solicitud: se informa al usuario.
+      // Subir imagen
       String? fotoUrl;
-      if (_selectedImage != null) {
-        fotoUrl = await _uploadImageToSupabase(_selectedImage!, user.id);
+      if (provider.selectedImage != null) {
+        fotoUrl = await _uploadImageToSupabase(
+          provider.selectedImage!,
+          user.id,
+        );
         if (fotoUrl == null || fotoUrl.isEmpty) {
           setState(() => _isSubmitting = false);
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'No se pudo subir la imagen. Verifica tu conexión e inténtalo de nuevo.',
+                  'No se pudo subir la imagen. Verifica tu conexión.',
                 ),
                 backgroundColor: AppColors.error,
               ),
@@ -566,62 +676,60 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         }
       }
 
+      // Crear solicitud
       await _solicitudService.crearSolicitud(
         clienteId: user.id,
-        vehiculoId: _selectedVehiculoId!,
-        piezaNombre: _piezaNombreController.text,
-        descripcion: _descriptionController.text,
+        vehiculoId: provider.selectedVehiculoId!,
+        piezaNombre: provider.piezaNombre,
+        descripcion: provider.descripcion,
         fotoUrl: fotoUrl,
-        direccionEntregaId: _selectedDireccionId!,
-        esUrgente: _selectedPrioridad == 'urgente',
+        direccionEntregaId: provider.selectedDireccionId!,
+        esUrgente: provider.selectedPrioridad == 'urgente',
+        categoriaId: provider.selectedCategoryId!,
+        repuestoId: provider.selectedPartId!,
+        repuestoNombreSnapshot: provider.partNameSnapshot!,
+        descripcionProblema: provider.descripcion,
       );
 
+      if (!mounted) return;
+
+      // Éxito: limpiar provider y navegar
+      provider.clear();
       setState(() => _isSubmitting = false);
 
-      if (mounted) {
-        // Diálogo de éxito
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            backgroundColor: AppColors.surfaceContainerHigh,
-            title: Text(
-              '¡Solicitud Enviada!',
-              style: AppTextStyles.textStyleTitle.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            content: Text(
-              'Tu solicitud ha sido enviada a nuestra red de proveedores. '
-              'Te notificaremos cuando reciban ofertas.',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context); // Cerrar diálogo
-                  Navigator.pop(context); // Volver a Home
-                },
-                child: Text(
-                  'OK',
-                  style: AppTextStyles.textStyleButton.copyWith(
-                    color: AppColors.primaryContainer,
-                  ),
-                ),
-              ),
-            ],
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainerHigh,
+          title: const Text('¡Solicitud Enviada!'),
+          content: const Text(
+            'Tu solicitud ha sido enviada. Te notificaremos cuando recibas ofertas.',
           ),
-        );
-      }
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                context.pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
-      setState(() => _isSubmitting = false);
-      if (mounted) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        // Mapeo de errores 422 del backend
+        _fieldErrors = ApiErrorHandler.mapValidationErrors(e);
+      });
+
+      if (_fieldErrors.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Error al enviar solicitud: ${ApiErrorHandler.userMessage(e)}',
+              ApiErrorHandler.userMessage(e, context: ApiErrorContext.session),
             ),
             backgroundColor: AppColors.error,
           ),
@@ -634,6 +742,55 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<CreateRequestProvider>();
+
+    // Reconstruir objetos seleccionados desde las listas actuales por ID
+    PartCategory? selectedCategory;
+    if (provider.selectedCategoryId != null && _categories.isNotEmpty) {
+      final matches = _categories.where(
+        (c) => c.id == provider.selectedCategoryId,
+      );
+      if (matches.isNotEmpty) {
+        selectedCategory = matches.first;
+      } else {
+        // La categoría guardada ya no está en la lista (ej: eliminada del catálogo)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'La categoría seleccionada ya no está disponible. Selecciona una nueva.',
+                ),
+              ),
+            );
+            provider.setSelectedCategoryId(null);
+          }
+        });
+      }
+    }
+
+    CatalogPart? selectedPart;
+    if (provider.selectedPartId != null && _parts.isNotEmpty) {
+      final matches = _parts.where((p) => p.id == provider.selectedPartId);
+      if (matches.isNotEmpty) {
+        selectedPart = matches.first;
+      } else {
+        // El repuesto guardado ya no está en la lista
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'El repuesto seleccionado ya no está disponible. Selecciona uno nuevo.',
+                ),
+              ),
+            );
+            provider.setSelectedPartId(null, null);
+          }
+        });
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -641,20 +798,26 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
         title: Text('Crear Solicitud', style: AppTextStyles.textStyleHeading),
         actions: [
-          Container(
-            width: 40,
-            height: 40,
-            margin: const EdgeInsets.only(right: AppSpacing.spacingMd),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.outlineVariant),
-            ),
-            child: const ClipOval(
-              child: Icon(Icons.person, color: AppColors.onSurfaceVariant),
+          InkWell(
+            onTap: () {
+              context.pushNamed(RouteNames.profile);
+            },
+            borderRadius: BorderRadius.circular(AppRadius.radiusXl),
+            child: Container(
+              width: 40,
+              height: 40,
+              margin: const EdgeInsets.only(right: AppSpacing.spacingMd),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.outlineVariant),
+              ),
+              child: const ClipOval(
+                child: Icon(Icons.person, color: AppColors.onSurfaceVariant),
+              ),
             ),
           ),
         ],
@@ -677,55 +840,82 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: AppSpacing.spacingXxs),
+                  const SizedBox(height: AppSpacing.spacingXxs),
                   Text(
-                    '¿Qué pieza necesitas?',
+                    '¿Qué repuesto necesitas?',
                     style: AppTextStyles.textStyleDisplay,
                   ),
                 ],
               ),
               const SizedBox(height: AppSpacing.spacingXl),
-              _buildImageSection(),
+              _buildImageSection(provider),
               const SizedBox(height: AppSpacing.spacingXl),
-              _buildTextField(
-                label: 'Nombre del repuesto',
-                controller: _piezaNombreController,
-                hint: 'Ej: Filtro de aceite, Disco de freno...',
+              RyDropdownField<PartCategory>(
+                label: 'Categoría de repuesto',
+                hint: 'Selecciona una categoría',
                 isRequired: true,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Ingresa el nombre del repuesto';
+                items: _categories,
+                value: selectedCategory,
+                isLoading: _isLoadingCategories,
+                errorText: _categoryError ?? _fieldErrors['categoria_id'],
+                itemLabelBuilder: (c) => c.nombre,
+                onChanged: (val) {
+                  provider.setSelectedCategoryId(val?.id);
+                  setState(() {
+                    _categoryError = null;
+                    _parts = []; // Limpiar repuestos locales mientras carga
+                  });
+                  if (val != null) {
+                    _cargarRepuestos(val.id);
                   }
-                  if (v.trim().length < 3) {
-                    return 'El nombre debe tener al menos 3 caracteres';
-                  }
-                  return null;
                 },
               ),
               const SizedBox(height: AppSpacing.spacingMd),
-              _buildVehicleDropdown(),
+              RyDropdownField<CatalogPart>(
+                label: 'Repuesto',
+                hint: provider.selectedCategoryId == null
+                    ? 'Selecciona primero una categoría'
+                    : 'Selecciona el repuesto',
+                isRequired: true,
+                items: _parts,
+                value: selectedPart,
+                enabled: provider.selectedCategoryId != null,
+                isLoading: _isLoadingParts,
+                errorText: _partError ?? _fieldErrors['repuesto_id'],
+                itemLabelBuilder: (p) => p.nombre,
+                onChanged: (val) {
+                  provider.setSelectedPartId(val?.id, val?.nombre);
+                  setState(() => _partError = null);
+                },
+              ),
               const SizedBox(height: AppSpacing.spacingMd),
-              _buildTextField(
-                label: 'Descripción del repuesto',
-                controller: _descriptionController,
+              _buildVehicleDropdown(provider),
+              const SizedBox(height: AppSpacing.spacingMd),
+              RyTextField(
+                label: 'Detalles adicionales',
+                initialValue: provider.descripcion,
                 hint:
                     'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad...',
                 maxLines: 4,
                 isRequired: true,
+                errorText: _fieldErrors['descripcion'],
+                onChanged: provider.updateDescripcion,
                 validator: (v) {
+                  // Regla derivada del contrato: la descripción ayuda a identificar el repuesto específico.
+                  // Se aplica una restricción de negocio de mínimo 10 caracteres.
                   if (v == null || v.trim().isEmpty) {
-                    return 'Ingresa una descripción';
+                    return 'Por favor ingresa detalles adicionales para ayudar a identificar tu repuesto.';
                   }
                   if (v.trim().length < 10) {
-                    return 'La descripción debe tener al menos 10 caracteres';
+                    return 'La descripción es muy corta. Ingresa al menos 10 caracteres (ej: marca, lado, color).';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: AppSpacing.spacingMd),
-              _buildPrioritySection(),
+              _buildPrioritySection(provider),
               const SizedBox(height: AppSpacing.spacingMd),
-              _buildLocationSection(),
+              _buildLocationSection(provider),
               const SizedBox(height: AppSpacing.spacingXl),
               _buildProTip(),
               const SizedBox(height: AppSpacing.spacingXxl),
@@ -737,22 +927,22 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     );
   }
 
-  Widget _buildImageSection() {
+  Widget _buildImageSection(CreateRequestProvider provider) {
     return RyImagePicker(
       width: double.infinity,
       height: 200,
-      currentFile: _selectedImage,
+      currentFile: provider.selectedImage,
       onImageSelected: (file) async {
-        setState(() => _selectedImage = file);
+        provider.updateImage(file);
         _showToast('Imagen cargada con éxito');
       },
       onRemove: () {
-        setState(() => _selectedImage = null);
+        provider.updateImage(null);
       },
     );
   }
 
-  Widget _buildVehicleDropdown() {
+  Widget _buildVehicleDropdown(CreateRequestProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -781,11 +971,22 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           decoration: BoxDecoration(
             color: AppColors.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-            border: Border.all(color: AppColors.outlineVariant),
+            border: Border.all(
+              color: (_fieldErrors.containsKey('vehiculo_id'))
+                  ? AppColors.error
+                  : AppColors.outlineVariant,
+            ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              initialValue: _selectedVehiculoId,
+              initialValue: (_isLoadingVehiculos ||
+                      !_vehiculos.any(
+                        (v) =>
+                            v['id']?.toString() == provider.selectedVehiculoId,
+                      ))
+                  ? null
+                  : provider.selectedVehiculoId,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               decoration: const InputDecoration(
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.spacingMd,
@@ -813,37 +1014,58 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                         child: Text('No hay vehículos registrados'),
                       ),
                     ]
-                  : _vehiculos.map((vehiculo) {
-                      final modelo =
-                          vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
-                      final marca =
-                          modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
-                      final vin = vehiculo['vin'] as String? ?? '';
-                      final nombre = marca != null && modelo != null
-                          ? '${marca['nombre']} ${modelo['nombre']}'
-                          : 'Vehículo';
-                      return DropdownMenuItem(
-                        value: vehiculo['id'] as String?,
-                        child: Text(
-                          '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
-                        ),
-                      );
-                    }).toList(),
-              onChanged: (value) => setState(() => _selectedVehiculoId = value),
+                  : _vehiculos
+                        .map((vehiculo) => vehiculo['id']?.toString())
+                        .where((id) => id != null)
+                        .toSet() // Deduplicar IDs
+                        .map((id) {
+                          final vehiculo = _vehiculos.firstWhere(
+                            (v) => v['id']?.toString() == id,
+                          );
+                          final modelo =
+                              vehiculo['modelos_vehiculo']
+                                  as Map<String, dynamic>?;
+                          final marca =
+                              modelo?['marcas_vehiculo']
+                                  as Map<String, dynamic>?;
+                          final vin = vehiculo['vin'] as String? ?? '';
+                          final nombre = marca != null && modelo != null
+                              ? '${marca['nombre']} ${modelo['nombre']}'
+                              : 'Vehículo';
+                          return DropdownMenuItem(
+                            value: id,
+                            child: Text(
+                              '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
+                            ),
+                          );
+                        })
+                        .toList(),
+              onChanged: provider.updateVehiculo,
               validator: (v) {
+                // Regla derivada del contrato: vehiculo_id es obligatorio (FK)
                 if (v == null || v.isEmpty) {
-                  return 'Selecciona un vehículo';
+                  return 'Debes seleccionar un vehículo de tu garaje para filtrar repuestos compatibles.';
                 }
                 return null;
               },
             ),
           ),
         ),
+        if (_fieldErrors.containsKey('vehiculo_id'))
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 12),
+            child: Text(
+              _fieldErrors['vehiculo_id']!,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildPrioritySection() {
+  Widget _buildPrioritySection(CreateRequestProvider provider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -855,8 +1077,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         ),
         const SizedBox(height: AppSpacing.spacingXs),
         RadioGroup<String>(
-          groupValue: _selectedPrioridad,
-          onChanged: (value) => setState(() => _selectedPrioridad = value),
+          groupValue: provider.selectedPrioridad,
+          onChanged: (value) {
+            if (value != null) provider.updatePrioridad(value);
+          },
           child: Row(
             children: [
               Expanded(
@@ -885,14 +1109,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     );
   }
 
-  Widget _buildLocationSection() {
+  Widget _buildLocationSection(CreateRequestProvider provider) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppRadius.radiusSm),
         border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+          color: _fieldErrors.containsKey('direccion_entrega_id')
+              ? AppColors.error
+              : AppColors.outlineVariant.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -929,6 +1155,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (_fieldErrors.containsKey('direccion_entrega_id'))
+                  Text(
+                    _fieldErrors['direccion_entrega_id']!,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -997,23 +1230,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         isFullWidth: true,
         onPressed: _handleSubmit,
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    int maxLines = 1,
-    bool isRequired = false,
-    String? Function(String?)? validator,
-  }) {
-    return RyTextField(
-      label: label,
-      hint: hint,
-      controller: controller,
-      maxLines: maxLines,
-      validator: validator,
     );
   }
 }

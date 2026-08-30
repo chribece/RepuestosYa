@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/welcome_page.dart';
-import 'pages/orden_compra_page.dart';
 import 'providers/user_role_provider.dart';
 import 'providers/orden_compra_provider.dart';
+import 'providers/create_request_provider.dart';
 import 'services/api_client.dart';
 import 'services/realtime_notification_service.dart';
+import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_logger.dart';
 
@@ -55,17 +55,17 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => UserRoleProvider()),
         ChangeNotifierProvider(create: (_) => OrdenCompraProvider()),
+        ChangeNotifierProvider(create: (_) => CreateRequestProvider()),
       ],
-      child: MaterialApp(
-        title: 'RepuestosYa',
-        debugShowCheckedModeBanner: false,
-        // Dark-only (ver §8.1 de docs/DESIGN_SYSTEM.md): la app no tiene
-        // tema claro. Antes `theme: lightTheme, darkTheme: darkTheme,
-        // themeMode: ThemeMode.dark` pero `lightTheme` era un clon del
-        // oscuro. Se eliminó en v1.2.1.
-        theme: darkTheme,
-        home: const WelcomePage(),
-        routes: {'/orden-compra': (context) => const OrdenCompraPage()},
+      child: Consumer<UserRoleProvider>(
+        builder: (context, roleProvider, child) {
+          return MaterialApp.router(
+            title: 'RepuestosYa',
+            debugShowCheckedModeBanner: false,
+            theme: darkTheme,
+            routerConfig: AppRouter.getRouter(roleProvider),
+          );
+        },
       ),
     );
   }

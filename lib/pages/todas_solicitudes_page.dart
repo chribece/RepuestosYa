@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
-import 'received_quotations_page.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class TodasSolicitudesPage extends StatefulWidget {
   const TodasSolicitudesPage({super.key});
@@ -50,7 +51,12 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     try {
       final user = _authService.currentUser;
       if (user != null) {
-        final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+        final clienteId = user.id;
+        // Usar obtenerSolicitudesCliente para obtener solo las del cliente actual
+        // obtenerSolicitudesActivas() es solo para almacenes (/requests/active)
+        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(
+          clienteId,
+        );
         if (solicitudes.isNotEmpty) {
           final solicitudIds = solicitudes
               .map((s) => s['id']?.toString() ?? '')
@@ -187,14 +193,13 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                 }
 
                 final solicitud = _solicitudes[index];
+                final solicitudObj = Solicitud(solicitud);
                 final estado = solicitud['estado'] as String? ?? 'en_proceso';
                 final createdAt = solicitud['created_at'] as String?;
                 final urlFinal =
                     solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-                final piezaNombreFinal =
-                    solicitud['pieza_nombre'] as String? ?? 'Repuesto';
-                final descripcion =
-                    solicitud['descripcion'] as String? ?? 'Sin descripción';
+                final piezaNombreFinal = solicitudObj.displayPartName;
+                final descripcion = solicitudObj.displayDescription;
 
                 DateTime? createdAtDate;
                 if (createdAt != null) {
@@ -211,15 +216,13 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                     createdAt: createdAtDate ?? DateTime.now(),
                     variant: RyPartCardVariant.client,
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ReceivedQuotationsPage(
-                            solicitudId: solicitud['id'].toString(),
-                            piezaNombre: piezaNombreFinal,
-                            fotoUrl: urlFinal.isNotEmpty ? urlFinal : null,
-                          ),
-                        ),
+                      context.pushNamed(
+                        RouteNames.receivedQuotations,
+                        pathParameters: {'id': solicitud['id'].toString()},
+                        extra: {
+                          'piezaNombre': piezaNombreFinal,
+                          'fotoUrl': urlFinal.isNotEmpty ? urlFinal : null,
+                        },
                       );
                     },
                   ),

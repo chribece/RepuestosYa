@@ -15,6 +15,26 @@ class Solicitud {
   bool get esUrgente => _data['es_urgente'] == true;
   String get estado => _data['estado'] ?? '';
   String get clienteId => _data['cliente_id']?.toString() ?? '';
+
+  // Nuevos campos del catálogo
+  String? get categoriaId => _data['categoria_id']?.toString();
+  String? get repuestoId => _data['repuesto_id']?.toString();
+  String? get repuestoNombreSnapshot => _data['repuesto_nombre_snapshot'];
+  String? get descripcionProblema => _data['descripcion_problema'];
+
+  // Nombre para mostrar (con fallback legacy)
+  String get displayPartName => repuestoNombreSnapshot ?? piezaNombre;
+
+  // Descripción para mostrar (con fallback legacy)
+  String get displayDescription => descripcionProblema ?? descripcion ?? '';
+
+  // Categoría embebida
+  String? get categoriaNombre {
+    final cat = _data['categorias_repuestos'];
+    if (cat is Map) return cat['nombre']?.toString();
+    return null;
+  }
+
   DateTime? get createdAt {
     final dateStr = _data['created_at'];
     if (dateStr != null) {
@@ -94,6 +114,10 @@ class SolicitudService {
     String? vinBusqueda,
     String? direccionEntregaId,
     bool esUrgente = false,
+    String? categoriaId,
+    String? repuestoId,
+    String? repuestoNombreSnapshot,
+    String? descripcionProblema,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -113,6 +137,16 @@ class SolicitudService {
         data['direccion_entrega_id'] = direccionEntregaId;
       }
 
+      // Nuevos campos del catálogo
+      if (categoriaId != null) data['categoria_id'] = categoriaId;
+      if (repuestoId != null) data['repuesto_id'] = repuestoId;
+      if (repuestoNombreSnapshot != null) {
+        data['repuesto_nombre_snapshot'] = repuestoNombreSnapshot;
+      }
+      if (descripcionProblema != null) {
+        data['descripcion_problema'] = descripcionProblema;
+      }
+
       final response = await _apiClient.post(
         '/requests',
         body: data,
@@ -126,6 +160,21 @@ class SolicitudService {
       throw ApiException(
         ApiErrorHandler.defaultMessage,
         technicalMessage: 'crearSolicitud: $e',
+      );
+    }
+  }
+
+  // Obtener una solicitud específica por su ID
+  Future<Map<String, dynamic>> obtenerSolicitudPorId(String id) async {
+    try {
+      final response = await _apiClient.get('/requests/$id');
+      return response;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'obtenerSolicitudPorId: $e',
       );
     }
   }

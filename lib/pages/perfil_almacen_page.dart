@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/almacen_service.dart';
 import '../services/auth_service.dart';
-import 'complete_profile_page.dart';
-import 'login_page.dart';
-import 'warehouse_dashboard.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -14,6 +12,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class PerfilAlmacenPage extends StatefulWidget {
   const PerfilAlmacenPage({super.key});
@@ -84,13 +83,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           name: 'PerfilAlmacenPage',
         );
         if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CompleteProfilePage(),
-            ),
-            (route) => false,
-          );
+          context.goNamed(RouteNames.completeProfile);
         }
       }
     } catch (e) {
@@ -234,12 +227,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
               onPressed: () async {
                 Navigator.pop(context);
                 await _authService.signOut();
-                if (!mounted) return;
-                Navigator.pushAndRemoveUntil(
-                  this.context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                  (route) => false,
-                );
+                // Router redirigirá automáticamente
               },
               child: Text(
                 'Salir',
@@ -367,13 +355,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             title: Text('Panel Principal', style: AppTextStyles.textStyleBody),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WarehouseDashboard(),
-                ),
-                (route) => false,
-              );
+              context.goNamed(RouteNames.dashboard);
             },
           ),
           // Cotizaciones Enviadas → WarehouseDashboard (tab cotizaciones)
@@ -385,13 +367,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             ),
             onTap: () {
               Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const WarehouseDashboard(),
-                ),
-                (route) => false,
-              );
+              context.goNamed(RouteNames.dashboard);
             },
           ),
           // Mi Almacén → PerfilAlmacenPage (página actual)

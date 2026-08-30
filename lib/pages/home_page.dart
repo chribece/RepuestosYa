@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
-import 'create_request_page.dart';
-import 'profile_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
-import 'todas_solicitudes_page.dart';
-import 'login_page.dart';
-import 'received_quotations_page.dart';
-import 'mis_ordenes_page.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
@@ -16,6 +11,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -49,7 +45,11 @@ class _HomePageState extends State<HomePage> {
         final clienteId = user.id;
         RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
 
-        final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
+        // Usar obtenerSolicitudesCliente para obtener solo las del cliente actual
+        // obtenerSolicitudesActivas() es solo para almacenes (/requests/active)
+        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(
+          clienteId,
+        );
         if (solicitudes.isNotEmpty) {
           final solicitudIds = solicitudes
               .map((s) => s['id']?.toString() ?? '')
@@ -225,10 +225,7 @@ class _HomePageState extends State<HomePage> {
             ),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
+              context.pushNamed(RouteNames.profile);
             },
           ),
           ListTile(
@@ -244,10 +241,7 @@ class _HomePageState extends State<HomePage> {
             ),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MisOrdenesPage()),
-              );
+              context.pushNamed(RouteNames.misOrdenes);
             },
           ),
           const Divider(
@@ -278,13 +272,7 @@ class _HomePageState extends State<HomePage> {
               try {
                 await _authService.signOut();
                 if (context.mounted) Navigator.pop(context);
-                if (context.mounted) {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                    (route) => false,
-                  );
-                }
+                // El router redirigirá automáticamente a welcome/login al detectar el cambio de estado.
               } catch (e) {
                 if (context.mounted) Navigator.pop(context);
                 if (context.mounted) {
@@ -343,10 +331,7 @@ class _HomePageState extends State<HomePage> {
           ),
           InkWell(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
+              context.pushNamed(RouteNames.profile);
             },
             borderRadius: BorderRadius.circular(AppRadius.radiusXl),
             child: Container(
@@ -394,12 +379,7 @@ class _HomePageState extends State<HomePage> {
         color: AppColors.transparent,
         child: InkWell(
           onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CreateRequestPage(),
-              ),
-            );
+            await context.pushNamed(RouteNames.createRequest);
             _cargarSolicitudes();
           },
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
@@ -594,12 +574,7 @@ class _HomePageState extends State<HomePage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TodasSolicitudesPage(),
-                  ),
-                ).then((_) {
+                context.pushNamed(RouteNames.solicitudes).then((_) {
                   _cargarSolicitudes();
                   _cargarEstadisticas();
                 });
@@ -657,12 +632,11 @@ class _HomePageState extends State<HomePage> {
               cantidadCotizaciones = solicitud['cotizaciones_count'];
             }
 
+            final solicitudObj = Solicitud(solicitud);
             final String urlFinal =
                 solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-            final String piezaNombreFinal =
-                solicitud['pieza_nombre'] as String? ?? 'Repuesto';
-            final String descripcionFinal =
-                solicitud['descripcion'] as String? ?? 'Sin descripción';
+            final String piezaNombreFinal = solicitudObj.displayPartName;
+            final String descripcionFinal = solicitudObj.displayDescription;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
@@ -674,16 +648,14 @@ class _HomePageState extends State<HomePage> {
                 createdAt: createdAtDate ?? DateTime.now(),
                 variant: RyPartCardVariant.client,
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReceivedQuotationsPage(
-                        solicitudId: solicitud['id'].toString(),
-                        piezaNombre: piezaNombreFinal,
-                        fotoUrl: urlFinal.isNotEmpty ? urlFinal : null,
-                        ofertasPendientes: cantidadCotizaciones,
-                      ),
-                    ),
+                  context.pushNamed(
+                    RouteNames.receivedQuotations,
+                    pathParameters: {'id': solicitud['id'].toString()},
+                    extra: {
+                      'piezaNombre': piezaNombreFinal,
+                      'fotoUrl': urlFinal.isNotEmpty ? urlFinal : null,
+                      'ofertasPendientes': cantidadCotizaciones,
+                    },
                   );
                 },
                 customFooter: cantidadCotizaciones > 0
@@ -833,10 +805,7 @@ class _HomePageState extends State<HomePage> {
             isSelected: _selectedIndex == 2,
             onTap: () {
               setState(() => _selectedIndex = 2);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MisOrdenesPage()),
-              );
+              context.pushNamed(RouteNames.misOrdenes);
             },
           ),
           _buildNavItem(
@@ -844,10 +813,7 @@ class _HomePageState extends State<HomePage> {
             label: 'Profile',
             isSelected: _selectedIndex == 3,
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
-              );
+              context.pushNamed(RouteNames.profile);
             },
           ),
         ],

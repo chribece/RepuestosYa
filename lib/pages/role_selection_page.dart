@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/ry_button.dart';
-import 'register_cliente_page.dart';
-import 'register_almacen_page.dart';
+import '../router/route_names.dart';
 
 class RoleSelectionPage extends StatefulWidget {
   const RoleSelectionPage({super.key});
@@ -219,15 +219,9 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   void _handleContinue() {
     if (_formKey.currentState!.validate()) {
       if (_selectedRole == 'Cliente') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const RegisterClientePage()),
-        );
+        context.pushNamed(RouteNames.registerCliente);
       } else if (_selectedRole == 'Almacén') {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const RegisterAlmacenPage()),
-        );
+        context.pushNamed(RouteNames.registerAlmacen);
       }
     }
   }

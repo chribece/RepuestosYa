@@ -12,6 +12,25 @@ class UserRoleProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  UserRoleProvider() {
+    _initializeRole();
+    // Escuchar cambios de autenticación para sincronizar el rol automáticamente
+    _authService.authStateChanges.listen((state) {
+      if (state.user == null) {
+        clearRole();
+      } else if (state.user?.rol != null) {
+        setRoleFromString(state.user!.rol);
+      }
+    });
+  }
+
+  void _initializeRole() {
+    final user = _authService.currentUser;
+    if (user != null && user.rol != null) {
+      _currentRole = _parseRole(user.rol!);
+    }
+  }
+
   UserRole get currentRole => _currentRole;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -60,14 +79,30 @@ class UserRoleProvider with ChangeNotifier {
   UserRole _parseRole(String roleString) {
     switch (roleString.toLowerCase()) {
       case 'admin':
+      case 'administrator':
         return UserRole.admin;
       case 'cliente':
+      case 'client':
+      case 'user':
         return UserRole.cliente;
       case 'almacen':
+      case 'warehouse':
+      case 'vendedor':
+      case 'seller':
         return UserRole.almacen;
       default:
         return UserRole.unknown;
     }
+  }
+
+  // Establecer el rol desde un string (útil post-login para evitar extra API calls)
+  void setRoleFromString(String? roleString) {
+    if (roleString == null) {
+      _currentRole = UserRole.unknown;
+    } else {
+      _currentRole = _parseRole(roleString);
+    }
+    notifyListeners();
   }
 
   // Establecer el rol manualmente (útil para pruebas o casos especiales)

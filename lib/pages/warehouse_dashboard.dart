@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
-import 'login_page.dart';
-import 'complete_profile_page.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
 import '../services/realtime_notification_service.dart';
-import 'create_quotation_page.dart';
-import 'perfil_almacen_page.dart';
-import 'register_almacen_page.dart';
-import 'almacen_orden_detalle_page.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
@@ -19,6 +14,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../router/route_names.dart';
 
 class WarehouseDashboard extends StatefulWidget {
   const WarehouseDashboard({super.key});
@@ -84,11 +80,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           name: _logName,
         );
         setState(() => _profileCheck = _ProfileCheckState.needsProfile);
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const CompleteProfilePage()),
-          (route) => false,
-        );
+        context.goNamed(RouteNames.completeProfile);
       }
     } catch (e) {
       AppLogger.error(
@@ -276,19 +268,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   final almacen = await _almacenService.obtenerMiAlmacen();
                   if (context.mounted) {
                     if (almacen != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const PerfilAlmacenPage(),
-                        ),
-                      );
+                      context.pushNamed(RouteNames.profileAlmacen);
                     } else {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterAlmacenPage(),
-                        ),
-                      );
+                      context.pushNamed(RouteNames.registerAlmacen);
                     }
                   }
                 },
@@ -305,15 +287,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 onTap: () async {
                   Navigator.pop(context);
                   await _authService.signOut();
-                  if (context.mounted) {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginPage(),
-                      ),
-                      (route) => false,
-                    );
-                  }
+                  // Router redirigirá automáticamente
                 },
               ),
             ],
@@ -737,7 +711,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   Widget _buildRequestBentoCard({required Map<String, dynamic> solicitud}) {
     // Extracción e indexación segura de datos relacionales anidados (Vehículos)
-    final String title = solicitud['pieza_nombre'] ?? 'Repuesto Desconocido';
+    final solicitudObj = Solicitud(solicitud);
+    final String title = solicitudObj.displayPartName;
 
     // Extraer nombre del cliente
     final profiles = solicitud['profiles'] as Map<String, dynamic>?;
@@ -755,10 +730,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           '${marca['nombre'] ?? ''} ${modelo['nombre'] ?? ''} • ${vehiculo['año'] ?? ''}';
     }
 
-    final String subtitle =
-        (solicitud['descripcion'] != null &&
-            solicitud['descripcion'].toString().trim().isNotEmpty)
-        ? solicitud['descripcion']
+    final String subtitle = (solicitudObj.displayDescription.trim().isNotEmpty)
+        ? solicitudObj.displayDescription
         : detallesVehiculo;
 
     // TODO(geo): la distancia es un placeholder hasta que exista geolocalización
@@ -858,22 +831,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   Future<void> _abrirCotizacion(Map<String, dynamic> solicitud) async {
-    final bool? vueltaConExito = await Navigator.push<bool>(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            CreateQuotationPage(solicitud: solicitud),
-        transitionDuration: const Duration(milliseconds: 250),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1.0, 0.0),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          );
-        },
-      ),
+    final bool? vueltaConExito = await context.pushNamed<bool>(
+      RouteNames.createQuotation,
+      pathParameters: {'solicitudId': solicitud['id'].toString()},
+      extra: {'solicitud': solicitud},
     );
 
     if (vueltaConExito == true && mounted) {
@@ -1114,11 +1075,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     if (estado == 'aceptada' && ordenId != null) {
       return InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AlmacenOrdenDetallePage(ordenId: ordenId),
-            ),
+          context.pushNamed(
+            RouteNames.ordenDetalleAlmacen,
+            pathParameters: {'id': ordenId},
           );
         },
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
@@ -1160,19 +1119,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           final almacen = await _almacenService.obtenerMiAlmacen();
           if (!mounted) return;
           if (almacen != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PerfilAlmacenPage(),
-              ),
-            );
+            context.pushNamed(RouteNames.profileAlmacen);
           } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const RegisterAlmacenPage(),
-              ),
-            );
+            context.pushNamed(RouteNames.registerAlmacen);
           }
         }
       },

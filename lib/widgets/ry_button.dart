@@ -135,10 +135,14 @@ class RyButton extends StatelessWidget {
             Icon(icon, size: 20),
             const SizedBox(width: AppSpacing.spacingSm),
           ],
-          Text(
-            label,
-            style: AppTextStyles.textStyleButton.copyWith(
-              color: foregroundColor,
+          Flexible(
+            child: Text(
+              label,
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: foregroundColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
           if (trailingIcon != null) ...[

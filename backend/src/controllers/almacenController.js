@@ -26,6 +26,15 @@ const createAlmacen = async (req, res) => {
       });
     }
 
+    // Validar RUC (13 dígitos)
+    const normalizedRuc = ruc.toString().trim().replace(/\s+/g, '');
+    if (!/^\d{13}$/.test(normalizedRuc)) {
+      return res.status(422).json({
+        field: 'ruc',
+        message: 'El RUC debe tener exactamente 13 dígitos'
+      });
+    }
+
     // First, update the user's role to 'almacen' in profiles
     const { error: roleError } = await supabase
       .from('profiles')
@@ -51,7 +60,8 @@ const createAlmacen = async (req, res) => {
         latitude: latitude || 0,
         longitude: longitude || 0,
         verificado: false,
-        estado_abierto: true
+        verification_status: 'pending',
+        estado_abierto: false
       })
       .select()
       .single();
@@ -95,10 +105,10 @@ const updateAlmacen = async (req, res) => {
     const { id } = req.params;
     const { nombre_comercial, direccion_texto, latitude, longitude, verificado, estado_abierto, telefono, ruc, representante_legal, email } = req.body;
 
-    // Verify ownership
+    // Verify ownership and status
     const { data: existing, error: existingError } = await supabase
       .from('almacenes')
-      .select('encargado_id')
+      .select('encargado_id, verification_status')
       .eq('id', id)
       .single();
 
@@ -115,10 +125,35 @@ const updateAlmacen = async (req, res) => {
     if (direccion_texto !== undefined) updateData.direccion_texto = direccion_texto;
     if (latitude !== undefined) updateData.latitude = latitude;
     if (longitude !== undefined) updateData.longitude = longitude;
-    if (verificado !== undefined) updateData.verificado = verificado;
-    if (estado_abierto !== undefined) updateData.estado_abierto = estado_abierto;
+    
+    // verificado y verification_status SOLO pueden ser cambiados por admin
+    // a través de adminController.actualizarEstadoAlmacen
+    
+    if (estado_abierto !== undefined) {
+      // Bloquear cambio de estado operativo si no está aprobado
+      if (existing.verification_status !== 'approved') {
+        return res.status(403).json({ 
+          code: 'WAREHOUSE_NOT_APPROVED',
+          message: 'No puedes cambiar tu estado operativo hasta que tu almacén sea aprobado.' 
+        });
+      }
+      updateData.estado_abierto = estado_abierto;
+    }
+    
     if (telefono !== undefined) updateData.telefono = telefono;
-    if (ruc !== undefined) updateData.ruc = ruc;
+    
+    if (ruc !== undefined) {
+      // Validar RUC (13 dígitos)
+      const normalizedRuc = ruc.toString().trim().replace(/\s+/g, '');
+      if (!/^\d{13}$/.test(normalizedRuc)) {
+        return res.status(422).json({
+          field: 'ruc',
+          message: 'El RUC debe tener exactamente 13 dígitos'
+        });
+      }
+      updateData.ruc = normalizedRuc;
+    }
+
     if (representante_legal !== undefined) updateData.representante_legal = representante_legal;
     if (email !== undefined) updateData.email = email;
 

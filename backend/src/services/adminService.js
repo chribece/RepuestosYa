@@ -27,11 +27,11 @@ const getDashboardMetrics = async () => {
       .select('*', { count: 'exact', head: true });
     if (error3) throw new Error(error3.message);
 
-    // Almacenes activos (verificados)
+    // Almacenes activos (aprobados)
     const { count: almacenesActivos, error: error4 } = await supabase
       .from('almacenes')
       .select('*', { count: 'exact', head: true })
-      .eq('verificado', true);
+      .eq('verification_status', 'approved');
     if (error4) throw new Error(error4.message);
 
     return {
@@ -112,7 +112,7 @@ const getAlmacenesPendientes = async () => {
         *,
         profiles!almacenes_encargado_id_fkey(nombre_completo, email)
       `)
-      .eq('verificado', false)
+      .eq('verification_status', 'pending')
       .order('created_at', { ascending: false });
     if (error) throw new Error(error.message);
     return data || [];
@@ -122,11 +122,18 @@ const getAlmacenesPendientes = async () => {
   }
 };
 
-const actualizarEstadoAlmacen = async (almacenId, verificado) => {
+const actualizarEstadoAlmacen = async (almacenId, status, rejectionReason = null) => {
   try {
+    const updateData = { 
+      verification_status: status,
+      verificado: status === 'approved' 
+    };
+    if (rejectionReason !== null) {
+      updateData.rejection_reason = rejectionReason;
+    }
     const { data, error } = await supabase
       .from('almacenes')
-      .update({ verificado: verificado })
+      .update(updateData)
       .eq('id', almacenId)
       .select()
       .single();

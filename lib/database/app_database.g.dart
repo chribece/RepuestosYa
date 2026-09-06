@@ -2477,6 +2477,383 @@ class PartesCacheCompanion extends UpdateCompanion<PartesCacheData> {
   }
 }
 
+class $PerfilAlmacenCacheTable extends PerfilAlmacenCache
+    with TableInfo<$PerfilAlmacenCacheTable, PerfilAlmacenCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PerfilAlmacenCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nombreComercialMeta = const VerificationMeta(
+    'nombreComercial',
+  );
+  @override
+  late final GeneratedColumn<String> nombreComercial = GeneratedColumn<String>(
+    'nombre_comercial',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _verificationStatusMeta =
+      const VerificationMeta('verificationStatus');
+  @override
+  late final GeneratedColumn<String> verificationStatus =
+      GeneratedColumn<String>(
+        'verification_status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _dataJsonMeta = const VerificationMeta(
+    'dataJson',
+  );
+  @override
+  late final GeneratedColumn<String> dataJson = GeneratedColumn<String>(
+    'data_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    nombreComercial,
+    verificationStatus,
+    dataJson,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'perfil_almacen_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PerfilAlmacenCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('nombre_comercial')) {
+      context.handle(
+        _nombreComercialMeta,
+        nombreComercial.isAcceptableOrUnknown(
+          data['nombre_comercial']!,
+          _nombreComercialMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_nombreComercialMeta);
+    }
+    if (data.containsKey('verification_status')) {
+      context.handle(
+        _verificationStatusMeta,
+        verificationStatus.isAcceptableOrUnknown(
+          data['verification_status']!,
+          _verificationStatusMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_verificationStatusMeta);
+    }
+    if (data.containsKey('data_json')) {
+      context.handle(
+        _dataJsonMeta,
+        dataJson.isAcceptableOrUnknown(data['data_json']!, _dataJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dataJsonMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PerfilAlmacenCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PerfilAlmacenCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      nombreComercial: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nombre_comercial'],
+      )!,
+      verificationStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}verification_status'],
+      )!,
+      dataJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}data_json'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PerfilAlmacenCacheTable createAlias(String alias) {
+    return $PerfilAlmacenCacheTable(attachedDatabase, alias);
+  }
+}
+
+class PerfilAlmacenCacheData extends DataClass
+    implements Insertable<PerfilAlmacenCacheData> {
+  final String id;
+  final String nombreComercial;
+  final String verificationStatus;
+  final String dataJson;
+  final DateTime updatedAt;
+  const PerfilAlmacenCacheData({
+    required this.id,
+    required this.nombreComercial,
+    required this.verificationStatus,
+    required this.dataJson,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['nombre_comercial'] = Variable<String>(nombreComercial);
+    map['verification_status'] = Variable<String>(verificationStatus);
+    map['data_json'] = Variable<String>(dataJson);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PerfilAlmacenCacheCompanion toCompanion(bool nullToAbsent) {
+    return PerfilAlmacenCacheCompanion(
+      id: Value(id),
+      nombreComercial: Value(nombreComercial),
+      verificationStatus: Value(verificationStatus),
+      dataJson: Value(dataJson),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PerfilAlmacenCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PerfilAlmacenCacheData(
+      id: serializer.fromJson<String>(json['id']),
+      nombreComercial: serializer.fromJson<String>(json['nombreComercial']),
+      verificationStatus: serializer.fromJson<String>(
+        json['verificationStatus'],
+      ),
+      dataJson: serializer.fromJson<String>(json['dataJson']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'nombreComercial': serializer.toJson<String>(nombreComercial),
+      'verificationStatus': serializer.toJson<String>(verificationStatus),
+      'dataJson': serializer.toJson<String>(dataJson),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PerfilAlmacenCacheData copyWith({
+    String? id,
+    String? nombreComercial,
+    String? verificationStatus,
+    String? dataJson,
+    DateTime? updatedAt,
+  }) => PerfilAlmacenCacheData(
+    id: id ?? this.id,
+    nombreComercial: nombreComercial ?? this.nombreComercial,
+    verificationStatus: verificationStatus ?? this.verificationStatus,
+    dataJson: dataJson ?? this.dataJson,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  PerfilAlmacenCacheData copyWithCompanion(PerfilAlmacenCacheCompanion data) {
+    return PerfilAlmacenCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      nombreComercial: data.nombreComercial.present
+          ? data.nombreComercial.value
+          : this.nombreComercial,
+      verificationStatus: data.verificationStatus.present
+          ? data.verificationStatus.value
+          : this.verificationStatus,
+      dataJson: data.dataJson.present ? data.dataJson.value : this.dataJson,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PerfilAlmacenCacheData(')
+          ..write('id: $id, ')
+          ..write('nombreComercial: $nombreComercial, ')
+          ..write('verificationStatus: $verificationStatus, ')
+          ..write('dataJson: $dataJson, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, nombreComercial, verificationStatus, dataJson, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PerfilAlmacenCacheData &&
+          other.id == this.id &&
+          other.nombreComercial == this.nombreComercial &&
+          other.verificationStatus == this.verificationStatus &&
+          other.dataJson == this.dataJson &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PerfilAlmacenCacheCompanion
+    extends UpdateCompanion<PerfilAlmacenCacheData> {
+  final Value<String> id;
+  final Value<String> nombreComercial;
+  final Value<String> verificationStatus;
+  final Value<String> dataJson;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const PerfilAlmacenCacheCompanion({
+    this.id = const Value.absent(),
+    this.nombreComercial = const Value.absent(),
+    this.verificationStatus = const Value.absent(),
+    this.dataJson = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PerfilAlmacenCacheCompanion.insert({
+    required String id,
+    required String nombreComercial,
+    required String verificationStatus,
+    required String dataJson,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       nombreComercial = Value(nombreComercial),
+       verificationStatus = Value(verificationStatus),
+       dataJson = Value(dataJson),
+       updatedAt = Value(updatedAt);
+  static Insertable<PerfilAlmacenCacheData> custom({
+    Expression<String>? id,
+    Expression<String>? nombreComercial,
+    Expression<String>? verificationStatus,
+    Expression<String>? dataJson,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nombreComercial != null) 'nombre_comercial': nombreComercial,
+      if (verificationStatus != null) 'verification_status': verificationStatus,
+      if (dataJson != null) 'data_json': dataJson,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PerfilAlmacenCacheCompanion copyWith({
+    Value<String>? id,
+    Value<String>? nombreComercial,
+    Value<String>? verificationStatus,
+    Value<String>? dataJson,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return PerfilAlmacenCacheCompanion(
+      id: id ?? this.id,
+      nombreComercial: nombreComercial ?? this.nombreComercial,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      dataJson: dataJson ?? this.dataJson,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (nombreComercial.present) {
+      map['nombre_comercial'] = Variable<String>(nombreComercial.value);
+    }
+    if (verificationStatus.present) {
+      map['verification_status'] = Variable<String>(verificationStatus.value);
+    }
+    if (dataJson.present) {
+      map['data_json'] = Variable<String>(dataJson.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PerfilAlmacenCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('nombreComercial: $nombreComercial, ')
+          ..write('verificationStatus: $verificationStatus, ')
+          ..write('dataJson: $dataJson, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2490,6 +2867,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $PartesCacheTable partesCache = $PartesCacheTable(this);
+  late final $PerfilAlmacenCacheTable perfilAlmacenCache =
+      $PerfilAlmacenCacheTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2501,6 +2880,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     direccionesCache,
     categoriasCache,
     partesCache,
+    perfilAlmacenCache,
   ];
 }
 
@@ -3852,6 +4232,223 @@ typedef $$PartesCacheTableProcessedTableManager =
       PartesCacheData,
       PrefetchHooks Function()
     >;
+typedef $$PerfilAlmacenCacheTableCreateCompanionBuilder =
+    PerfilAlmacenCacheCompanion Function({
+      required String id,
+      required String nombreComercial,
+      required String verificationStatus,
+      required String dataJson,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$PerfilAlmacenCacheTableUpdateCompanionBuilder =
+    PerfilAlmacenCacheCompanion Function({
+      Value<String> id,
+      Value<String> nombreComercial,
+      Value<String> verificationStatus,
+      Value<String> dataJson,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$PerfilAlmacenCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $PerfilAlmacenCacheTable> {
+  $$PerfilAlmacenCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nombreComercial => $composableBuilder(
+    column: $table.nombreComercial,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dataJson => $composableBuilder(
+    column: $table.dataJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PerfilAlmacenCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $PerfilAlmacenCacheTable> {
+  $$PerfilAlmacenCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nombreComercial => $composableBuilder(
+    column: $table.nombreComercial,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dataJson => $composableBuilder(
+    column: $table.dataJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PerfilAlmacenCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PerfilAlmacenCacheTable> {
+  $$PerfilAlmacenCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nombreComercial => $composableBuilder(
+    column: $table.nombreComercial,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get verificationStatus => $composableBuilder(
+    column: $table.verificationStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dataJson =>
+      $composableBuilder(column: $table.dataJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PerfilAlmacenCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PerfilAlmacenCacheTable,
+          PerfilAlmacenCacheData,
+          $$PerfilAlmacenCacheTableFilterComposer,
+          $$PerfilAlmacenCacheTableOrderingComposer,
+          $$PerfilAlmacenCacheTableAnnotationComposer,
+          $$PerfilAlmacenCacheTableCreateCompanionBuilder,
+          $$PerfilAlmacenCacheTableUpdateCompanionBuilder,
+          (
+            PerfilAlmacenCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $PerfilAlmacenCacheTable,
+              PerfilAlmacenCacheData
+            >,
+          ),
+          PerfilAlmacenCacheData,
+          PrefetchHooks Function()
+        > {
+  $$PerfilAlmacenCacheTableTableManager(
+    _$AppDatabase db,
+    $PerfilAlmacenCacheTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PerfilAlmacenCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PerfilAlmacenCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PerfilAlmacenCacheTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> nombreComercial = const Value.absent(),
+                Value<String> verificationStatus = const Value.absent(),
+                Value<String> dataJson = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PerfilAlmacenCacheCompanion(
+                id: id,
+                nombreComercial: nombreComercial,
+                verificationStatus: verificationStatus,
+                dataJson: dataJson,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String nombreComercial,
+                required String verificationStatus,
+                required String dataJson,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PerfilAlmacenCacheCompanion.insert(
+                id: id,
+                nombreComercial: nombreComercial,
+                verificationStatus: verificationStatus,
+                dataJson: dataJson,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PerfilAlmacenCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PerfilAlmacenCacheTable,
+      PerfilAlmacenCacheData,
+      $$PerfilAlmacenCacheTableFilterComposer,
+      $$PerfilAlmacenCacheTableOrderingComposer,
+      $$PerfilAlmacenCacheTableAnnotationComposer,
+      $$PerfilAlmacenCacheTableCreateCompanionBuilder,
+      $$PerfilAlmacenCacheTableUpdateCompanionBuilder,
+      (
+        PerfilAlmacenCacheData,
+        BaseReferences<
+          _$AppDatabase,
+          $PerfilAlmacenCacheTable,
+          PerfilAlmacenCacheData
+        >,
+      ),
+      PerfilAlmacenCacheData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3868,4 +4465,6 @@ class $AppDatabaseManager {
       $$CategoriasCacheTableTableManager(_db, _db.categoriasCache);
   $$PartesCacheTableTableManager get partesCache =>
       $$PartesCacheTableTableManager(_db, _db.partesCache);
+  $$PerfilAlmacenCacheTableTableManager get perfilAlmacenCache =>
+      $$PerfilAlmacenCacheTableTableManager(_db, _db.perfilAlmacenCache);
 }

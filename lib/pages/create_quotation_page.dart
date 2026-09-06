@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../services/solicitud_service.dart';
 import '../services/almacen_service.dart';
+import '../services/almacen_repository.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_image_picker.dart';
 import '../theme/app_spacing.dart';
@@ -35,7 +37,13 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   bool _isSubmitting = false;
 
   final SolicitudService _solicitudService = SolicitudService();
-  final AlmacenService _almacenService = AlmacenService();
+  late final AlmacenService _almacenService;
+
+  @override
+  void initState() {
+    super.initState();
+    _almacenService = AlmacenService(context.read<AlmacenRepository>());
+  }
 
   @override
   void dispose() {

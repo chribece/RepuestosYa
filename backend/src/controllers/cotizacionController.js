@@ -32,10 +32,10 @@ const createCotizacion = async (req, res) => {
       return res.status(400).json({ error: 'Solicitud is not active' });
     }
 
-    // Verify warehouse ownership
+    // Verify warehouse ownership and status
     const { data: almacen, error: almacenError } = await supabase
       .from('almacenes')
-      .select('encargado_id')
+      .select('encargado_id, verification_status')
       .eq('id', almacen_id)
       .single();
 
@@ -45,6 +45,14 @@ const createCotizacion = async (req, res) => {
 
     if (almacen.encargado_id !== req.user.id) {
       return res.status(403).json({ error: 'You do not own this warehouse' });
+    }
+
+    // Bloquear si el almacén no está aprobado
+    if (almacen.verification_status !== 'approved') {
+      return res.status(403).json({ 
+        code: 'WAREHOUSE_NOT_APPROVED',
+        message: 'Tu almacén aún no ha sido aprobado para realizar cotizaciones.' 
+      });
     }
 
     const { data: cotizacion, error } = await supabase

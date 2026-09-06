@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/almacen_service.dart';
+import '../services/almacen_repository.dart';
 import '../services/auth_service.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -9,6 +11,7 @@ import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_section_card.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
@@ -26,6 +29,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _nombreController = TextEditingController();
+  final TextEditingController _rucController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _latController = TextEditingController();
@@ -37,18 +41,20 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   String? _errorMessage;
   Map<String, dynamic>? _almacenData;
 
-  final AlmacenService _almacenService = AlmacenService();
+  late final AlmacenService _almacenService;
   final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
+    _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _cargarAlmacen();
   }
 
   @override
   void dispose() {
     _nombreController.dispose();
+    _rucController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
     _latController.dispose();
@@ -69,6 +75,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         setState(() {
           _almacenData = almacen;
           _nombreController.text = almacen['nombre_comercial'] ?? '';
+          _rucController.text = almacen['ruc'] ?? '';
           _telefonoController.text = almacen['telefono'] ?? '';
           _direccionController.text = almacen['direccion_texto'] ?? '';
           _latController.text = (almacen['latitude'] ?? 0).toString();
@@ -144,6 +151,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     try {
       final data = <String, dynamic>{
         'nombre_comercial': _nombreController.text.trim(),
+        'ruc': _rucController.text.trim(),
         'telefono': _telefonoController.text.trim(),
         'direccion_texto': _direccionController.text.trim(),
         'latitude': double.tryParse(_latController.text) ?? 0.0,
@@ -192,6 +200,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     // Restaurar valores originales
     if (_almacenData != null) {
       _nombreController.text = _almacenData!['nombre_comercial'] ?? '';
+      _rucController.text = _almacenData!['ruc'] ?? '';
       _telefonoController.text = _almacenData!['telefono'] ?? '';
       _direccionController.text = _almacenData!['direccion_texto'] ?? '';
       _latController.text = (_almacenData!['latitude'] ?? 0).toString();
@@ -466,13 +475,31 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         _almacenData?['representante_legal'] ??
         _authService.currentUser?.nombreCompleto ??
         'Sin encargado';
-    final verificado = _almacenData?['verificado'] ?? false;
+    final verificationStatus =
+        _almacenData?['verification_status'] ?? 'pending';
+    final verificado = verificationStatus == 'approved';
     final estadoAbierto = _almacenData?['estado_abierto'] ?? true;
+
+    String statusBadge;
+    String statusLabel;
+    switch (verificationStatus) {
+      case 'approved':
+        statusBadge = 'completed';
+        statusLabel = 'Aprobado';
+        break;
+      case 'rejected':
+        statusBadge = 'error';
+        statusLabel = 'Rechazado';
+        break;
+      default:
+        statusBadge = 'pending';
+        statusLabel = 'En verificación';
+    }
 
     return Semantics(
       label:
           'Almacén $nombreComercial, encargado: $representanteLegal, '
-          'estado: ${verificado ? "verificado" : "en verificación"}, '
+          'estado: $statusLabel, '
           '${estadoAbierto ? "abierto" : "cerrado"}',
       excludeSemantics: true,
       child: Column(
@@ -537,29 +564,47 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             runSpacing: AppSpacing.spacingXs,
             children: [
               Semantics(
-                label: verificado
-                    ? 'Estado de verificación: verificado'
-                    : 'Estado de verificación: en verificación',
+                label: 'Estado de verificación: $statusLabel',
                 child: RyStatusBadge(
-                  status: verificado ? 'completed' : 'pending',
-                  customLabel: verificado ? 'Verificado' : 'En verificación',
+                  status: statusBadge,
+                  customLabel: statusLabel,
                   style: RyStatusBadgeStyle.filled,
                   size: RyStatusBadgeSize.small,
                 ),
               ),
-              Semantics(
-                label: estadoAbierto
-                    ? 'Estado del almacén: abierto'
-                    : 'Estado del almacén: cerrado',
-                child: RyStatusBadge(
-                  status: estadoAbierto ? 'available' : 'error',
-                  customLabel: estadoAbierto ? 'Abierto' : 'Cerrado',
-                  style: RyStatusBadgeStyle.filled,
-                  size: RyStatusBadgeSize.small,
+              if (verificado)
+                Semantics(
+                  label: estadoAbierto
+                      ? 'Estado del almacén: abierto'
+                      : 'Estado del almacén: cerrado',
+                  child: RyStatusBadge(
+                    status: estadoAbierto ? 'available' : 'error',
+                    customLabel: estadoAbierto ? 'Abierto' : 'Cerrado',
+                    style: RyStatusBadgeStyle.filled,
+                    size: RyStatusBadgeSize.small,
+                  ),
                 ),
-              ),
             ],
           ),
+          if (verificationStatus == 'rejected') ...[
+            const SizedBox(height: AppSpacing.spacingMd),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                'Motivo del rechazo: ${_almacenData?['rejection_reason'] ?? "Revisa los datos ingresados o comunícate con soporte."}',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -584,6 +629,25 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             }
             if (value.trim().length < 3) {
               return 'Debe tener al menos 3 caracteres';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
+          label: 'RUC',
+          prefixIcon: Icons.badge_outlined,
+          controller: _rucController,
+          type: RyTextFieldType.number,
+          isReadOnly: !_isEditing,
+          isRequired: true,
+          maxLength: 13,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'El RUC es requerido';
+            }
+            if (value.trim().length != 13) {
+              return 'El RUC debe tener exactamente 13 dígitos';
             }
             return null;
           },

@@ -68,12 +68,20 @@ const updateOrdenEstadoController = async (req, res) => {
     // Obtener almacen_id del usuario
     const { data: almacen, error: almacenError } = await supabase
       .from('almacenes')
-      .select('id')
+      .select('id, verification_status')
       .eq('encargado_id', req.user.id)
       .single();
 
     if (almacenError || !almacen) {
       return res.status(404).json({ error: 'Almacén no encontrado para este usuario' });
+    }
+
+    // Bloquear si el almacén no está aprobado
+    if (almacen.verification_status !== 'approved') {
+      return res.status(403).json({ 
+        code: 'WAREHOUSE_NOT_APPROVED',
+        message: 'Tu almacén aún no ha sido aprobado para gestionar órdenes.' 
+      });
     }
 
     const ordenActualizada = await updateOrdenEstado(id, estado, almacen.id);

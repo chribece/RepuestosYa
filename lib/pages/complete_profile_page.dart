@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../services/almacen_repository.dart';
 import '../widgets/ry_text_field.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -35,11 +37,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
-  final AlmacenService _almacenService = AlmacenService();
+  late final AlmacenService _almacenService;
 
   @override
   void initState() {
     super.initState();
+    _almacenService = AlmacenService(context.read<AlmacenRepository>());
     // Pre-llenar el nombre del representante desde el auth
     final currentUser = _authService.currentUser;
     if (currentUser?.nombreCompleto != null) {
@@ -220,16 +223,17 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Widget _buildRucField() {
     return RyTextField(
       label: 'RUC',
-      hint: 'Ej: 20123456789',
+      hint: 'Ej: 1712345678001',
       controller: _rucController,
       type: RyTextFieldType.number,
       isRequired: true,
+      maxLength: 13,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'El RUC es requerido';
         }
-        if (value.trim().length != 11) {
-          return 'El RUC debe tener 11 dígitos';
+        if (value.trim().length != 13) {
+          return 'El RUC debe tener exactamente 13 dígitos';
         }
         return null;
       },

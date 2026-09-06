@@ -103,10 +103,10 @@ export class ApiClient {
     return this.request<{ data: import('@/types').Almacen[] }>('/admin/warehouses/pending');
   }
 
-  async verifyWarehouse(almacenId: string, verificado: boolean) {
+  async verifyWarehouse(almacenId: string, status: 'approved' | 'rejected', rejectionReason?: string) {
     return this.request<{ data: import('@/types').Almacen }>(`/admin/warehouses/${almacenId}/verify`, {
       method: 'PATCH',
-      body: JSON.stringify({ verificado }),
+      body: JSON.stringify({ status, rejectionReason }),
     });
   }
 }

@@ -137,7 +137,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
     // 1. Si estamos offline, ir directo a la base local para evitar esperas
     if (isOffline) {
-      AppLogger.info('Offline: Cargando categorías desde caché local', name: 'CreateRequest');
+      AppLogger.info(
+        'Offline: Cargando categorías desde caché local',
+        name: 'CreateRequest',
+      );
       try {
         final repository = context.read<SolicitudRepository>();
         final localCategories = await repository.obtenerCategoriasLocal();
@@ -198,7 +201,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
     // 1. Si estamos offline, ir directo a local
     if (isOffline) {
-      AppLogger.info('Offline: Cargando repuestos desde caché local', name: 'CreateRequest');
+      AppLogger.info(
+        'Offline: Cargando repuestos desde caché local',
+        name: 'CreateRequest',
+      );
       try {
         final repository = context.read<SolicitudRepository>();
         final localParts = await repository.obtenerRepuestosLocal(categoryId);
@@ -691,7 +697,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           'repuesto_id': provider.selectedPartId!,
           'repuesto_nombre_snapshot': provider.partNameSnapshot!,
           'descripcion_problema': provider.descripcion,
-          'local_image_path': provider.selectedImage?.path, // Guardar ruta local
+          'local_image_path':
+              provider.selectedImage?.path, // Guardar ruta local
         };
 
         final clientId = await outboxService.enqueue(

@@ -290,7 +290,8 @@ class RealtimeNotificationService {
   }
 
   // 1. Para Almacenes: Escuchar nuevas solicitudes (Broadcast)
-  void subscribeToNuevasSolicitudes() {
+  Future<void> subscribeToNuevasSolicitudes() async {
+    await _solicitudesChannel?.unsubscribe();
     AppLogger.info('👂 Escuchando nuevas solicitudes...', name: 'REALTIME');
     _solicitudesChannel = Supabase.instance.client
         .channel('solicitudes_broadcast')

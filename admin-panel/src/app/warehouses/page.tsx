@@ -33,11 +33,18 @@ export default function WarehousesPage() {
     }
   };
 
-  const handleVerify = async (almacenId: string, verificado: boolean) => {
-    const accion = verificado ? 'aprobar' : 'rechazar';
+  const handleVerify = async (almacenId: string, approved: boolean) => {
+    const status = approved ? 'approved' : 'rejected';
+    const accion = approved ? 'aprobar' : 'rechazar';
+    let rejectionReason = '';
+
+    if (!approved) {
+      rejectionReason = prompt('Motivo del rechazo (opcional):') || '';
+    }
+
     if (!confirm(`¿${accion} este almacén?`)) return;
     try {
-      await apiClient.verifyWarehouse(almacenId, verificado);
+      await apiClient.verifyWarehouse(almacenId, status, rejectionReason);
       await loadWarehouses();
     } catch (error: any) {
       alert(error.message);

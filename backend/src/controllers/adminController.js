@@ -74,8 +74,13 @@ const actualizarEstadoAlmacenController = async (req, res) => {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
     const { id } = req.params;
-    const { verificado } = req.body;
-    const almacen = await adminService.actualizarEstadoAlmacen(id, verificado);
+    const { status, rejectionReason } = req.body;
+    
+    if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Estado de verificación no válido' });
+    }
+
+    const almacen = await adminService.actualizarEstadoAlmacen(id, status, rejectionReason);
     res.json({ success: true, data: almacen });
   } catch (error) {
     console.error('Error en actualizarEstadoAlmacenController:', error);

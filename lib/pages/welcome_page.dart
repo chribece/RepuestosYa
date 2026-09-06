@@ -101,7 +101,7 @@ class _WelcomePageState extends State<WelcomePage> {
     return Column(
       children: [
         RyButton(
-          label: 'Iniciar sesión con cuenta RepuestosYa',
+          label: 'Iniciar sesión',
           icon: Icons.login,
           variant: RyButtonVariant.primary,
           size: RyButtonSize.large,

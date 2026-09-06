@@ -103,7 +103,9 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
         child: Row(
           children: [
             Icon(
-              isOffline ? Icons.airplanemode_active : Icons.check_circle_outline,
+              isOffline
+                  ? Icons.airplanemode_active
+                  : Icons.check_circle_outline,
               size: 16,
               color: isOffline ? Colors.orange : Colors.green,
             ),
@@ -112,7 +114,9 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
               child: Text(
                 message,
                 style: AppTextStyles.textStyleCaption.copyWith(
-                  color: isOffline ? Colors.orange.shade900 : Colors.green.shade900,
+                  color: isOffline
+                      ? Colors.orange.shade900
+                      : Colors.green.shade900,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -182,11 +186,16 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                                   AppColors.success,
                                 ],
                         ),
-                        borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                        borderRadius: BorderRadius.circular(
+                          AppRadius.radiusFull,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: (isOffline ? AppColors.primary : AppColors.success)
-                                .withValues(alpha: 0.4),
+                            color:
+                                (isOffline
+                                        ? AppColors.primary
+                                        : AppColors.success)
+                                    .withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -196,7 +205,9 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isOffline ? Icons.sync_rounded : Icons.check_circle_rounded,
+                            isOffline
+                                ? Icons.sync_rounded
+                                : Icons.check_circle_rounded,
                             size: 14,
                             color: Colors.white,
                           ),

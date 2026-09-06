@@ -120,24 +120,37 @@ class SolicitudRepository {
         .toList();
   }
 
-  Future<void> guardarRepuestos(String categoriaId, List<CatalogPart> repuestos) async {
+  Future<void> guardarRepuestos(
+    String categoriaId,
+    List<CatalogPart> repuestos,
+  ) async {
     await _db.transaction(() async {
       // Borramos solo los repuestos de ESTA categoría para refrescarla
-      await (_db.delete(_db.partesCache)..where((t) => t.categoriaId.equals(categoriaId))).go();
+      await (_db.delete(
+        _db.partesCache,
+      )..where((t) => t.categoriaId.equals(categoriaId))).go();
       for (var p in repuestos) {
-        await _db.into(_db.partesCache).insert(PartesCacheCompanion.insert(
-          id: p.id,
-          categoriaId: p.categoriaId,
-          nombre: p.nombre,
-          dataJson: json.encode(p.toJson()),
-        ));
+        await _db
+            .into(_db.partesCache)
+            .insert(
+              PartesCacheCompanion.insert(
+                id: p.id,
+                categoriaId: p.categoriaId,
+                nombre: p.nombre,
+                dataJson: json.encode(p.toJson()),
+              ),
+            );
       }
     });
   }
 
   Future<List<CatalogPart>> obtenerRepuestosLocal(String categoriaId) async {
-    final rows = await (_db.select(_db.partesCache)..where((t) => t.categoriaId.equals(categoriaId))).get();
-    return rows.map((r) => CatalogPart.fromJson(json.decode(r.dataJson))).toList();
+    final rows = await (_db.select(
+      _db.partesCache,
+    )..where((t) => t.categoriaId.equals(categoriaId))).get();
+    return rows
+        .map((r) => CatalogPart.fromJson(json.decode(r.dataJson)))
+        .toList();
   }
 
   Future<void> guardarVehiculos(List<Map<String, dynamic>> vehiculos) async {
@@ -212,6 +225,7 @@ class SolicitudRepository {
         await _db.delete(_db.categoriasCache).go();
         await _db.delete(_db.vehiculosCache).go();
         await _db.delete(_db.direccionesCache).go();
+        await _db.delete(_db.perfilAlmacenCache).go();
       });
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_lastSyncKey);

@@ -128,16 +128,22 @@ class SyncEngine {
 
       // Si hay una imagen local pendiente de subir
       if (localImagePath != null && localImagePath.isNotEmpty) {
-        AppLogger.info('Subiendo imagen pendiente para item ${item.clientId}',
-            name: 'SyncEngine');
+        AppLogger.info(
+          'Subiendo imagen pendiente para item ${item.clientId}',
+          name: 'SyncEngine',
+        );
         final file = File(localImagePath);
         if (await file.exists()) {
-          final uploadedUrl = await UploadService()
-              .uploadRequestImage(file, payload['cliente_id']);
+          final uploadedUrl = await UploadService().uploadRequestImage(
+            file,
+            payload['cliente_id'],
+          );
           if (uploadedUrl != null) {
             fotoUrl = uploadedUrl;
           } else {
-            throw Exception('Fallo al subir la imagen durante la sincronización');
+            throw Exception(
+              'Fallo al subir la imagen durante la sincronización',
+            );
           }
         }
       }

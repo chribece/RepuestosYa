@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../services/almacen_repository.dart';
 import '../services/realtime_notification_service.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
@@ -30,7 +32,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
-  final AlmacenService _almacenService = AlmacenService();
+  late final AlmacenService _almacenService;
 
   static const String _logName = 'WarehouseDashboard';
   static const String _filterLogName = 'WarehouseDashboard.Filter';
@@ -42,6 +44,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   bool _isLoadingSolicitudes = false;
   bool _isLoadingCotizaciones = false;
   String? _nombreAlmacen;
+  Map<String, dynamic>? _almacenData;
   String _filtroActual = 'todas';
 
   /// Estado de la validación del perfil comercial al entrar al dashboard.
@@ -50,13 +53,21 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   _ProfileCheckState _profileCheck = _ProfileCheckState.validating;
   String? _profileCheckError;
 
+  bool get _isApproved => _almacenData?['verification_status'] == 'approved';
+  bool get _isPending =>
+      _almacenData?['verification_status'] == 'pending' ||
+      _almacenData?['verification_status'] == null;
+  bool get _isRejected => _almacenData?['verification_status'] == 'rejected';
+  String? get _rejectionReason => _almacenData?['rejection_reason'];
+
   // Variables dinámicas para el panel de estadísticas Bento
-  final int _ventasCount = 42;
-  final int _vistasCount = 850;
+  final int _ventasCount = 0;
+  final int _vistasCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _validateAndLoad();
   }
 
@@ -70,9 +81,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       if (!mounted) return;
       if (hasProfile) {
         setState(() => _profileCheck = _ProfileCheckState.ready);
-        _cargarSolicitudes();
-        _cargarAlmacen();
-        _cargarCotizacionesEnviadas();
+        await _cargarAlmacen();
+        await _cargarSolicitudes();
+        await _cargarCotizacionesEnviadas();
       } else {
         AppLogger.info(
           'WarehouseDashboard: perfil de almacén no existe (404). '
@@ -101,12 +112,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       final almacen = await _almacenService.obtenerMiAlmacen();
       if (mounted) {
         setState(() {
+          _almacenData = almacen;
           _nombreAlmacen = almacen?['nombre_comercial'] ?? 'Mi Almacén';
+          _isOpen = almacen?['estado_abierto'] ?? true;
         });
         if (almacen != null && almacen['id'] != null) {
           final almacenId = almacen['id'].toString();
           await RealtimeNotificationService().subscribeToOrdenes(almacenId);
-          RealtimeNotificationService().subscribeToNuevasSolicitudes();
+          if (_isApproved) {
+            await RealtimeNotificationService().subscribeToNuevasSolicitudes();
+          }
         }
       }
     } catch (e) {
@@ -144,6 +159,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
   Future<void> _cargarSolicitudes() async {
+    if (!_isApproved) {
+      setState(() {
+        _solicitudes = [];
+        _isLoadingSolicitudes = false;
+      });
+      return;
+    }
+
     setState(() {
       _isLoadingSolicitudes = true;
     });
@@ -320,7 +343,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 _ProfileCheckState.ready =>
                   _selectedIndex == 0
                       ? RefreshIndicator(
-                          onRefresh: _cargarSolicitudes,
+                          onRefresh: () async {
+                            await _validateAndLoad();
+                          },
                           color: AppColors.primaryContainer,
                           backgroundColor: AppColors.surfaceContainerHigh,
                           child: SingleChildScrollView(
@@ -344,6 +369,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         color: AppColors.onSurfaceVariant,
                                       ),
                                 ),
+                                const SizedBox(height: AppSpacing.spacingLg),
+                                if (_isPending) _buildVerificationBanner(),
+                                if (_isRejected) _buildRejectedBanner(),
                                 const SizedBox(height: AppSpacing.spacingXl),
                                 _buildBentoStatsGrid(),
                                 const SizedBox(height: AppSpacing.spacingXl),
@@ -352,19 +380,33 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      'Solicitudes Cercanas',
+                                      'Solicitudes Disponibles',
                                       style: AppTextStyles.textStyleTitle,
                                     ),
                                     RyButton(
                                       label: 'Ver todas',
                                       variant: RyButtonVariant.text,
                                       size: RyButtonSize.small,
-                                      onPressed: _cargarSolicitudes,
+                                      onPressed: _isApproved
+                                          ? _cargarSolicitudes
+                                          : null,
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: AppSpacing.spacingMd),
-                                _isLoadingSolicitudes
+                                !_isApproved
+                                    ? RyStateContainer(
+                                        title: _isPending
+                                            ? 'En Verificación'
+                                            : 'Almacén Rechazado',
+                                        subtitle: _isPending
+                                            ? 'Tu cuenta está en proceso de revisión. Podrás ver solicitudes una vez seas aprobado.'
+                                            : 'Tu registro ha sido rechazado. ${_rejectionReason ?? "Contacta a soporte para más información."}',
+                                        type: _isPending
+                                            ? RyStateType.loading
+                                            : RyStateType.error,
+                                      )
+                                    : _isLoadingSolicitudes
                                     ? const RyStateContainer(
                                         title: 'Cargando solicitudes...',
                                         type: RyStateType.loading,
@@ -497,41 +539,139 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             ),
           ),
           const Spacer(),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isOpen = !_isOpen;
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.spacingSm,
-                vertical: AppSpacing.spacingXs - 2,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-                border: Border.all(color: AppColors.outlineVariant, width: 1),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _isOpen ? AppColors.success : AppColors.error,
-                      shape: BoxShape.circle,
+          if (_isApproved)
+            GestureDetector(
+              onTap: () async {
+                final newStatus = !_isOpen;
+                setState(() => _isOpen = newStatus);
+
+                try {
+                  final almacenId = _almacenData?['id']?.toString();
+                  if (almacenId != null) {
+                    await _almacenService.actualizarAlmacen(almacenId, {
+                      'estado_abierto': newStatus,
+                    });
+                  }
+                } catch (e) {
+                  AppLogger.error(
+                    'Error al actualizar estado operativo',
+                    name: _logName,
+                    error: e,
+                  );
+                  if (mounted) {
+                    setState(() => _isOpen = !newStatus);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(ApiErrorHandler.userMessage(e)),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingSm,
+                  vertical: AppSpacing.spacingXs - 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                  border: Border.all(color: AppColors.outlineVariant, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _isOpen ? AppColors.success : AppColors.error,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.spacingSm),
-                  Text(
-                    _isOpen ? 'Abierto' : 'Cerrado',
-                    style: AppTextStyles.textStyleSmall.copyWith(
-                      color: AppColors.onSurface,
+                    const SizedBox(width: AppSpacing.spacingSm),
+                    Text(
+                      _isOpen ? 'Abierto' : 'Cerrado',
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurface,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerificationBanner() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.primaryContainer.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(
+          color: AppColors.primaryContainer.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: AppColors.primaryContainer),
+          const SizedBox(width: AppSpacing.spacingMd),
+          Expanded(
+            child: Text(
+              'Tu almacén está en verificación. Un administrador revisará tu información antes de habilitarte para recibir solicitudes.',
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.primaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRejectedBanner() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.error),
+              const SizedBox(width: AppSpacing.spacingMd),
+              Expanded(
+                child: Text(
+                  'Tu almacén ha sido rechazado.',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_rejectionReason != null) ...[
+            const SizedBox(height: AppSpacing.spacingSm),
+            Text(
+              'Motivo: $_rejectionReason',
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.spacingSm),
+          Text(
+            'Revisa los datos ingresados o comunícate con soporte.',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.error,
             ),
           ),
         ],

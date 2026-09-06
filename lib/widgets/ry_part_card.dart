@@ -114,7 +114,8 @@ class RyPartCard extends StatelessWidget {
         width: width,
         height: height,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(width, height),
+        errorBuilder: (context, error, stackTrace) =>
+            _buildPlaceholder(width, height),
       );
     } else {
       imageWidget = CachedNetworkImage(
@@ -123,7 +124,8 @@ class RyPartCard extends StatelessWidget {
         height: height,
         fit: BoxFit.cover,
         placeholder: (context, url) => _buildPlaceholder(width, height),
-        errorWidget: (context, url, error) => _buildPlaceholder(width, height, isError: true),
+        errorWidget: (context, url, error) =>
+            _buildPlaceholder(width, height, isError: true),
       );
     }
 
@@ -133,7 +135,11 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceholder(double width, double height, {bool isError = false}) {
+  Widget _buildPlaceholder(
+    double width,
+    double height, {
+    bool isError = false,
+  }) {
     return Container(
       width: width,
       height: height,

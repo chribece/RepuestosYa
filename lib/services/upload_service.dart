@@ -44,7 +44,9 @@ class UploadService {
       final filePath = 'evidencias/solicitudes/$clienteId/$fileName';
 
       // Subir al bucket `Repuestosya`
-      await supabase.storage.from('Repuestosya').upload(
+      await supabase.storage
+          .from('Repuestosya')
+          .upload(
             filePath,
             imageFile,
             fileOptions: const FileOptions(
@@ -55,8 +57,9 @@ class UploadService {
           );
 
       // Obtener URL pública
-      final publicUrl =
-          supabase.storage.from('Repuestosya').getPublicUrl(filePath);
+      final publicUrl = supabase.storage
+          .from('Repuestosya')
+          .getPublicUrl(filePath);
 
       AppLogger.info(
         '[UPLOAD] URL pública obtenida: $publicUrl',

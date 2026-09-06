@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
+import '../services/almacen_repository.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../providers/user_role_provider.dart';
@@ -32,11 +33,12 @@ class _LoginPageState extends State<LoginPage> {
   // edita correo o contraseña.
   String? _loginError;
   final AuthService _authService = AuthService();
-  final AlmacenService _almacenService = AlmacenService();
+  late final AlmacenService _almacenService;
 
   @override
   void initState() {
     super.initState();
+    _almacenService = AlmacenService(context.read<AlmacenRepository>());
     // Limpiar el error de login en cuanto el usuario toque cualquier campo.
     _emailController.addListener(_clearLoginError);
     _passwordController.addListener(_clearLoginError);

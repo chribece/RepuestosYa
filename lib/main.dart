@@ -9,6 +9,7 @@ import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/realtime_notification_service.dart';
 import 'services/solicitud_repository.dart';
+import 'services/almacen_repository.dart';
 import 'services/outbox.dart';
 import 'services/sync_engine.dart';
 import 'database/app_database.dart';
@@ -58,17 +59,20 @@ void main() async {
 class MyApp extends StatelessWidget {
   final AppDatabase database = AppDatabase();
   late final SolicitudRepository solicitudRepository;
+  late final AlmacenRepository almacenRepository;
   late final OutboxService outboxService;
   late final SyncEngine syncEngine;
 
   MyApp({super.key}) {
     solicitudRepository = SolicitudRepository(database);
+    almacenRepository = AlmacenRepository(database);
     outboxService = OutboxService(database);
     syncEngine = SyncEngine(outboxService, solicitudRepository);
 
     // Configurar limpieza de logout
     AuthService().onLogoutCleanup = () async {
       await solicitudRepository.clearAll();
+      await almacenRepository.clearAll();
     };
   }
 
@@ -78,6 +82,7 @@ class MyApp extends StatelessWidget {
       providers: [
         Provider<AppDatabase>.value(value: database),
         Provider<SolicitudRepository>.value(value: solicitudRepository),
+        Provider<AlmacenRepository>.value(value: almacenRepository),
         Provider<OutboxService>.value(value: outboxService),
         Provider<SyncEngine>.value(value: syncEngine),
         ChangeNotifierProvider(create: (_) => UserRoleProvider()),

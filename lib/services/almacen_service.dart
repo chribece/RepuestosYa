@@ -1,9 +1,15 @@
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/api_error_handler.dart';
+import '../models/almacen.dart';
 import 'api_client.dart';
+import 'almacen_repository.dart';
 
 class AlmacenService {
   final ApiClient _apiClient = ApiClient();
+  final AlmacenRepository? _repository;
+
+  AlmacenService([this._repository]);
 
   /// Verifica si el usuario autenticado (rol almacen) tiene un perfil de
   /// almacén creado, llamando a `GET /warehouse/my-warehouse`.
@@ -41,11 +47,23 @@ class AlmacenService {
           )
           .timeout(const Duration(seconds: 10));
     } on Exception catch (e) {
+      // Offline: intentar obtener del caché local
+      if (_repository != null) {
+        final local = await _repository.obtenerPerfilAlmacenLocal();
+        if (local != null) return true;
+      }
       // TimeoutException y SocketException se traducen a mensajes amigables.
       throw ApiErrorHandler.fromException(e);
     }
 
     if (response.statusCode == 200) {
+      // Guardar en caché local
+      if (_repository != null) {
+        try {
+          final data = json.decode(response.body);
+          await _repository.guardarPerfilAlmacen(Almacen.fromJson(data));
+        } catch (_) {}
+      }
       return true;
     }
     if (response.statusCode == 404) {
@@ -65,6 +83,9 @@ class AlmacenService {
         body: data,
         requireAuth: true,
       );
+      if (_repository != null) {
+        await _repository.guardarPerfilAlmacen(Almacen.fromJson(response));
+      }
       return response;
     } on ApiException {
       rethrow;
@@ -98,10 +119,20 @@ class AlmacenService {
   // Obtener el almacén asociado al usuario actual
   Future<Map<String, dynamic>?> obtenerMiAlmacen() async {
     try {
-      // Estandarizado a /warehouses/my-warehouse para consistencia
+      // Intentar red
       final response = await _apiClient.get('/warehouse/my-warehouse');
+      if (response.isNotEmpty && _repository != null) {
+        await _repository.guardarPerfilAlmacen(Almacen.fromJson(response));
+      }
       return response.isNotEmpty ? response : null;
-    } on ApiException {
+    } on ApiException catch (e) {
+      // Si falla por red/timeout, intentar local
+      if (e.statusCode == null || e.statusCode == 0 || e.statusCode == 504) {
+        if (_repository != null) {
+          final local = await _repository.obtenerPerfilAlmacenLocal();
+          return local?.toJson();
+        }
+      }
       rethrow;
     } catch (e) {
       throw ApiException(
@@ -122,6 +153,9 @@ class AlmacenService {
         body: data,
         requireAuth: true,
       );
+      if (_repository != null) {
+        await _repository.guardarPerfilAlmacen(Almacen.fromJson(response));
+      }
       return response;
     } on ApiException {
       rethrow;

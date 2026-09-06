@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'secure_storage_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
@@ -10,7 +10,6 @@ import '../utils/keys.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
-  static const String _tokenKey = 'auth_token';
 
   /// Duración máxima de cada request HTTP antes de declarar timeout.
   /// Centralizado para que todos los verbos compartan el mismo umbral.
@@ -28,10 +27,11 @@ class ApiClient {
   /// Callback para notificar errores 401 sin crear dependencias circulares.
   VoidCallback? onUnauthorized;
 
-  // Inicializar el cliente cargando el token desde SharedPreferences
+  final SecureStorageService _secureStorage = SecureStorageService();
+
+  // Inicializar el cliente cargando el token desde SecureStorage
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString(_tokenKey);
+    _token = await _secureStorage.readToken();
     AppLogger.debug(
       'init: token = ${_token != null ? "EXISTS" : "NULL"}',
       name: 'ApiClient',
@@ -41,8 +41,7 @@ class ApiClient {
   // Guardar el token
   Future<void> setToken(String token) async {
     _token = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await _secureStorage.saveToken(token);
     AppLogger.debug('setToken: token saved successfully', name: 'ApiClient');
   }
 
@@ -55,8 +54,7 @@ class ApiClient {
   // Limpiar el token (logout)
   Future<void> clearToken() async {
     _token = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await _secureStorage.clearAll();
   }
 
   // Obtener los headers comunes

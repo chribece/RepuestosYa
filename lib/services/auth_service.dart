@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import 'api_client.dart';
+import 'secure_storage_service.dart';
 
 // Clases compatibles con Supabase para mantener la misma interfaz
 class User {
@@ -13,6 +13,15 @@ class User {
   final String? rol;
 
   User({required this.id, required this.email, this.nombreCompleto, this.rol});
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      nombreCompleto: json['nombre_completo'] as String?,
+      rol: json['rol'] as String?,
+    );
+  }
 }
 
 class AuthResponse {
@@ -30,13 +39,17 @@ class AuthState {
 
 class AuthService {
   final ApiClient _apiClient = ApiClient();
+  final SecureStorageService _secureStorage = SecureStorageService();
   User? _currentUser;
   final StreamController<AuthState> _authStateController =
       StreamController<AuthState>.broadcast();
 
+  // Callback opcional para limpiar datos locales (inyectado desde fuera)
+  Future<void> Function()? onLogoutCleanup;
+
   // Constructor privado para singleton
   AuthService._privateConstructor() {
-    _initAuth();
+    // La inicialización se llama explícitamente desde main.dart o vía getter si es necesario
     _apiClient.onUnauthorized = clearLocalSession;
   }
 
@@ -44,35 +57,43 @@ class AuthService {
   factory AuthService() => _instance;
 
   // Inicializar autenticación cargando token
-  Future<void> _initAuth() async {
+  Future<void> init() async {
     await _apiClient.init();
-    if (_apiClient.isAuthenticated) {
-      // Decodificar el JWT para obtener los datos del usuario
-      final token = _apiClient.token;
-      if (token != null) {
-        try {
-          final parts = token.split('.');
-          if (parts.length == 3) {
-            final payload = json.decode(
-              utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
-            );
-            _currentUser = User(
-              id: payload['id'] as String,
-              email: payload['email'] as String,
-              nombreCompleto: payload['nombre_completo'] as String?,
-              rol: payload['rol'] as String?,
-            );
-            _authStateController.add(AuthState(user: _currentUser));
-          }
-        } catch (e) {
-          AppLogger.error(
-            'Error decoding token: $e',
+    final token = await _secureStorage.readToken();
+
+    if (token != null) {
+      try {
+        // Al arrancar, si existe token, llama GET /api/auth/me
+        final response = await _apiClient.get('/auth/me');
+        if (response['success'] == true) {
+          final userData = response['data'] as Map<String, dynamic>;
+          _currentUser = User.fromJson(userData);
+          _authStateController.add(AuthState(user: _currentUser));
+          AppLogger.info(
+            'Sesión restaurada correctamente',
             name: 'AuthService',
-            error: e,
           );
-          // Si hay error al decodificar, limpiar el token
-          await _apiClient.clearToken();
         }
+      } on ApiException catch (e) {
+        // SOLO limpiar sesión si es un error de autenticación (401 o 403)
+        if (e.statusCode == 401 || e.statusCode == 403) {
+          AppLogger.warning(
+            'Sesión inválida, limpiando datos locales',
+            name: 'AuthService',
+          );
+          await clearLocalSession();
+        } else {
+          // Es un error de red u otro, mantenemos la sesión local (offline-first)
+          AppLogger.info(
+            'Error de red al validar sesión, trabajando en modo offline',
+            name: 'AuthService',
+          );
+        }
+      } catch (e) {
+        AppLogger.error(
+          'Error inesperado en init auth: $e',
+          name: 'AuthService',
+        );
       }
     }
   }
@@ -96,22 +117,22 @@ class AuthService {
           'email': email,
           'password': password,
           'nombreCompleto': nombreCompleto,
-          'rol': ?rol,
+          'rol': rol,
         },
         requireAuth: false,
       );
 
       AppLogger.info('Registro exitoso', name: 'AuthService');
       final token = response['token'] as String;
-      await _apiClient.setToken(token);
+      final refreshToken = response['refreshToken'] as String?;
 
       final userData = response['user'] as Map<String, dynamic>;
-      _currentUser = User(
-        id: userData['id'] as String,
-        email: userData['email'] as String,
-        nombreCompleto: userData['nombre_completo'] as String?,
-        rol: userData['rol'] as String?,
-      );
+      _currentUser = User.fromJson(userData);
+
+      // Persistir token y datos de usuario en almacenamiento cifrado
+      await _apiClient.setToken(token);
+      await _secureStorage.saveToken(token, refreshToken: refreshToken);
+      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
 
       _authStateController.add(AuthState(user: _currentUser!));
 
@@ -143,15 +164,15 @@ class AuthService {
       );
 
       final token = response['token'] as String;
-      await _apiClient.setToken(token);
+      final refreshToken = response['refreshToken'] as String?;
 
       final userData = response['user'] as Map<String, dynamic>;
-      _currentUser = User(
-        id: userData['id'] as String,
-        email: userData['email'] as String,
-        nombreCompleto: userData['nombre_completo'] as String?,
-        rol: userData['rol'] as String?,
-      );
+      _currentUser = User.fromJson(userData);
+
+      // Persistir token y datos de usuario en almacenamiento cifrado
+      await _apiClient.setToken(token);
+      await _secureStorage.saveToken(token, refreshToken: refreshToken);
+      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
 
       _authStateController.add(AuthState(user: _currentUser));
 
@@ -177,10 +198,8 @@ class AuthService {
         'Sincronizando sesión con Supabase...',
         name: 'AuthService',
       );
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
+      final response = await supabase.Supabase.instance.client.auth
+          .signInWithPassword(email: email, password: password);
       if (response.user != null) {
         AppLogger.info(
           '✅ Sesión Supabase sincronizada: ${response.user!.id}',
@@ -203,9 +222,16 @@ class AuthService {
   }
 
   // Limpiar sesión local (usado por ApiClient ante 401)
-  void clearLocalSession() {
+  Future<void> clearLocalSession() async {
     _currentUser = null;
-    _apiClient.clearToken();
+    await _apiClient.clearToken();
+    await _secureStorage.clearAll();
+
+    // También limpiar DB local ante cierre forzado si el callback está registrado
+    if (onLogoutCleanup != null) {
+      await onLogoutCleanup!();
+    }
+
     _authStateController.add(AuthState(user: null));
     AppLogger.info('Sesión local limpiada', name: 'AuthService');
   }
@@ -213,31 +239,45 @@ class AuthService {
   // Cerrar sesión
   Future<void> signOut() async {
     try {
-      // Call backend logout endpoint (optional for JWT stateless)
+      AppLogger.info('Iniciando cierre de sesión...', name: 'AuthService');
+
+      // 1. Intentar avisar al servidor (opcional)
       try {
         await _apiClient.post('/auth/logout', requireAuth: true);
       } catch (e) {
-        // Ignore backend errors - JWT is stateless, client-side logout is sufficient
-        AppLogger.error(
-          'Backend logout call failed (non-critical): $e',
-          name: 'AuthService',
-          error: e,
-        );
+        // Ignoramos 401 u otros errores de red durante el logout
       }
 
-      // Clear local token and user data
-      await _apiClient.clearToken();
+      // 2. Limpiar memoria y almacenamiento seguro INMEDIATAMENTE
       _currentUser = null;
+      await _secureStorage.clearAll();
+      await _apiClient.clearToken();
+
+      // 3. Limpiar base de datos local (con seguridad ante fallos)
+      if (onLogoutCleanup != null) {
+        try {
+          await onLogoutCleanup!();
+        } catch (e) {
+          AppLogger.error(
+            'Fallo limpieza DB local en logout',
+            name: 'AuthService',
+            error: e,
+          );
+        }
+      }
+
+      // 4. Notificar cambio de estado para disparar navegación al Login
       _authStateController.add(AuthState(user: null));
+      AppLogger.info('Cierre de sesión finalizado', name: 'AuthService');
     } catch (e) {
-      // Even if everything fails, clear local data
-      await _apiClient.clearToken();
+      AppLogger.error(
+        'Error inesperado en signOut',
+        name: 'AuthService',
+        error: e,
+      );
+      // Pase lo que pase, forzamos el estado nulo para que el usuario pueda volver a loguearse
       _currentUser = null;
       _authStateController.add(AuthState(user: null));
-      throw ApiException(
-        ApiErrorHandler.defaultMessage,
-        technicalMessage: 'signOut: $e',
-      );
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'secure_storage_service.dart';
 import '../models/cotizacion.dart';
 
 class BadRequestException implements Exception {
@@ -38,13 +39,12 @@ class CotizacionService {
   static const String baseUrl = 'http://192.168.100.2:3000/api';
 
   Future<String> _getToken() async {
-    // TODO: Conectar con tu AuthProvider existente
-    // Ejemplo: final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    // return authProvider.token;
-    // Por ahora, usa SharedPreferences o tu método actual:
-    // final prefs = await SharedPreferences.getInstance();
-    // return prefs.getString('auth_token') ?? '';
-    throw UnimplementedError('Conectar _getToken() con AuthProvider');
+    // Usa SecureStorageService para obtener el token cifrado
+    final token = await SecureStorageService().readToken();
+    if (token == null || token.isEmpty) {
+      throw Exception('No hay token de autenticación');
+    }
+    return token;
   }
 
   Future<List<Cotizacion>> obtenerCotizacionesPorSolicitud(

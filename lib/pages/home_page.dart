@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
+import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
@@ -22,8 +24,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
-  List<Map<String, dynamic>> _solicitudes = [];
-  bool _isLoadingSolicitudes = false;
   Map<String, dynamic> _estadisticas = {};
 
   final SolicitudService _solicitudService = SolicitudService();
@@ -33,9 +33,14 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _cargarSolicitudes();
     _cargarEstadisticas();
     _suscribirANotificaciones();
+
+    // El SolicitudesProvider ya se inicializa y sincroniza solo al ser creado en MultiProvider
+    // Pero forzamos un refresco por seguridad
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SolicitudesProvider>().refreshFromServer();
+    });
   }
 
   Future<void> _suscribirANotificaciones() async {
@@ -45,14 +50,11 @@ class _HomePageState extends State<HomePage> {
         final clienteId = user.id;
         RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
 
-        // Usar obtenerSolicitudesCliente para obtener solo las del cliente actual
-        // obtenerSolicitudesActivas() es solo para almacenes (/requests/active)
-        final solicitudes = await _solicitudService.obtenerSolicitudesCliente(
-          clienteId,
-        );
+        // Usamos el provider para las notificaciones en lugar de llamar a red
+        final solicitudes = context.read<SolicitudesProvider>().solicitudes;
         if (solicitudes.isNotEmpty) {
           final solicitudIds = solicitudes
-              .map((s) => s['id']?.toString() ?? '')
+              .map((s) => s.id)
               .where((id) => id.isNotEmpty)
               .toList();
           if (solicitudIds.isNotEmpty) {
@@ -74,38 +76,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _cargarSolicitudes();
     _cargarEstadisticas();
-  }
-
-  Future<void> _cargarSolicitudes() async {
-    setState(() {
-      _isLoadingSolicitudes = true;
-    });
-
-    try {
-      final user = _authService.currentUser;
-      if (user != null) {
-        final solicitudes = await _solicitudService.obtenerSolicitudesPaginadas(
-          clienteId: user.id,
-          page: 1,
-          limit: 20,
-        );
-        setState(() {
-          _solicitudes = solicitudes;
-        });
-      }
-    } catch (e) {
-      AppLogger.error(
-        'Error al cargar solicitudes',
-        name: 'HomePage',
-        error: e,
-      );
-    } finally {
-      setState(() {
-        _isLoadingSolicitudes = false;
-      });
-    }
   }
 
   Future<void> _cargarEstadisticas() async {
@@ -380,7 +351,9 @@ class _HomePageState extends State<HomePage> {
         child: InkWell(
           onTap: () async {
             await context.pushNamed(RouteNames.createRequest);
-            _cargarSolicitudes();
+            if (mounted) {
+              context.read<SolicitudesProvider>().refreshFromServer();
+            }
           },
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
           child: Container(
@@ -441,70 +414,83 @@ class _HomePageState extends State<HomePage> {
 
   // --- FILA DE ESTADÍSTICAS (BENTO GRID) ---
   Widget _buildStatsRow() {
-    // Usar estadísticas del backend si están disponibles, si no usar cálculo local
-    final int buscandoCount =
-        _estadisticas['solicitudes_activas'] ??
-        _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
-    final int cotizadasCount = _estadisticas['cotizaciones_recibidas'] ?? 0;
-    final int enProcesoCount =
-        _estadisticas['solicitudes_en_proceso'] ??
-        _solicitudes.where((s) => s['estado'] == 'en_proceso').length;
+    return Consumer<SolicitudesProvider>(
+      builder: (context, provider, child) {
+        final solicitudes = provider.solicitudes;
 
-    final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
-    final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
-    final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
+        // Usar estadísticas del backend si están disponibles, si no usar cálculo local
+        final int buscandoCount =
+            _estadisticas['solicitudes_activas'] ??
+            solicitudes
+                .where(
+                  (s) => s.estado == 'en_proceso' || s.estado == 'pendiente',
+                )
+                .length;
+        final int cotizadasCount = _estadisticas['cotizaciones_recibidas'] ?? 0;
+        final int enProcesoCount =
+            _estadisticas['solicitudes_en_proceso'] ??
+            solicitudes
+                .where(
+                  (s) => s.estado == 'en_proceso' || s.estado == 'pendiente',
+                )
+                .length;
 
-    return Column(
-      children: [
-        Row(
+        final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
+        final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
+        final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
+
+        return Column(
           children: [
-            Expanded(
-              child: _buildStatCard(
-                title: 'Solicitudes Activas',
-                value: buscandoTxt,
-                icon: Icons.history_rounded,
-                color: AppColors.primaryContainer,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Solicitudes Activas',
+                    value: buscandoTxt,
+                    icon: Icons.history_rounded,
+                    color: AppColors.primaryContainer,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Cotizaciones Recibidas',
+                    value: cotizadasTxt,
+                    icon: Icons.request_quote_rounded,
+                    color: AppColors.secondaryContainer,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.spacingSm),
-            Expanded(
-              child: _buildStatCard(
-                title: 'Cotizaciones Recibidas',
-                value: cotizadasTxt,
-                icon: Icons.request_quote_rounded,
-                color: AppColors.secondaryContainer,
-              ),
+            const SizedBox(height: AppSpacing.spacingSm),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'En Proceso',
+                    value: enProcesoTxt,
+                    icon: Icons.pending_rounded,
+                    color: AppColors.tertiaryContainer,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: _buildStatCard(
+                    title: 'Órdenes Realizadas',
+                    value:
+                        (_estadisticas['ordenes_realizadas']
+                            ?.toString()
+                            .padLeft(2, '0') ??
+                        '00'),
+                    icon: Icons.shopping_cart_rounded,
+                    color: AppColors.success,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        const SizedBox(height: AppSpacing.spacingSm),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                title: 'En Proceso',
-                value: enProcesoTxt,
-                icon: Icons.pending_rounded,
-                color: AppColors.tertiaryContainer,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.spacingSm),
-            Expanded(
-              child: _buildStatCard(
-                title: 'Órdenes Realizadas',
-                value:
-                    (_estadisticas['ordenes_realizadas']?.toString().padLeft(
-                      2,
-                      '0',
-                    ) ??
-                    '00'),
-                icon: Icons.shopping_cart_rounded,
-                color: AppColors.success,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -559,151 +545,89 @@ class _HomePageState extends State<HomePage> {
 
   // --- SECCIÓN DE SOLICITUDES ---
   Widget _buildRequestsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Consumer<SolicitudesProvider>(
+      builder: (context, provider, child) {
+        final solicitudes = provider.solicitudes;
+        final isLoading = provider.isLoading;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Mis Solicitudes',
-              style: AppTextStyles.textStyleTitle.copyWith(
-                color: AppColors.onSurface,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                context.pushNamed(RouteNames.solicitudes).then((_) {
-                  _cargarSolicitudes();
-                  _cargarEstadisticas();
-                });
-              },
-              style: TextButton.styleFrom(
-                // 48×48 dp mínimo WCAG 2.5.5 (antes minimumSize: Size.zero
-                // colapsaba el área táctil al alto del texto).
-                minimumSize: const Size(48, 48),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingXs,
-                  vertical: AppSpacing.spacingXxs,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Mis Solicitudes',
+                  style: AppTextStyles.textStyleTitle.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                tapTargetSize: MaterialTapTargetSize.padded,
-              ),
-              child: Text(
-                'Ver todas',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
+                TextButton(
+                  onPressed: () {
+                    context.pushNamed(RouteNames.solicitudes);
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.spacingXs,
+                      vertical: AppSpacing.spacingXxs,
+                    ),
+                    tapTargetSize: MaterialTapTargetSize.padded,
+                  ),
+                  child: Text(
+                    'Ver todas',
+                    style: AppTextStyles.textStyleCaption.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        if (_isLoadingSolicitudes)
-          const RyStateContainer(
-            title: 'Cargando solicitudes...',
-            type: RyStateType.loading,
-          )
-        else if (_solicitudes.isEmpty)
-          const RyStateContainer(
-            title: 'Sin solicitudes',
-            subtitle: 'Crea tu primera solicitud de repuesto',
-            type: RyStateType.empty,
-          )
-        else
-          ..._solicitudes.take(3).map((solicitud) {
-            final estado = solicitud['estado'] as String? ?? 'en_proceso';
-            final createdAt = solicitud['created_at'] as String?;
-            DateTime? createdAtDate;
-            if (createdAt != null) {
-              createdAtDate = DateTime.parse(createdAt);
-            }
-
-            // Extraer el conteo de cotizaciones del formato que devuelve Supabase
-            int cantidadCotizaciones = 0;
-            if (solicitud['cotizaciones'] != null &&
-                solicitud['cotizaciones'] is List) {
-              final cotizacionesList = solicitud['cotizaciones'] as List;
-              if (cotizacionesList.isNotEmpty && cotizacionesList[0] is Map) {
-                cantidadCotizaciones = cotizacionesList[0]['count'] ?? 0;
-              }
-            } else if (solicitud['cotizaciones_count'] != null) {
-              cantidadCotizaciones = solicitud['cotizaciones_count'];
-            }
-
-            final solicitudObj = Solicitud(solicitud);
-            final String urlFinal =
-                solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-            final String piezaNombreFinal = solicitudObj.displayPartName;
-            final String descripcionFinal = solicitudObj.displayDescription;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
-              child: RyPartCard(
-                partName: piezaNombreFinal,
-                imageUrl: urlFinal,
-                vehicleInfo: descripcionFinal,
-                status: estado,
-                createdAt: createdAtDate ?? DateTime.now(),
-                variant: RyPartCardVariant.client,
-                onTap: () {
-                  context.pushNamed(
-                    RouteNames.receivedQuotations,
-                    pathParameters: {'id': solicitud['id'].toString()},
-                    extra: {
-                      'piezaNombre': piezaNombreFinal,
-                      'fotoUrl': urlFinal.isNotEmpty ? urlFinal : null,
-                      'ofertasPendientes': cantidadCotizaciones,
+            const SizedBox(height: AppSpacing.spacingMd),
+            if (isLoading && solicitudes.isEmpty)
+              const RyStateContainer(
+                title: 'Cargando solicitudes...',
+                type: RyStateType.loading,
+              )
+            else if (solicitudes.isEmpty)
+              const RyStateContainer(
+                title: 'Sin solicitudes',
+                subtitle: 'Crea tu primera solicitud de repuesto',
+                type: RyStateType.empty,
+              )
+            else
+              ...solicitudes.take(3).map((solicitudLocal) {
+                final estado = solicitudLocal.estado;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+                  child: RyPartCard(
+                    partName: solicitudLocal.piezaNombre,
+                    imageUrl: solicitudLocal.fotoUrl,
+                    vehicleInfo: solicitudLocal.synced
+                        ? 'Sincronizado'
+                        : 'Pendiente de envío',
+                    description: solicitudLocal.descripcion,
+                    status: estado,
+                    createdAt: solicitudLocal.updatedAt,
+                    isSynced: solicitudLocal.synced,
+                    variant: RyPartCardVariant.client,
+                    onTap: () {
+                      if (solicitudLocal.synced) {
+                        context.pushNamed(
+                          RouteNames.receivedQuotations,
+                          pathParameters: {'id': solicitudLocal.id},
+                          extra: {'piezaNombre': solicitudLocal.piezaNombre},
+                        );
+                      }
                     },
-                  );
-                },
-                customFooter: cantidadCotizaciones > 0
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.spacingSm,
-                          vertical: AppSpacing.spacingXs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryContainer.withValues(
-                            alpha: 0.15,
-                          ),
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.radiusSm,
-                          ),
-                          border: Border.all(
-                            color: AppColors.primaryContainer.withValues(
-                              alpha: 0.5,
-                            ),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.notifications_active,
-                              color: AppColors.primaryContainer,
-                              size: 16,
-                            ),
-                            const SizedBox(width: AppSpacing.spacingXxs),
-                            Text(
-                              cantidadCotizaciones == 1
-                                  ? '1 Cotización nueva'
-                                  : '$cantidadCotizaciones Cotizaciones nuevas',
-                              style: AppTextStyles.textStyleSmall.copyWith(
-                                color: AppColors.primaryContainer,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : null,
-              ),
-            );
-          }),
-      ],
+                  ),
+                );
+              }),
+          ],
+        );
+      },
     );
   }
 

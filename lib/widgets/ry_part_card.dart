@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
@@ -23,6 +24,7 @@ class RyPartCard extends StatelessWidget {
   final bool showPrice;
   final bool showStatus;
   final bool isCompact;
+  final bool isSynced;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onStatusTap;
@@ -45,6 +47,7 @@ class RyPartCard extends StatelessWidget {
     this.showPrice = true,
     this.showStatus = true,
     this.isCompact = false,
+    this.isSynced = true,
     this.onTap,
     this.onLongPress,
     this.onStatusTap,
@@ -99,6 +102,49 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
+  Widget _buildImage(double width, double height, {double? borderRadius}) {
+    final bool isLocal = imageUrl?.startsWith('file://') ?? false;
+    final radius = borderRadius ?? AppRadius.radiusMd;
+
+    Widget imageWidget;
+    if (isLocal) {
+      final path = imageUrl!.replaceFirst('file://', '');
+      imageWidget = Image.file(
+        File(path),
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(width, height),
+      );
+    } else {
+      imageWidget = CachedNetworkImage(
+        imageUrl: imageUrl!,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => _buildPlaceholder(width, height),
+        errorWidget: (context, url, error) => _buildPlaceholder(width, height, isError: true),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: imageWidget,
+    );
+  }
+
+  Widget _buildPlaceholder(double width, double height, {bool isError = false}) {
+    return Container(
+      width: width,
+      height: height,
+      color: AppColors.surfaceVariant,
+      child: Icon(
+        isError ? Icons.broken_image : Icons.image,
+        color: AppColors.onSurfaceVariant,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveVariant = isCompact ? RyPartCardVariant.compact : variant;
@@ -148,33 +194,7 @@ class RyPartCard extends StatelessWidget {
             image: true,
             label: 'Imagen del repuesto $partName',
             excludeSemantics: true,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-              child: CachedNetworkImage(
-                imageUrl: imageUrl!,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  width: 60,
-                  height: 60,
-                  color: AppColors.surfaceVariant,
-                  child: const Icon(
-                    Icons.image,
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  width: 60,
-                  height: 60,
-                  color: AppColors.surfaceVariant,
-                  child: const Icon(
-                    Icons.broken_image,
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
+            child: _buildImage(60, 60, borderRadius: AppRadius.radiusSm),
           ),
           const SizedBox(width: AppSpacing.spacingMd),
         ],
@@ -224,33 +244,7 @@ class RyPartCard extends StatelessWidget {
                 image: true,
                 label: 'Imagen del repuesto $partName',
                 excludeSemantics: true,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl!,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 80,
-                      height: 80,
-                      color: AppColors.surfaceVariant,
-                      child: const Icon(
-                        Icons.image,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 80,
-                      height: 80,
-                      color: AppColors.surfaceVariant,
-                      child: const Icon(
-                        Icons.broken_image,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
+                child: _buildImage(80, 80),
               ),
               const SizedBox(width: AppSpacing.spacingMd),
             ],
@@ -289,6 +283,18 @@ class RyPartCard extends StatelessWidget {
               _buildStatusAction(),
               const SizedBox(width: AppSpacing.spacingSm),
             ],
+            if (!isSynced) ...[
+              const Icon(Icons.sync_problem, size: 16, color: Colors.orange),
+              const SizedBox(width: AppSpacing.spacingXxs),
+              Text(
+                'Pendiente de envío',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.spacingSm),
+            ],
             const Spacer(),
             Text(_formatDate(createdAt), style: AppTextStyles.textStyleSmall),
           ],
@@ -321,33 +327,7 @@ class RyPartCard extends StatelessWidget {
                 image: true,
                 label: 'Imagen del repuesto $partName',
                 excludeSemantics: true,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-                  child: CachedNetworkImage(
-                    imageUrl: imageUrl!,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 80,
-                      height: 80,
-                      color: AppColors.surfaceVariant,
-                      child: const Icon(
-                        Icons.image,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 80,
-                      height: 80,
-                      color: AppColors.surfaceVariant,
-                      child: const Icon(
-                        Icons.broken_image,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
+                child: _buildImage(80, 80),
               ),
               const SizedBox(width: AppSpacing.spacingMd),
             ],
@@ -405,6 +385,18 @@ class RyPartCard extends StatelessWidget {
           children: [
             if (showStatus) ...[
               _buildStatusAction(),
+              const SizedBox(width: AppSpacing.spacingSm),
+            ],
+            if (!isSynced) ...[
+              const Icon(Icons.sync_problem, size: 16, color: Colors.orange),
+              const SizedBox(width: AppSpacing.spacingXxs),
+              Text(
+                'Pendiente de envío',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(width: AppSpacing.spacingSm),
             ],
             const Spacer(),

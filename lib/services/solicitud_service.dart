@@ -43,6 +43,14 @@ class Solicitud {
     return null;
   }
 
+  DateTime? get updatedAt {
+    final dateStr = _data['updated_at'] ?? _data['created_at'];
+    if (dateStr != null) {
+      return DateTime.tryParse(dateStr);
+    }
+    return null;
+  }
+
   // Vehículo anidado
   Map<String, dynamic>? get vehiculo => _data['vehiculos_cliente'];
   Map<String, dynamic>? get modelo => vehiculo?['modelos_vehiculo'];

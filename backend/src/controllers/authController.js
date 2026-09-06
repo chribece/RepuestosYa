@@ -123,6 +123,7 @@ const register = async (req, res) => {
 
     res.status(201).json({
       token,
+      refreshToken: authData.session.refresh_token,
       user: {
         id: profile.id,
         email: profile.email,
@@ -208,6 +209,7 @@ const login = async (req, res) => {
     return res.json({
       success: true,
       token,
+      refreshToken: authData.session.refresh_token,
       user: {
         id: profile.id,
         email: profile.email,

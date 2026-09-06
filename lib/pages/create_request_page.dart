@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
-import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/part_catalog.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/vehiculo_service.dart';
 import '../services/direccion_service.dart';
 import '../services/catalog_service.dart';
+import '../services/solicitud_repository.dart';
+import '../services/outbox.dart';
+import '../services/upload_service.dart';
+import '../database/app_database.dart';
+import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
@@ -81,7 +85,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   // ========== CARGAR DATOS ==========
 
   Future<void> _cargarVehiculos() async {
-    setState(() => _isLoadingVehiculos = true);
+    if (_vehiculos.isEmpty) {
+      setState(() => _isLoadingVehiculos = true);
+    }
     try {
       final vehiculos = await _vehiculoService.getVehiculos();
       if (!mounted) return;
@@ -96,24 +102,70 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
       setState(() {
         _vehiculos = uniqueVehiculos.values.toList();
+        _isLoadingVehiculos = false;
       });
     } catch (e) {
-      AppLogger.warning('Error al cargar vehículos: $e', name: 'CreateRequest');
-    } finally {
+      AppLogger.warning(
+        'Error red al cargar vehículos, intentando local...',
+        name: 'CreateRequest',
+      );
+
+      // INTENTO CARGA LOCAL
+      try {
+        if (!mounted) return;
+        final repository = context.read<SolicitudRepository>();
+        final localVehiculos = await repository.obtenerVehiculosLocal();
+        if (localVehiculos.isNotEmpty) {
+          if (mounted) {
+            setState(() {
+              _vehiculos = localVehiculos;
+              _isLoadingVehiculos = false;
+            });
+          }
+          return;
+        }
+      } catch (localError) {
+        AppLogger.error('Error carga local vehículos: $localError');
+      }
       if (mounted) setState(() => _isLoadingVehiculos = false);
     }
   }
 
   Future<void> _cargarCategorias() async {
-    setState(() {
-      _isLoadingCategories = true;
-      _categoryError = null;
-    });
+    final connectivity = await Connectivity().checkConnectivity();
+    final bool isOffline = connectivity.contains(ConnectivityResult.none);
+
+    // 1. Si estamos offline, ir directo a la base local para evitar esperas
+    if (isOffline) {
+      AppLogger.info('Offline: Cargando categorías desde caché local', name: 'CreateRequest');
+      try {
+        final repository = context.read<SolicitudRepository>();
+        final localCategories = await repository.obtenerCategoriasLocal();
+        if (mounted && localCategories.isNotEmpty) {
+          setState(() {
+            _categories = localCategories;
+            _isLoadingCategories = false;
+            _categoryError = null;
+          });
+          return;
+        }
+      } catch (e) {
+        AppLogger.error('Error cargando categorías locales: $e');
+      }
+    }
+
+    // 2. Si hay red o la base local estaba vacía, intentar servidor
+    if (_categories.isEmpty) {
+      setState(() {
+        _isLoadingCategories = true;
+        _categoryError = null;
+      });
+    }
+
     try {
       final categories = await _catalogService.getPartCategories();
       if (!mounted) return;
 
-      // Deduplicar por ID
       final Map<String, PartCategory> uniqueCategories = {};
       for (var cat in categories) {
         uniqueCategories[cat.id] = cat;
@@ -121,30 +173,58 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
       setState(() {
         _categories = uniqueCategories.values.toList();
+        _isLoadingCategories = false;
+        _categoryError = null;
       });
+
+      // Guardar en caché para la próxima vez que estemos offline
+      final repository = context.read<SolicitudRepository>();
+      await repository.guardarCategorias(_categories);
     } catch (e) {
-      AppLogger.error('Error al cargar categorías: $e', name: 'CreateRequest');
       if (mounted) {
         setState(() {
-          _categoryError = 'Error al cargar categorías';
+          _isLoadingCategories = false;
+          if (_categories.isEmpty) {
+            _categoryError = 'Error al cargar categorías';
+          }
         });
       }
-    } finally {
-      if (mounted) setState(() => _isLoadingCategories = false);
     }
   }
 
   Future<void> _cargarRepuestos(String categoryId) async {
+    final connectivity = await Connectivity().checkConnectivity();
+    final bool isOffline = connectivity.contains(ConnectivityResult.none);
+
+    // 1. Si estamos offline, ir directo a local
+    if (isOffline) {
+      AppLogger.info('Offline: Cargando repuestos desde caché local', name: 'CreateRequest');
+      try {
+        final repository = context.read<SolicitudRepository>();
+        final localParts = await repository.obtenerRepuestosLocal(categoryId);
+        if (mounted && localParts.isNotEmpty) {
+          setState(() {
+            _parts = localParts;
+            _isLoadingParts = false;
+            _partError = null;
+          });
+          return;
+        }
+      } catch (e) {
+        AppLogger.error('Error cargando repuestos locales: $e');
+      }
+    }
+
+    // 2. Intentar servidor
     setState(() {
       _isLoadingParts = true;
       _partError = null;
-      _parts = [];
     });
+
     try {
       final parts = await _catalogService.getParts(categoryId: categoryId);
       if (!mounted) return;
 
-      // Deduplicar por ID
       final Map<String, CatalogPart> uniqueParts = {};
       for (var part in parts) {
         uniqueParts[part.id] = part;
@@ -152,66 +232,89 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
       setState(() {
         _parts = uniqueParts.values.toList();
+        _isLoadingParts = false;
+        _partError = null;
       });
+
+      // Guardar en caché local
+      final repository = context.read<SolicitudRepository>();
+      await repository.guardarRepuestos(categoryId, _parts);
     } catch (e) {
-      AppLogger.error('Error al cargar repuestos: $e', name: 'CreateRequest');
       if (mounted) {
         setState(() {
-          _partError = 'Error al cargar repuestos';
+          _isLoadingParts = false;
+          if (_parts.isEmpty) {
+            _partError = 'Sin datos offline para esta categoría';
+          }
         });
       }
-    } finally {
-      if (mounted) setState(() => _isLoadingParts = false);
     }
   }
 
   Future<void> _cargarDirecciones() async {
-    setState(() => _isLoadingDirecciones = true);
+    if (_direcciones.isEmpty) {
+      setState(() => _isLoadingDirecciones = true);
+    }
     try {
       final direcciones = await _direccionService.getDirecciones();
-      if (!mounted) return;
-
-      // Deduplicar por ID
-      final Map<String, Map<String, dynamic>> uniqueDirecciones = {};
-      for (var d in direcciones) {
-        if (d['id'] != null) {
-          uniqueDirecciones[d['id'].toString()] = d;
-        }
-      }
-
-      setState(() {
-        _direcciones = uniqueDirecciones.values.toList();
-        final provider = context.read<CreateRequestProvider>();
-
-        // Seleccionar la dirección principal (si existe) o la primera,
-        // pero solo si el provider no tiene una ya seleccionada.
-        if (direcciones.isNotEmpty) {
-          final principal = direcciones.firstWhere(
-            (d) => d['es_principal'] == true,
-            orElse: () => direcciones.first,
-          );
-
-          if (provider.selectedDireccionId == null) {
-            provider.updateDireccion(principal['id'] as String?);
-          }
-
-          // Actualizar controlador de texto con la dirección actual del provider (o la principal)
-          final currentId = provider.selectedDireccionId ?? principal['id'];
-          final currentDir = direcciones.firstWhere(
-            (d) => d['id'] == currentId,
-            orElse: () => principal,
-          );
-          _locationController.text = _formatDireccion(currentDir);
-        }
-      });
+      _procesarDirecciones(direcciones);
+      if (mounted) setState(() => _isLoadingDirecciones = false);
     } catch (e) {
       AppLogger.warning(
-        'Error al cargar direcciones: $e',
+        'Error red al cargar direcciones, intentando local...',
         name: 'CreateRequest.Direcciones',
       );
-    } finally {
+
+      // INTENTO CARGA LOCAL
+      try {
+        if (!mounted) return;
+        final repository = context.read<SolicitudRepository>();
+        final localDirecciones = await repository.obtenerDireccionesLocal();
+        if (localDirecciones.isNotEmpty) {
+          _procesarDirecciones(localDirecciones);
+          if (mounted) setState(() => _isLoadingDirecciones = false);
+          return;
+        }
+      } catch (localError) {
+        AppLogger.error('Error carga local direcciones: $localError');
+      }
       if (mounted) setState(() => _isLoadingDirecciones = false);
     }
+  }
+
+  void _procesarDirecciones(List<Map<String, dynamic>> direcciones) {
+    if (!mounted) return;
+
+    // Deduplicar por ID
+    final Map<String, Map<String, dynamic>> uniqueDirecciones = {};
+    for (var d in direcciones) {
+      if (d['id'] != null) {
+        uniqueDirecciones[d['id'].toString()] = d;
+      }
+    }
+
+    setState(() {
+      _direcciones = uniqueDirecciones.values.toList();
+      final provider = context.read<CreateRequestProvider>();
+
+      if (direcciones.isNotEmpty) {
+        final principal = direcciones.firstWhere(
+          (d) => d['es_principal'] == true,
+          orElse: () => direcciones.first,
+        );
+
+        if (provider.selectedDireccionId == null) {
+          provider.updateDireccion(principal['id'] as String?);
+        }
+
+        final currentId = provider.selectedDireccionId ?? principal['id'];
+        final currentDir = direcciones.firstWhere(
+          (d) => d['id'] == currentId,
+          orElse: () => principal,
+        );
+        _locationController.text = _formatDireccion(currentDir);
+      }
+    });
   }
 
   String _formatDireccion(Map<String, dynamic> direccion) {
@@ -253,7 +356,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           borderRadius: BorderRadius.circular(AppRadius.radiusFull),
           side: const BorderSide(color: SemanticColors.colorSuccess),
         ),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -515,93 +618,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   // ========== ENVÍO DEL FORMULARIO ==========
 
-  /// Sube una imagen al bucket `Repuestosya` (mismo bucket/carpeta base que
-  /// usa el flujo de cotizaciones) bajo la ruta:
-  /// `evidencias/solicitudes/{clienteId}/solicitud_{timestamp}.jpg`
-  ///
-  /// Devuelve la URL pública del archivo, o `null` si la subida falla.
-  /// Sigue el mismo patrón que [CreateQuotationPage._uploadImageToSupabase]:
-  /// verifica/refresca sesión, sube con `contentType: image/jpeg` y obtiene
-  /// la URL pública con `getPublicUrl`.
-  Future<String?> _uploadImageToSupabase(
-    File imageFile,
-    String clienteId,
-  ) async {
-    try {
-      AppLogger.debug(
-        '[UPLOAD] Iniciando subida de imagen de solicitud...',
-        name: 'CreateRequestPage',
-      );
-
-      final supabase = Supabase.instance.client;
-
-      // Verificar sesión de autenticación (mismo patrón que cotizaciones)
-      final session = supabase.auth.currentSession;
-      if (session == null) {
-        AppLogger.warning(
-          '[UPLOAD] No hay sesión activa. Intentando refrescar...',
-          name: 'CreateRequestPage',
-        );
-        try {
-          await supabase.auth.refreshSession();
-          AppLogger.info(
-            '[UPLOAD] Sesión refrescada',
-            name: 'CreateRequestPage',
-          );
-        } catch (e) {
-          AppLogger.error(
-            '[UPLOAD] Error al refrescar sesión',
-            name: 'CreateRequestPage',
-            error: e,
-          );
-          return null;
-        }
-      }
-
-      // Generar nombre único y ruta por dominio funcional
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'solicitud_$timestamp.jpg';
-      final filePath = 'evidencias/solicitudes/$clienteId/$fileName';
-      AppLogger.debug(
-        '[UPLOAD] FilePath: $filePath (${await imageFile.length()} bytes)',
-        name: 'CreateRequestPage',
-      );
-
-      // Subir al bucket `Repuestosya` (mismo bucket que cotizaciones)
-      await supabase.storage
-          .from('Repuestosya')
-          .upload(
-            filePath,
-            imageFile,
-            fileOptions: const FileOptions(
-              cacheControl: '3600',
-              upsert: false,
-              contentType: 'image/jpeg',
-            ),
-          );
-
-      // Obtener URL pública (mismo patrón que cotizaciones)
-      final publicUrl = supabase.storage
-          .from('Repuestosya')
-          .getPublicUrl(filePath);
-
-      AppLogger.info(
-        '[UPLOAD] URL pública: $publicUrl',
-        name: 'CreateRequestPage',
-      );
-
-      return publicUrl;
-    } catch (e, stackTrace) {
-      AppLogger.error(
-        '[UPLOAD] Error al subir imagen de solicitud',
-        name: 'CreateRequestPage',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return null;
-    }
-  }
-
   Future<void> _handleSubmit() async {
     // 1. Limpiar errores previos
     setState(() => _fieldErrors = {});
@@ -653,10 +669,91 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final user = _authService.currentUser;
       if (user == null) throw Exception('No hay usuario autenticado');
 
+      final connectivityResults = await Connectivity().checkConnectivity();
+      final isOffline = connectivityResults.any(
+        (result) => result == ConnectivityResult.none,
+      );
+
+      if (isOffline) {
+        // MODO SIN CONEXIÓN
+        if (!mounted) return;
+        final outboxService = context.read<OutboxService>();
+        final repository = context.read<SolicitudRepository>();
+
+        final payload = {
+          'cliente_id': user.id,
+          'vehiculo_id': provider.selectedVehiculoId!,
+          'pieza_nombre': provider.piezaNombre,
+          'descripcion': provider.descripcion,
+          'direccion_entrega_id': provider.selectedDireccionId!,
+          'es_urgente': provider.selectedPrioridad == 'urgente',
+          'categoria_id': provider.selectedCategoryId!,
+          'repuesto_id': provider.selectedPartId!,
+          'repuesto_nombre_snapshot': provider.partNameSnapshot!,
+          'descripcion_problema': provider.descripcion,
+          'local_image_path': provider.selectedImage?.path, // Guardar ruta local
+        };
+
+        final clientId = await outboxService.enqueue(
+          entityType: 'solicitud',
+          operation: 'CREATE',
+          payload: payload,
+        );
+
+        // Guardar localmente para que aparezca en la lista inmediatamente
+        await repository.insertarLocal(
+          SolicitudLocal(
+            id: clientId, // Usamos el clientId como ID temporal local
+            clientId: clientId,
+            vehiculoId: provider.selectedVehiculoId!,
+            piezaNombre: provider.piezaNombre,
+            categoriaId: provider.selectedCategoryId,
+            repuestoId: provider.selectedPartId,
+            estado: 'pendiente',
+            descripcion: provider.descripcion,
+            fotoUrl: provider.selectedImage != null
+                ? 'file://${provider.selectedImage!.path}'
+                : null, // Guardar ruta local para mostrar
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            synced: false,
+          ),
+        );
+
+        if (!mounted) return;
+        provider.clear();
+        setState(() => _isSubmitting = false);
+
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppColors.surfaceContainerHigh,
+              title: const Text('Guardado localmente'),
+              content: const Text(
+                'Tu solicitud se ha guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // MODO ONLINE (existente)
       // Subir imagen
       String? fotoUrl;
       if (provider.selectedImage != null) {
-        fotoUrl = await _uploadImageToSupabase(
+        fotoUrl = await UploadService().uploadRequestImage(
           provider.selectedImage!,
           user.id,
         );
@@ -738,11 +835,41 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     }
   }
 
-  // ========== BUILD ==========
+  // ========== COMPONENTES UI ==========
+
+  Widget _buildOfflineBanner(bool isOffline) {
+    if (!isOffline) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.spacingSm,
+        horizontal: AppSpacing.spacingMd,
+      ),
+      color: Colors.amber.shade100,
+      margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+      child: Row(
+        children: [
+          const Icon(Icons.airplanemode_active, size: 16, color: Colors.orange),
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: Text(
+              'Modo sin conexión · Las solicitudes se guardarán localmente',
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CreateRequestProvider>();
+    final syncProvider = context.watch<SolicitudesProvider>();
 
     // Reconstruir objetos seleccionados desde las listas actuales por ID
     PartCategory? selectedCategory;
@@ -829,6 +956,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildOfflineBanner(syncProvider.isOffline),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -979,7 +1107,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButtonFormField<String>(
-              initialValue: (_isLoadingVehiculos ||
+              initialValue:
+                  (_isLoadingVehiculos ||
                       !_vehiculos.any(
                         (v) =>
                             v['id']?.toString() == provider.selectedVehiculoId,

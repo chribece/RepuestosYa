@@ -850,21 +850,26 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.spacingSm,
+        vertical: 12,
         horizontal: AppSpacing.spacingMd,
       ),
-      color: Colors.amber.shade100,
+      color: AppColors.warning.withValues(alpha: 0.15),
       margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
       child: Row(
         children: [
-          const Icon(Icons.airplanemode_active, size: 16, color: Colors.orange),
-          const SizedBox(width: AppSpacing.spacingSm),
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 20,
+            color: AppColors.warning,
+          ),
+          const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Text(
               'Modo sin conexión · Las solicitudes se guardarán localmente',
               style: AppTextStyles.textStyleCaption.copyWith(
-                color: Colors.orange.shade900,
-                fontWeight: FontWeight.bold,
+                color: AppColors.warning,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
               ),
             ),
           ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -25,6 +26,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   Map<String, dynamic> _estadisticas = {};
+  Timer? _refreshTimer;
 
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
@@ -40,6 +42,11 @@ class _HomePageState extends State<HomePage> {
     // Pero forzamos un refresco por seguridad
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SolicitudesProvider>().refreshFromServer();
+    });
+
+    // Timer para actualizar el "tiempo transcurrido" en la UI cada minuto
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -96,6 +103,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     RealtimeNotificationService().unsubscribe();
     RealtimeNotificationService().unsubscribeMultiple();
     super.dispose();
@@ -549,6 +557,14 @@ class _HomePageState extends State<HomePage> {
       builder: (context, provider, child) {
         final solicitudes = provider.solicitudes;
         final isLoading = provider.isLoading;
+        final isOffline = provider.isOffline;
+        final lastSync = provider.lastSync;
+        final now = DateTime.now();
+
+        // Lógica de banner (igual que en TodasSolicitudesPage)
+        final bool isDataOld =
+            lastSync != null && now.difference(lastSync).inMinutes >= 10;
+        final bool showBanner = isOffline || isDataOld;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -585,6 +601,64 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
+            if (showBanner) ...[
+              const SizedBox(height: AppSpacing.spacingSm),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                child: InkWell(
+                  onTap: isOffline ? null : () => provider.refreshFromServer(),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: AppSpacing.spacingMd,
+                    ),
+                    color: isOffline
+                        ? AppColors.warning.withValues(alpha: 0.15)
+                        : AppColors.success.withValues(alpha: 0.15),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isOffline
+                              ? Icons.cloud_off_rounded
+                              : Icons.cloud_done_rounded,
+                          size: 16,
+                          color: isOffline
+                              ? AppColors.warning
+                              : AppColors.success,
+                        ),
+                        const SizedBox(width: AppSpacing.spacingMd),
+                        Expanded(
+                          child: Text(
+                            isOffline
+                                ? 'Modo sin conexión'
+                                : 'Datos desactualizados',
+                            style: AppTextStyles.textStyleCaption.copyWith(
+                              color: isOffline
+                                  ? AppColors.warning
+                                  : AppColors.success,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (!isOffline)
+                          Text(
+                            'SINCRONIZAR',
+                            style: AppTextStyles.textStyleCaption.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11,
+                              letterSpacing: 0.5,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.spacingMd),
             if (isLoading && solicitudes.isEmpty)
               const RyStateContainer(

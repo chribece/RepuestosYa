@@ -76,7 +76,13 @@ class SolicitudesProvider with ChangeNotifier {
 
   Future<void> refreshFromServer() async {
     final connectivityResults = await Connectivity().checkConnectivity();
-    if (connectivityResults.contains(ConnectivityResult.none)) {
+    final bool offline = connectivityResults.contains(ConnectivityResult.none);
+
+    if (offline) {
+      AppLogger.info(
+        'SINC-PROV: Sin conexión, trabajando en local',
+        name: 'SolicitudesProvider',
+      );
       _isOffline = true;
       notifyListeners();
       return;
@@ -87,11 +93,14 @@ class SolicitudesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      AppLogger.info('SINCRO: Pidiendo datos...', name: 'SolicitudesProvider');
+      AppLogger.info(
+        'SINC-PROV: Pidiendo datos...',
+        name: 'SolicitudesProvider',
+      );
       final remoteData = await _service.obtenerSolicitudesCliente('');
 
       AppLogger.info(
-        'SINCRO: Servidor entregó ${remoteData.length} items',
+        'SINC-PROV: Servidor respondió con ${remoteData.length} solicitudes',
         name: 'SolicitudesProvider',
       );
 
@@ -104,11 +113,14 @@ class SolicitudesProvider with ChangeNotifier {
       _lastSync = await _repository.ultimaSincronizacion();
     } catch (e) {
       AppLogger.error(
-        'SINCRO: Error de red/servidor: $e',
+        'SINC-PROV: ERROR CRÍTICO: $e',
         name: 'SolicitudesProvider',
       );
     } finally {
       _isLoading = false;
+      // IMPORTANTE: Asegurar que _isOffline se actualice después del intento
+      final updatedConnectivity = await Connectivity().checkConnectivity();
+      _isOffline = updatedConnectivity.contains(ConnectivityResult.none);
       notifyListeners();
     }
   }

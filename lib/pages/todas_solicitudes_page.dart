@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,7 @@ class TodasSolicitudesPage extends StatefulWidget {
 class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
   final ScrollController _scrollController = ScrollController();
   final AuthService _authService = AuthService();
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -35,6 +37,11 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
     // Suscribirse a notificaciones de cotizaciones para solicitudes activas
     _suscribirANotificaciones();
+
+    // Timer para actualizar el "tiempo transcurrido" en la UI cada minuto
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _suscribirANotificaciones() async {
@@ -66,6 +73,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _scrollController.dispose();
     RealtimeNotificationService().unsubscribeMultiple();
     super.dispose();
@@ -96,38 +104,54 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.spacingSm,
+          vertical: 12,
           horizontal: AppSpacing.spacingMd,
         ),
-        color: isOffline ? Colors.amber.shade100 : Colors.green.shade100,
+        color: isOffline
+            ? AppColors.warning.withValues(alpha: 0.15)
+            : AppColors.success.withValues(alpha: 0.2),
         child: Row(
           children: [
             Icon(
-              isOffline
-                  ? Icons.airplanemode_active
-                  : Icons.check_circle_outline,
-              size: 16,
-              color: isOffline ? Colors.orange : Colors.green,
+              isOffline ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+              size: 20,
+              color: isOffline ? AppColors.warning : AppColors.success,
             ),
-            const SizedBox(width: AppSpacing.spacingSm),
+            const SizedBox(width: AppSpacing.spacingMd),
             Expanded(
               child: Text(
                 message,
                 style: AppTextStyles.textStyleCaption.copyWith(
-                  color: isOffline
-                      ? Colors.orange.shade900
-                      : Colors.green.shade900,
-                  fontWeight: FontWeight.bold,
+                  color: isOffline ? AppColors.warning : AppColors.success,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
                 ),
               ),
             ),
             if (!isOffline)
-              Text(
-                'Sincronizar',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: Colors.green.shade900,
-                  fontWeight: FontWeight.bold,
-                  decoration: TextDecoration.underline,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.success.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'SINCRONIZAR',
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
                 ),
               ),
           ],

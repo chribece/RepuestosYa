@@ -1,4 +1,5 @@
 const supabase = require('../services/supabase');
+const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 // POST /auth/register
@@ -224,6 +225,73 @@ const login = async (req, res) => {
   }
 };
 
+// POST /auth/refresh
+const refresh = async (req, res) => {
+  const refreshToken = req.body?.refresh_token;
+
+  if (typeof refreshToken !== 'string' || refreshToken.trim().length === 0) {
+    return res.status(400).json({ message: 'refresh_token es obligatorio' });
+  }
+
+  try {
+    // No existe SUPABASE_ANON_KEY en el entorno actual; el fallback es
+    // exclusivamente server-side y nunca se incluye en la respuesta.
+    const supabaseAuthKey =
+      process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!process.env.SUPABASE_URL || !supabaseAuthKey) {
+      return res.status(500).json({
+        message: 'Servicio de autenticación no configurado'
+      });
+    }
+
+    const refreshClient = createClient(
+      process.env.SUPABASE_URL,
+      supabaseAuthKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    const { data: authData, error: authError } =
+      await refreshClient.auth.refreshSession({ refresh_token: refreshToken });
+
+    if (authError || !authData.session || !authData.user) {
+      return res.status(401).json({ message: 'Refresh token inválido o expirado' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, rol')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      return res.status(401).json({ message: 'Sesión inválida' });
+    }
+
+    const token = jwt.sign(
+      {
+        id: profile.id,
+        email: profile.email,
+        rol: profile.rol
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    return res.json({
+      token,
+      refreshToken: authData.session.refresh_token || refreshToken
+    });
+  } catch (_) {
+    return res.status(401).json({ message: 'Refresh token inválido o expirado' });
+  }
+};
+
 // POST /auth/logout
 const logout = async (req, res) => {
   try {
@@ -254,4 +322,4 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, logout, getMe };
+module.exports = { register, login, refresh, logout, getMe };

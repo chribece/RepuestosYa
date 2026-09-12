@@ -50,7 +50,11 @@ class AuthService {
   // Constructor privado para singleton
   AuthService._privateConstructor() {
     // La inicialización se llama explícitamente desde main.dart o vía getter si es necesario
-    _apiClient.onUnauthorized = clearLocalSession;
+    _apiClient.onUnauthorized = () {
+      unawaited(clearLocalSession());
+    };
+    _apiClient.onUnauthorizedAsync = clearLocalSession;
+    _apiClient.onRefreshToken = refreshToken;
   }
 
   static final AuthService _instance = AuthService._privateConstructor();
@@ -187,6 +191,58 @@ class AuthService {
       throw ApiException(
         ApiErrorHandler.defaultMessage,
         technicalMessage: 'signIn: $e',
+      );
+    }
+  }
+
+  /// Renueva el JWT propio usando el refresh token de Supabase persistido.
+  ///
+  /// Se envía sin autenticación para evitar que un 401 del propio endpoint
+  /// vuelva a entrar en el interceptor de refresh.
+  Future<String> refreshToken() async {
+    final storedRefreshToken = await _secureStorage.readRefreshToken();
+    if (storedRefreshToken == null || storedRefreshToken.isEmpty) {
+      throw const ApiException(
+        'No hay refresh token disponible.',
+        statusCode: 401,
+      );
+    }
+
+    try {
+      final response = await _apiClient.post(
+        '/auth/refresh',
+        body: {'refresh_token': storedRefreshToken},
+        requireAuth: false,
+      );
+
+      final newToken = response['token'];
+      if (newToken is! String || newToken.isEmpty) {
+        throw const ApiException(
+          'La respuesta de refresh no contiene un token válido.',
+          statusCode: 401,
+        );
+      }
+
+      final rotatedRefreshToken = response['refreshToken'];
+      final refreshTokenToPersist =
+          rotatedRefreshToken is String && rotatedRefreshToken.isNotEmpty
+          ? rotatedRefreshToken
+          : storedRefreshToken;
+
+      await _apiClient.setToken(newToken);
+      await _secureStorage.saveToken(
+        newToken,
+        refreshToken: refreshTokenToPersist,
+      );
+
+      return newToken;
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        'No se pudo renovar la sesión.',
+        statusCode: 401,
+        technicalMessage: 'refreshToken: $e',
       );
     }
   }

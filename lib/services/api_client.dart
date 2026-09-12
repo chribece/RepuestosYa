@@ -28,6 +28,15 @@ class ApiClient {
   /// Callback para notificar errores 401 sin crear dependencias circulares.
   VoidCallback? onUnauthorized;
 
+  /// Callback que renueva el JWT usando el refresh token persistido.
+  Future<String?> Function()? onRefreshToken;
+
+  /// Callback asíncrono para limpiar completamente la sesión tras un refresh fallido.
+  Future<void> Function()? onUnauthorizedAsync;
+
+  bool _isRefreshing = false;
+  Completer<String?>? _refreshCompleter;
+
   final SecureStorageService _secureStorage = SecureStorageService();
 
   // Inicializar el cliente cargando el token desde SecureStorage
@@ -74,15 +83,20 @@ class ApiClient {
   /// preserva el `statusCode` en la excepción para que la lógica de negocio
   /// (p. ej. distinguir un 404 de "perfil no existe" de un 404 de "recurso
   /// no encontrado") pueda seguir tomándolo mediante `e.statusCode`.
-  ApiException _handleError(http.Response response) {
+  ApiException _handleError(
+    http.Response response, {
+    bool notifyUnauthorized = true,
+  }) {
     final apiException = ApiErrorHandler.fromResponse(response);
 
-    if (apiException.statusCode == 401) {
+    if (apiException.statusCode == 401 && notifyUnauthorized) {
       // Centralización 401: Sesión expirada o token inválido.
-      if (onUnauthorized != null) {
+      if (onUnauthorizedAsync != null) {
+        unawaited(onUnauthorizedAsync!());
+      } else if (onUnauthorized != null) {
         onUnauthorized!();
       } else {
-        clearToken();
+        unawaited(clearToken());
       }
       AppLogger.warning('Sesión expirada (401).', name: 'ApiClient');
     } else if (apiException.statusCode == 403) {
@@ -116,14 +130,36 @@ class ApiClient {
   /// (`Map<String, dynamic>` o `List<Map<String, dynamic>>`).
   Future<T> _execute<T>(
     Future<http.Response> Function() request,
-    T Function(http.Response response) onSuccess,
-  ) async {
+    T Function(http.Response response) onSuccess, {
+    bool retryOnUnauthorized = false,
+    bool hasRetried = false,
+    bool notifyUnauthorized = true,
+  }) async {
     try {
       final response = await request().timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return onSuccess(response);
       }
-      throw _handleError(response);
+
+      if (response.statusCode == 401 && retryOnUnauthorized && !hasRetried) {
+        try {
+          final newToken = await _refreshTokenOnce();
+          if (newToken.isNotEmpty) {
+            return _execute(
+              request,
+              onSuccess,
+              retryOnUnauthorized: false,
+              hasRetried: true,
+              notifyUnauthorized: notifyUnauthorized,
+            );
+          }
+        } catch (_) {
+          await _handleRefreshFailure();
+          throw _handleError(response, notifyUnauthorized: false);
+        }
+      }
+
+      throw _handleError(response, notifyUnauthorized: notifyUnauthorized);
     } on ApiException {
       // Ya traducida: se propaga sin doble envoltura.
       rethrow;
@@ -133,6 +169,53 @@ class ApiClient {
       // SocketException, ClientException, errores de parseo, etc.
       throw ApiErrorHandler.fromException(e);
     }
+  }
+
+  Future<String> _refreshTokenOnce() async {
+    if (_isRefreshing && _refreshCompleter != null) {
+      return (await _refreshCompleter!.future)!;
+    }
+
+    final completer = Completer<String?>();
+    _isRefreshing = true;
+    _refreshCompleter = completer;
+
+    try {
+      final refreshedToken = await onRefreshToken?.call();
+      if (refreshedToken == null || refreshedToken.isEmpty) {
+        throw const ApiException(
+          'No se pudo renovar la sesión.',
+          statusCode: 401,
+        );
+      }
+      completer.complete(refreshedToken);
+    } catch (error, stackTrace) {
+      completer.completeError(error, stackTrace);
+    } finally {
+      _isRefreshing = false;
+      _refreshCompleter = null;
+    }
+
+    return (await completer.future)!;
+  }
+
+  Future<void> _handleRefreshFailure() async {
+    try {
+      if (onUnauthorizedAsync != null) {
+        await onUnauthorizedAsync!();
+      } else {
+        await clearToken();
+        onUnauthorized?.call();
+      }
+    } catch (_) {
+      await clearToken();
+    }
+  }
+
+  bool _shouldRefresh(String endpoint, bool requireAuth) {
+    return requireAuth &&
+        endpoint != '/auth/login' &&
+        endpoint != '/auth/refresh';
   }
 
   // GET request
@@ -151,6 +234,8 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 
@@ -174,6 +259,8 @@ class ApiClient {
         }
         return [data as Map<String, dynamic>];
       },
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 
@@ -195,6 +282,8 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 
@@ -216,6 +305,8 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 
@@ -237,6 +328,8 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 
@@ -247,6 +340,8 @@ class ApiClient {
     await _execute(
       () => http.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (_) => null,
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      notifyUnauthorized: endpoint != '/auth/refresh',
     );
   }
 }

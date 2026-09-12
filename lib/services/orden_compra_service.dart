@@ -6,16 +6,22 @@ class OrdenCompraService {
   final ApiClient _apiClient = ApiClient();
 
   Future<OrdenCompra> getOrdenDetalle(String ordenId) async {
-    final jsonData = await _apiClient.get('/orders/$ordenId');
-    if (jsonData.isEmpty) {
-      throw ApiException('Respuesta vacía del servidor');
-    }
+    try {
+      final jsonData = await _apiClient.get('/orders/$ordenId');
+      if (jsonData.isEmpty) {
+        throw ApiErrorHandler.dataException('Respuesta vacía del servidor');
+      }
 
-    final data = jsonData['data'] as Map<String, dynamic>?;
-    if (data != null) {
-      return OrdenCompra.fromJson(data);
+      final data = jsonData['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        return OrdenCompra.fromJson(data);
+      }
+      return OrdenCompra.fromJson(jsonData);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiErrorHandler.dataException(e);
     }
-    return OrdenCompra.fromJson(jsonData);
   }
 
   Future<Map<String, dynamic>> actualizarEstadoOrden(

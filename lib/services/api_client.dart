@@ -12,6 +12,15 @@ import '../config/app_config.dart';
 class ApiClient {
   static final String baseUrl = AppConfig.baseUrl;
 
+  /// Retry de transporte únicamente para GET: tres intentos totales con
+  /// backoff 300 ms y 600 ms. Las escrituras quedan excluidas porque repetir
+  /// POST/PUT/PATCH/DELETE puede duplicar una operación no idempotente.
+  static const int _maxGetAttempts = 3;
+  static const List<Duration> _getRetryDelays = [
+    Duration(milliseconds: 300),
+    Duration(milliseconds: 600),
+  ];
+
   /// Duración máxima de cada request HTTP antes de declarar timeout.
   /// Centralizado para que todos los verbos compartan el mismo umbral.
   static const Duration _requestTimeout = Duration(seconds: 10);
@@ -123,8 +132,8 @@ class ApiClient {
     }
   }
 
-  /// Ejecuta [request] aplicando timeout, normalización de respuestas 2xx y
-  /// traducción centralizada de errores HTTP / de red a [ApiException].
+  /// Ejecuta [request] aplicando timeout, retry de transporte para GET,
+  /// normalización de respuestas 2xx y traducción centralizada de errores.
   ///
   /// [onSuccess] decodifica el body de la respuesta 2xx al tipo esperado
   /// (`Map<String, dynamic>` o `List<Map<String, dynamic>>`).
@@ -134,11 +143,19 @@ class ApiClient {
     bool retryOnUnauthorized = false,
     bool hasRetried = false,
     bool notifyUnauthorized = true,
+    bool retryOnGet = false,
+    int networkAttempt = 0,
   }) async {
     try {
       final response = await request().timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return onSuccess(response);
+        try {
+          return onSuccess(response);
+        } on ApiException {
+          rethrow;
+        } catch (e) {
+          throw ApiErrorHandler.dataException(e);
+        }
       }
 
       if (response.statusCode == 401 && retryOnUnauthorized && !hasRetried) {
@@ -151,6 +168,8 @@ class ApiClient {
               retryOnUnauthorized: false,
               hasRetried: true,
               notifyUnauthorized: notifyUnauthorized,
+              retryOnGet: retryOnGet,
+              networkAttempt: networkAttempt,
             );
           }
         } catch (_) {
@@ -159,15 +178,57 @@ class ApiClient {
         }
       }
 
+      if (retryOnGet &&
+          response.statusCode >= 500 &&
+          response.statusCode <= 599 &&
+          networkAttempt < _maxGetAttempts - 1) {
+        await Future<void>.delayed(_getRetryDelays[networkAttempt]);
+        return _execute(
+          request,
+          onSuccess,
+          retryOnUnauthorized: retryOnUnauthorized,
+          hasRetried: hasRetried,
+          notifyUnauthorized: notifyUnauthorized,
+          retryOnGet: true,
+          networkAttempt: networkAttempt + 1,
+        );
+      }
+
       throw _handleError(response, notifyUnauthorized: notifyUnauthorized);
     } on ApiException {
       // Ya traducida: se propaga sin doble envoltura.
       rethrow;
     } on TimeoutException {
+      if (retryOnGet && networkAttempt < _maxGetAttempts - 1) {
+        await Future<void>.delayed(_getRetryDelays[networkAttempt]);
+        return _execute(
+          request,
+          onSuccess,
+          retryOnUnauthorized: retryOnUnauthorized,
+          hasRetried: hasRetried,
+          notifyUnauthorized: notifyUnauthorized,
+          retryOnGet: true,
+          networkAttempt: networkAttempt + 1,
+        );
+      }
       throw ApiErrorHandler.timeoutException();
     } catch (e) {
-      // SocketException, ClientException, errores de parseo, etc.
-      throw ApiErrorHandler.fromException(e);
+      final mappedError = ApiErrorHandler.fromException(e);
+      if (retryOnGet &&
+          mappedError.type == ApiErrorType.network &&
+          networkAttempt < _maxGetAttempts - 1) {
+        await Future<void>.delayed(_getRetryDelays[networkAttempt]);
+        return _execute(
+          request,
+          onSuccess,
+          retryOnUnauthorized: retryOnUnauthorized,
+          hasRetried: hasRetried,
+          notifyUnauthorized: notifyUnauthorized,
+          retryOnGet: true,
+          networkAttempt: networkAttempt + 1,
+        );
+      }
+      throw mappedError;
     }
   }
 
@@ -236,6 +297,7 @@ class ApiClient {
       },
       retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: true,
     );
   }
 
@@ -261,6 +323,7 @@ class ApiClient {
       },
       retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: true,
     );
   }
 
@@ -282,8 +345,10 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
+      retryOnUnauthorized: false,
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: false,
     );
   }
 
@@ -305,8 +370,10 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
+      retryOnUnauthorized: false,
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: false,
     );
   }
 
@@ -328,8 +395,10 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
+      retryOnUnauthorized: false,
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: false,
     );
   }
 
@@ -340,8 +409,10 @@ class ApiClient {
     await _execute(
       () => http.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (_) => null,
-      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
+      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
+      retryOnUnauthorized: false,
       notifyUnauthorized: endpoint != '/auth/refresh',
+      retryOnGet: false,
     );
   }
 }

@@ -11,6 +11,8 @@ import 'app_logger.dart';
 /// puede significar cosas distintas según el flujo (p. ej. un 401 en Login
 /// significa credenciales inválidas, mientras que un 401 en una pantalla ya
 /// autenticada significa sesión expirada).
+enum ApiErrorType { http, network, timeout, data, unknown }
+
 enum ApiErrorContext {
   /// Flujo de inicio de sesión / registro: un 401 son credenciales inválidas,
   /// no una sesión expirada.
@@ -40,7 +42,16 @@ class ApiException implements Exception {
   /// se muestra en la UI.
   final String? technicalMessage;
 
-  const ApiException(this.message, {this.statusCode, this.technicalMessage});
+  /// Familia de dominio del error para que los callers puedan distinguir
+  /// errores HTTP, de red, timeout y datos sin inspeccionar textos técnicos.
+  final ApiErrorType type;
+
+  const ApiException(
+    this.message, {
+    this.statusCode,
+    this.technicalMessage,
+    this.type = ApiErrorType.unknown,
+  });
 
   @override
   String toString() => message;
@@ -75,6 +86,10 @@ class ApiErrorHandler {
       'No pudimos conectarnos. Revisa tu conexión a internet.';
   static const String defaultMessage =
       'No pudimos completar la operación. Intenta nuevamente.';
+  static const String serverMessage =
+      'Ocurrió un problema en el servidor. Intenta más tarde.';
+  static const String dataMessage =
+      'No se pudo leer la información del servidor.';
 
   /// Mensaje específico para credenciales inválidas en el flujo de Login.
   /// El backend responde 401 con `{ error: 'Credenciales inválidas' }` y
@@ -88,7 +103,9 @@ class ApiErrorHandler {
   /// preservando el [statusCode] y el mensaje técnico del body para el log.
   static ApiException fromResponse(http.Response response) {
     final code = response.statusCode;
-    final friendly = _statusMessages[code] ?? defaultMessage;
+    final friendly = code >= 500 && code <= 599
+        ? serverMessage
+        : _statusMessages[code] ?? defaultMessage;
 
     // Para 422, preservamos el body completo para mapear errores a campos.
     final technical = code == 422
@@ -104,6 +121,7 @@ class ApiErrorHandler {
       friendly,
       statusCode: code,
       technicalMessage: technical,
+      type: ApiErrorType.http,
     );
   }
 
@@ -127,8 +145,19 @@ class ApiErrorHandler {
 
   /// Devuelve una [ApiException] para timeout. Reutilizada por [ApiClient]
   /// en el callback `onTimeout` de cada request.
-  static ApiException timeoutException() =>
-      const ApiException(timeoutMessage, technicalMessage: 'Request timeout');
+  static ApiException timeoutException() => const ApiException(
+    timeoutMessage,
+    technicalMessage: 'Request timeout',
+    type: ApiErrorType.timeout,
+  );
+
+  /// Devuelve un error de datos para JSON inválido, casts fallidos o una
+  /// estructura de respuesta que no cumple el contrato esperado.
+  static ApiException dataException(Object error) => ApiException(
+    dataMessage,
+    technicalMessage: error.toString(),
+    type: ApiErrorType.data,
+  );
 
   /// Construye una [ApiException] a partir de una excepción de red o de
   /// cualquier error no HTTP (SocketException, ClientException, etc.).
@@ -143,9 +172,17 @@ class ApiErrorHandler {
       return ApiException(
         noConnectionMessage,
         technicalMessage: error.toString(),
+        type: ApiErrorType.network,
       );
     }
-    return ApiException(defaultMessage, technicalMessage: error.toString());
+    if (error is FormatException || error is TypeError) {
+      return dataException(error);
+    }
+    return ApiException(
+      defaultMessage,
+      technicalMessage: error.toString(),
+      type: ApiErrorType.unknown,
+    );
   }
 
   /// Heurística ligera para detectar errores de red envueltos por `package:http`

@@ -13,6 +13,10 @@ class CatalogService {
       return response.map((json) => PartCategory.fromJson(json)).toList();
     } on ApiException {
       rethrow;
+    } on FormatException catch (e) {
+      throw ApiErrorHandler.dataException(e);
+    } on TypeError catch (e) {
+      throw ApiErrorHandler.dataException(e);
     } catch (e) {
       AppLogger.error(
         'Error en getPartCategories',
@@ -44,6 +48,10 @@ class CatalogService {
       return response.map((json) => CatalogPart.fromJson(json)).toList();
     } on ApiException {
       rethrow;
+    } on FormatException catch (e) {
+      throw ApiErrorHandler.dataException(e);
+    } on TypeError catch (e) {
+      throw ApiErrorHandler.dataException(e);
     } catch (e) {
       AppLogger.error('Error en getParts', error: e, name: 'CatalogService');
       throw ApiException(

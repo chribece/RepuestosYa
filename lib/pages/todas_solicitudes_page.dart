@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
+import '../services/outbox.dart';
+import '../services/sync_engine.dart';
 import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
@@ -25,6 +27,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
   final ScrollController _scrollController = ScrollController();
   final AuthService _authService = AuthService();
   Timer? _refreshTimer;
+  Future<List<OutboxData>>? _errorItemsFuture;
 
   @override
   void initState() {
@@ -33,6 +36,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     // Refrescar datos del servidor al entrar si hay conexión
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SolicitudesProvider>().refreshFromServer();
+      _refreshErrorItems();
     });
 
     // Suscribirse a notificaciones de cotizaciones para solicitudes activas
@@ -40,8 +44,91 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
     // Timer para actualizar el "tiempo transcurrido" en la UI cada minuto
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      _refreshErrorItems();
     });
+  }
+
+  void _refreshErrorItems() {
+    if (!mounted) return;
+    setState(() {
+      _errorItemsFuture = context.read<OutboxService>().itemsConError();
+    });
+  }
+
+  Future<void> _retryOutboxItem(OutboxData item) async {
+    final outbox = context.read<OutboxService>();
+    final syncEngine = context.read<SyncEngine>();
+    await outbox.reintentar(item);
+    await syncEngine.procesarCola();
+    if (!mounted) return;
+    _refreshErrorItems();
+  }
+
+  Future<void> _discardOutboxItem(OutboxData item) async {
+    final outbox = context.read<OutboxService>();
+    await outbox.descartar(item);
+    if (!mounted) return;
+    _refreshErrorItems();
+  }
+
+  Widget _buildOutboxErrors() {
+    final future = _errorItemsFuture;
+    if (future == null) return const SizedBox.shrink();
+
+    return FutureBuilder<List<OutboxData>>(
+      future: future,
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <OutboxData>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.spacingMd,
+            AppSpacing.spacingSm,
+            AppSpacing.spacingMd,
+            0,
+          ),
+          child: Column(
+            children: items.map((item) {
+              final isDead = item.status == 'DEAD';
+              return Card(
+                color: AppColors.error.withValues(alpha: 0.12),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.spacingSm),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isDead ? Icons.error_outline : Icons.sync_problem,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(width: AppSpacing.spacingSm),
+                      Expanded(
+                        child: Text(
+                          '${isDead ? 'Sincronización detenida' : 'Sincronización pendiente'}\n${item.lastError ?? 'Error desconocido'}',
+                          style: AppTextStyles.textStyleCaption,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Reintentar',
+                        onPressed: () => _retryOutboxItem(item),
+                        icon: const Icon(Icons.refresh),
+                      ),
+                      IconButton(
+                        tooltip: 'Descartar',
+                        onPressed: () => _discardOutboxItem(item),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _suscribirANotificaciones() async {
@@ -259,6 +346,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
           body: Column(
             children: [
               _buildSyncBanner(provider),
+              _buildOutboxErrors(),
               Expanded(
                 child: isLoading && solicitudes.isEmpty
                     ? const RyStateContainer(

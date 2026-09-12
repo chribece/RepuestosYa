@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:uuid/uuid.dart';
 import '../models/part_catalog.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -718,6 +723,24 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   // ========== ENVÍO DEL FORMULARIO ==========
 
+  Future<String?> _persistOfflineImage(File? image) async {
+    if (image == null) return null;
+
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final imagesDirectory = Directory(
+      p.join(documentsDirectory.path, 'repuestosya_pending_images'),
+    );
+    await imagesDirectory.create(recursive: true);
+
+    final extension = p.extension(image.path);
+    final persistentPath = p.join(
+      imagesDirectory.path,
+      'solicitud_${const Uuid().v4()}$extension',
+    );
+    final persistedImage = await image.copy(persistentPath);
+    return persistedImage.path;
+  }
+
   Future<void> _handleSubmit() async {
     // 1. Limpiar errores previos
     setState(() => _fieldErrors = {});
@@ -799,7 +822,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         // MODO SIN CONEXIÓN
         if (!mounted) return;
         final outboxService = context.read<OutboxService>();
-        final repository = context.read<SolicitudRepository>();
+        final persistentImagePath = await _persistOfflineImage(
+          provider.selectedImage,
+        );
 
         final payload = {
           'cliente_id': user.id,
@@ -812,35 +837,38 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           'repuesto_id': provider.selectedPartId!,
           'repuesto_nombre_snapshot': provider.partNameSnapshot!,
           'descripcion_problema': descripcionProblema,
-          'local_image_path':
-              provider.selectedImage?.path, // Guardar ruta local
+          'local_image_path': persistentImagePath,
         };
 
-        final clientId = await outboxService.enqueue(
-          entityType: 'solicitud',
-          operation: 'CREATE',
-          payload: payload,
-        );
-
-        // Guardar localmente para que aparezca en la lista inmediatamente
-        await repository.insertarLocal(
-          SolicitudLocal(
-            id: clientId, // Usamos el clientId como ID temporal local
-            clientId: clientId,
-            vehiculoId: provider.selectedVehiculoId!,
-            piezaNombre: provider.piezaNombre,
-            categoriaId: provider.selectedCategoryId,
-            repuestoId: provider.selectedPartId,
-            estado: 'pendiente',
-            descripcion: provider.descripcion,
-            fotoUrl: provider.selectedImage != null
-                ? 'file://${provider.selectedImage!.path}'
-                : null, // Guardar ruta local para mostrar
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-            synced: false,
-          ),
-        );
+        // Outbox y solicitud local se guardan atómicamente.
+        try {
+          await outboxService.enqueueSolicitud(
+            payload: payload,
+            localRequest: (clientId) => SolicitudLocal(
+              id: clientId,
+              clientId: clientId,
+              vehiculoId: provider.selectedVehiculoId!,
+              piezaNombre: provider.piezaNombre,
+              categoriaId: provider.selectedCategoryId,
+              repuestoId: provider.selectedPartId,
+              estado: 'pendiente',
+              descripcion: provider.descripcion,
+              fotoUrl: persistentImagePath == null
+                  ? null
+                  : 'file://$persistentImagePath',
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              synced: false,
+            ),
+          );
+        } catch (_) {
+          if (persistentImagePath != null) {
+            try {
+              await File(persistentImagePath).delete();
+            } catch (_) {}
+          }
+          rethrow;
+        }
 
         if (!mounted) return;
         provider.clear();

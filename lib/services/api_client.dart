@@ -7,9 +7,10 @@ import '../theme/app_colors.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/keys.dart';
+import '../config/app_config.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://192.168.100.2:3000/api';
+  static final String baseUrl = AppConfig.baseUrl;
 
   /// Duración máxima de cada request HTTP antes de declarar timeout.
   /// Centralizado para que todos los verbos compartan el mismo umbral.

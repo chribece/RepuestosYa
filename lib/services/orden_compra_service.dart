@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
 import '../models/orden_compra.dart';
+import '../config/app_config.dart';
 
 class BadRequestException implements Exception {
   final String message;
@@ -36,7 +37,7 @@ class ServerException implements Exception {
 }
 
 class OrdenCompraService {
-  static const String baseUrl = 'http://192.168.100.2:3000/api';
+  static final String baseUrl = AppConfig.baseUrl;
 
   Future<String> _getToken() async {
     // Usa SecureStorageService para obtener el token cifrado

@@ -22,6 +22,7 @@ Este documento define el sistema de diseño para la aplicación móvil Repuestos
 | Pantalla | Archivo Flutter | Rutas API Relacionadas | Justificación |
 |----------|----------------|------------------------|---------------|
 | **Registro Cliente** | `register_cliente_page.dart` | `POST /auth/register` | Formulario específico para registro de clientes |
+| **Onboarding primera solicitud** | `onboarding_page.dart` | `GET /vehicles`, `GET /requests` | Ruta `/onboarding`, privada para Cliente. Guía de primera solicitud usando `vehiculo_service.dart` y `solicitud_service.dart`. |
 | **Home Cliente** | `home_page.dart` | `GET /requests`, `GET /requests/stats` | Dashboard principal con estadísticas y solicitudes |
 | **Crear Solicitud** | `create_request_page.dart` | `POST /requests`, `GET /vehicles`, `GET /addresses` | Formulario para crear nuevas solicitudes de repuestos |
 | **Mis Solicitudes** | `todas_solicitudes_page.dart` | `GET /requests` | Listado completo de solicitudes del cliente |

@@ -18,6 +18,7 @@ import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_image_picker.dart';
+import '../widgets/ry_section_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -44,6 +45,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   // Catálogo (mantener listas locales para los dropdowns)
   List<PartCategory> _categories = [];
   List<CatalogPart> _parts = [];
+  final Map<String, List<CatalogPart>> _partsByCategoryId = {};
+  final Set<String> _loadingAdditionalParts = {};
+  final Set<String> _expandedAdditionalParts = {};
+  final Map<String, String> _additionalCategoryErrors = {};
+  final Map<String, String> _additionalPartErrors = {};
   bool _isLoadingCategories = false;
   bool _isLoadingParts = false;
   String? _categoryError;
@@ -72,6 +78,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final provider = context.read<CreateRequestProvider>();
       if (provider.selectedCategoryId != null) {
         _cargarRepuestos(provider.selectedCategoryId!);
+      }
+      for (final additionalPart in provider.additionalParts) {
+        _cargarRepuestosAdicional(additionalPart);
       }
     });
   }
@@ -134,6 +143,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   Future<void> _cargarCategorias() async {
     final connectivity = await Connectivity().checkConnectivity();
     final bool isOffline = connectivity.contains(ConnectivityResult.none);
+    if (!mounted) return;
 
     // 1. Si estamos offline, ir directo a la base local para evitar esperas
     if (isOffline) {
@@ -195,11 +205,14 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     }
   }
 
-  Future<void> _cargarRepuestos(String categoryId) async {
+  Future<List<CatalogPart>> _obtenerRepuestos(String categoryId) async {
+    final cachedParts = _partsByCategoryId[categoryId];
+    if (cachedParts != null) return cachedParts;
+
     final connectivity = await Connectivity().checkConnectivity();
     final bool isOffline = connectivity.contains(ConnectivityResult.none);
+    if (!mounted) return [];
 
-    // 1. Si estamos offline, ir directo a local
     if (isOffline) {
       AppLogger.info(
         'Offline: Cargando repuestos desde caché local',
@@ -208,43 +221,43 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       try {
         final repository = context.read<SolicitudRepository>();
         final localParts = await repository.obtenerRepuestosLocal(categoryId);
-        if (mounted && localParts.isNotEmpty) {
-          setState(() {
-            _parts = localParts;
-            _isLoadingParts = false;
-            _partError = null;
-          });
-          return;
+        if (localParts.isNotEmpty) {
+          _partsByCategoryId[categoryId] = localParts;
+          return localParts;
         }
       } catch (e) {
         AppLogger.error('Error cargando repuestos locales: $e');
       }
     }
 
-    // 2. Intentar servidor
+    final parts = await _catalogService.getParts(categoryId: categoryId);
+    if (!mounted) return [];
+
+    final uniqueParts = <String, CatalogPart>{};
+    for (final part in parts) {
+      uniqueParts[part.id] = part;
+    }
+    final result = uniqueParts.values.toList();
+    _partsByCategoryId[categoryId] = result;
+
+    final repository = context.read<SolicitudRepository>();
+    await repository.guardarRepuestos(categoryId, result);
+    return result;
+  }
+
+  Future<void> _cargarRepuestos(String categoryId) async {
     setState(() {
       _isLoadingParts = true;
       _partError = null;
     });
 
     try {
-      final parts = await _catalogService.getParts(categoryId: categoryId);
+      final parts = await _obtenerRepuestos(categoryId);
       if (!mounted) return;
-
-      final Map<String, CatalogPart> uniqueParts = {};
-      for (var part in parts) {
-        uniqueParts[part.id] = part;
-      }
-
       setState(() {
-        _parts = uniqueParts.values.toList();
+        _parts = parts;
         _isLoadingParts = false;
-        _partError = null;
       });
-
-      // Guardar en caché local
-      final repository = context.read<SolicitudRepository>();
-      await repository.guardarRepuestos(categoryId, _parts);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -252,6 +265,34 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           if (_parts.isEmpty) {
             _partError = 'Sin datos offline para esta categoría';
           }
+        });
+      }
+    }
+  }
+
+  Future<void> _cargarRepuestosAdicional(
+    AdditionalRequestPart additionalPart,
+  ) async {
+    final categoryId = additionalPart.categoriaId;
+    if (categoryId == null || _partsByCategoryId.containsKey(categoryId)) {
+      return;
+    }
+
+    setState(() {
+      _loadingAdditionalParts.add(additionalPart.id);
+      _additionalPartErrors.remove(additionalPart.id);
+    });
+
+    try {
+      await _obtenerRepuestos(categoryId);
+      if (!mounted) return;
+      setState(() => _loadingAdditionalParts.remove(additionalPart.id));
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingAdditionalParts.remove(additionalPart.id);
+          _additionalPartErrors[additionalPart.id] =
+              'No se pudieron cargar los repuestos.';
         });
       }
     }
@@ -507,6 +548,60 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     );
   }
 
+  // ========== AGREGAR VEHÍCULO ==========
+
+  Future<void> _agregarVehiculo() async {
+    final previousIds = _vehiculos
+        .map((vehiculo) => vehiculo['id']?.toString())
+        .whereType<String>()
+        .toSet();
+
+    await context.push('/profile/vehicles');
+    if (!mounted) return;
+
+    await _cargarVehiculos();
+    if (!mounted) return;
+
+    final provider = context.read<CreateRequestProvider>();
+    final nuevoVehiculo = _vehiculos.cast<Map<String, dynamic>?>().firstWhere(
+      (vehiculo) =>
+          vehiculo != null && !previousIds.contains(vehiculo['id']?.toString()),
+      orElse: () => _vehiculos.length == 1 ? _vehiculos.first : null,
+    );
+    final nuevoVehiculoId = nuevoVehiculo?['id']?.toString();
+    if (nuevoVehiculoId != null) {
+      provider.updateVehiculo(nuevoVehiculoId);
+    }
+  }
+
+  Future<void> _mostrarVehiculoRequerido() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Registra un vehículo'),
+        content: const Text(
+          'Necesitas registrar al menos un vehículo para crear una solicitud compatible.',
+        ),
+        actions: [
+          RyButton(
+            label: 'Ahora no',
+            variant: RyButtonVariant.text,
+            onPressed: () => Navigator.pop(dialogContext),
+          ),
+          RyButton(
+            label: 'Agregar vehículo',
+            icon: Icons.add,
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await _agregarVehiculo();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ========== CAMBIAR DIRECCIÓN (diálogo) ==========
 
   void _changeLocation() {
@@ -647,16 +742,21 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       hasManualErrors = true;
     }
     if (provider.selectedVehiculoId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Debes seleccionar un vehículo para asegurar la compatibilidad.',
+      if (!_isLoadingVehiculos && _vehiculos.isEmpty) {
+        await _mostrarVehiculoRequerido();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Debes seleccionar un vehículo para asegurar la compatibilidad.',
+            ),
+            backgroundColor: AppColors.warning,
           ),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+        );
+      }
       hasManualErrors = true;
     }
+    if (!mounted) return;
     if (provider.selectedDireccionId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -667,8 +767,24 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       hasManualErrors = true;
     }
 
+    for (final additionalPart in provider.additionalParts) {
+      if (additionalPart.categoriaId == null) {
+        _additionalCategoryErrors[additionalPart.id] =
+            'Selecciona una categoría.';
+        hasManualErrors = true;
+      }
+      if (additionalPart.repuestoId == null) {
+        _additionalPartErrors[additionalPart.id] = 'Selecciona un repuesto.';
+        hasManualErrors = true;
+      }
+    }
+    if (provider.additionalParts.isNotEmpty) {
+      setState(() {});
+    }
+
     if (hasManualErrors) return;
 
+    final descripcionProblema = _buildDescripcionProblema(provider);
     setState(() => _isSubmitting = true);
 
     try {
@@ -696,7 +812,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           'categoria_id': provider.selectedCategoryId!,
           'repuesto_id': provider.selectedPartId!,
           'repuesto_nombre_snapshot': provider.partNameSnapshot!,
-          'descripcion_problema': provider.descripcion,
+          'descripcion_problema': descripcionProblema,
           'local_image_path':
               provider.selectedImage?.path, // Guardar ruta local
         };
@@ -792,7 +908,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         categoriaId: provider.selectedCategoryId!,
         repuestoId: provider.selectedPartId!,
         repuestoNombreSnapshot: provider.partNameSnapshot!,
-        descripcionProblema: provider.descripcion,
+        descripcionProblema: descripcionProblema,
       );
 
       if (!mounted) return;
@@ -840,6 +956,29 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         );
       }
     }
+  }
+
+  String _buildDescripcionProblema(CreateRequestProvider provider) {
+    if (provider.additionalParts.isEmpty) return provider.descripcion;
+
+    final lines = <String>['Repuestos adicionales:'];
+    for (var index = 0; index < provider.additionalParts.length; index++) {
+      final additionalPart = provider.additionalParts[index];
+      lines.add(
+        '${index + 1}. Categoría: ${additionalPart.categoriaNombre ?? additionalPart.categoriaId} | '
+        'Repuesto: ${additionalPart.repuestoNombreSnapshot ?? additionalPart.repuestoId} | '
+        'Cantidad: ${additionalPart.cantidad}',
+      );
+      final detail = additionalPart.descripcionProblema?.trim();
+      if (detail != null && detail.isNotEmpty) {
+        lines.add('Detalle: $detail');
+      }
+    }
+
+    final summary = lines.join('\n');
+    final mainDescription = provider.descripcion.trim();
+    if (mainDescription.isEmpty) return summary;
+    return '$mainDescription\n\n$summary';
   }
 
   // ========== COMPONENTES UI ==========
@@ -1029,6 +1168,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 },
               ),
               const SizedBox(height: AppSpacing.spacingMd),
+              _buildAdditionalPartsSection(provider),
+              const SizedBox(height: AppSpacing.spacingMd),
               _buildVehicleDropdown(provider),
               const SizedBox(height: AppSpacing.spacingMd),
               RyTextField(
@@ -1064,6 +1205,245 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         ),
       ),
       bottomNavigationBar: _buildBottomBar(),
+    );
+  }
+
+  void _startAdditionalPart(CreateRequestProvider provider) {
+    final additionalPart = provider.addAdditionalPart();
+    if (!mounted) return;
+    setState(() {
+      _expandedAdditionalParts
+        ..clear()
+        ..add(additionalPart.id);
+    });
+  }
+
+  void _addAdditionalPartToList(AdditionalRequestPart additionalPart) {
+    final hasCategory = additionalPart.categoriaId != null;
+    final hasPart = additionalPart.repuestoId != null;
+    if (!hasCategory || !hasPart) {
+      setState(() {
+        if (!hasCategory) {
+          _additionalCategoryErrors[additionalPart.id] =
+              'Selecciona una categoría.';
+        }
+        if (!hasPart) {
+          _additionalPartErrors[additionalPart.id] = 'Selecciona un repuesto.';
+        }
+      });
+      return;
+    }
+
+    setState(() => _expandedAdditionalParts.remove(additionalPart.id));
+  }
+
+  Widget _buildAdditionalPartsSection(CreateRequestProvider provider) {
+    return RySectionCard(
+      title: 'Repuestos adicionales',
+      icon: Icons.add_box_outlined,
+      children: [
+        Text(
+          'Agrega otros repuestos o accesorios que necesitas para el mismo vehículo.',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        if (provider.additionalParts.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.spacingMd),
+          ...provider.additionalParts.asMap().entries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+              child: _buildAdditionalPartCard(provider, entry.value, entry.key),
+            ),
+          ),
+        ],
+        RyButton(
+          label: 'Agregar otro repuesto',
+          icon: Icons.add,
+          variant: RyButtonVariant.outline,
+          isFullWidth: true,
+          onPressed: () => _startAdditionalPart(provider),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalPartCard(
+    CreateRequestProvider provider,
+    AdditionalRequestPart additionalPart,
+    int index,
+  ) {
+    final selectedCategory = _categories
+        .where((category) => category.id == additionalPart.categoriaId)
+        .firstOrNull;
+    final parts = additionalPart.categoriaId == null
+        ? const <CatalogPart>[]
+        : _partsByCategoryId[additionalPart.categoriaId!] ??
+              const <CatalogPart>[];
+    final selectedPart = parts
+        .where((part) => part.id == additionalPart.repuestoId)
+        .firstOrNull;
+    final isLoading = _loadingAdditionalParts.contains(additionalPart.id);
+    final isExpanded =
+        _expandedAdditionalParts.contains(additionalPart.id) ||
+        additionalPart.repuestoId == null;
+
+    if (!isExpanded) {
+      return _buildCollapsedAdditionalPartCard(provider, additionalPart, index);
+    }
+
+    return RySectionCard(
+      title: 'Repuesto adicional ${index + 1}',
+      icon: Icons.build_outlined,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: Semantics(
+            button: true,
+            label: 'Eliminar repuesto adicional ${index + 1}',
+            child: IconButton(
+              tooltip: 'Eliminar repuesto adicional',
+              icon: const Icon(Icons.delete_outline),
+              color: AppColors.error,
+              onPressed: () {
+                _additionalCategoryErrors.remove(additionalPart.id);
+                _additionalPartErrors.remove(additionalPart.id);
+                provider.removeAdditionalPart(additionalPart.id);
+              },
+            ),
+          ),
+        ),
+        RyDropdownField<PartCategory>(
+          label: 'Categoría',
+          hint: 'Selecciona una categoría',
+          isRequired: true,
+          items: _categories,
+          value: selectedCategory,
+          isLoading: _isLoadingCategories,
+          errorText: _additionalCategoryErrors[additionalPart.id],
+          itemLabelBuilder: (category) => category.nombre,
+          onChanged: (category) {
+            provider.updateAdditionalCategory(
+              additionalPart.id,
+              category?.id,
+              category?.nombre,
+            );
+            setState(() {
+              _additionalCategoryErrors.remove(additionalPart.id);
+              _additionalPartErrors.remove(additionalPart.id);
+            });
+            if (category != null) {
+              _cargarRepuestosAdicional(additionalPart);
+            }
+          },
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyDropdownField<CatalogPart>(
+          label: 'Repuesto',
+          hint: additionalPart.categoriaId == null
+              ? 'Selecciona primero una categoría'
+              : 'Selecciona el repuesto',
+          isRequired: true,
+          items: parts,
+          value: selectedPart,
+          enabled: additionalPart.categoriaId != null,
+          isLoading: isLoading,
+          errorText: _additionalPartErrors[additionalPart.id],
+          itemLabelBuilder: (part) => part.nombre,
+          onChanged: (part) {
+            provider.updateAdditionalPart(
+              additionalPart.id,
+              part?.id,
+              part?.nombre,
+            );
+            setState(() => _additionalPartErrors.remove(additionalPart.id));
+          },
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
+          label: 'Detalles adicionales (opcional)',
+          initialValue: additionalPart.descripcionProblema,
+          maxLines: 3,
+          onChanged: (value) =>
+              provider.updateAdditionalDescription(additionalPart.id, value),
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
+          label: 'Cantidad',
+          initialValue: additionalPart.cantidad.toString(),
+          type: RyTextFieldType.number,
+          keyboardType: TextInputType.number,
+          onChanged: (value) => provider.updateAdditionalQuantity(
+            additionalPart.id,
+            int.tryParse(value) ?? 1,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyButton(
+          label: 'Agregar a la lista',
+          icon: Icons.check,
+          isFullWidth: true,
+          onPressed: () => _addAdditionalPartToList(additionalPart),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCollapsedAdditionalPartCard(
+    CreateRequestProvider provider,
+    AdditionalRequestPart additionalPart,
+    int index,
+  ) {
+    return RySectionCard(
+      title: 'Repuesto adicional ${index + 1}',
+      icon: Icons.check_circle_outline,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                additionalPart.repuestoNombreSnapshot ?? 'Repuesto pendiente',
+                style: AppTextStyles.textStyleBody,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: 'Editar repuesto adicional ${index + 1}',
+              child: IconButton(
+                tooltip: 'Editar repuesto adicional',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () {
+                  setState(() {
+                    _expandedAdditionalParts
+                      ..clear()
+                      ..add(additionalPart.id);
+                  });
+                },
+              ),
+            ),
+            Semantics(
+              button: true,
+              label: 'Eliminar repuesto adicional ${index + 1}',
+              child: IconButton(
+                tooltip: 'Eliminar repuesto adicional',
+                icon: const Icon(Icons.delete_outline),
+                color: AppColors.error,
+                onPressed: () {
+                  provider.removeAdditionalPart(additionalPart.id);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.spacingXs),
+        Text(
+          'Cantidad: ${additionalPart.cantidad}',
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1192,6 +1572,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             ),
           ),
         ),
+        if (!_isLoadingVehiculos && _vehiculos.isEmpty) ...[
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyButton(
+            label: 'Agregar vehículo',
+            icon: Icons.add,
+            variant: RyButtonVariant.outline,
+            isFullWidth: true,
+            onPressed: _agregarVehiculo,
+          ),
+        ],
         if (_fieldErrors.containsKey('vehiculo_id'))
           Padding(
             padding: const EdgeInsets.only(top: 4, left: 12),

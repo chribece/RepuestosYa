@@ -45,7 +45,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   String? _errorMessage;
   final Map<String, bool> _loadingCotizaciones = {};
 
-  // Para deep linking: si no vienen los datos por constructor, los cargamos.
+  // Para deep linking y para mantener imagen/ofertas actualizadas, cargamos el detalle.
   String? _piezaNombreOverride;
   String? _fotoUrlOverride;
   int? _ofertasPendientesOverride;
@@ -63,26 +63,24 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   }
 
   Future<void> _cargarDetallesSolicitudSiEsNecesario() async {
-    if (_piezaNombreOverride == null || _piezaNombreOverride == 'Solicitud') {
-      try {
-        final solicitudData = await _solicitudService.obtenerSolicitudPorId(
-          widget.solicitudId,
-        );
-        if (mounted) {
-          setState(() {
-            final solicitud = Solicitud(solicitudData);
-            _piezaNombreOverride = solicitud.displayPartName;
-            _fotoUrlOverride = solicitud.fotoUrl;
-            _ofertasPendientesOverride = solicitud.cantidadCotizaciones;
-          });
-        }
-      } catch (e) {
-        AppLogger.error(
-          'Error al cargar detalles de solicitud',
-          name: 'ReceivedQuotationsPage',
-          error: e,
-        );
+    try {
+      final solicitudData = await _solicitudService.obtenerSolicitudPorId(
+        widget.solicitudId,
+      );
+      if (mounted) {
+        setState(() {
+          final solicitud = Solicitud(solicitudData);
+          _piezaNombreOverride = solicitud.displayPartName;
+          _fotoUrlOverride = solicitud.fotoUrl ?? _fotoUrlOverride;
+          _ofertasPendientesOverride = solicitud.cantidadCotizaciones;
+        });
       }
+    } catch (e) {
+      AppLogger.error(
+        'Error al cargar detalles de solicitud',
+        name: 'ReceivedQuotationsPage',
+        error: e,
+      );
     }
   }
 

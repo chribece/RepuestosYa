@@ -10,6 +10,7 @@ import '../pages/register_cliente_page.dart';
 import '../pages/register_almacen_page.dart';
 import '../pages/complete_profile_page.dart';
 import '../pages/home_page.dart';
+import '../pages/onboarding_page.dart';
 import '../pages/warehouse_dashboard.dart';
 import '../pages/create_request_page.dart';
 import '../pages/todas_solicitudes_page.dart';
@@ -23,6 +24,7 @@ import '../pages/addresses_page.dart';
 import '../pages/vehicles_page.dart';
 import '../pages/almacen_orden_detalle_page.dart';
 
+import '../providers/onboarding_provider.dart';
 import '../providers/user_role_provider.dart';
 import '../services/auth_service.dart';
 import 'route_names.dart';
@@ -33,7 +35,10 @@ class AppRouter {
       RyKeys.rootNavigatorKey;
   static GoRouter? _router;
 
-  static GoRouter getRouter(UserRoleProvider roleProvider) {
+  static GoRouter getRouter(
+    UserRoleProvider roleProvider,
+    OnboardingProvider onboardingProvider,
+  ) {
     _router ??= GoRouter(
       navigatorKey: rootNavigatorKey,
       initialLocation: '/welcome',
@@ -41,6 +46,7 @@ class AppRouter {
 
       refreshListenable: Listenable.merge([
         roleProvider,
+        onboardingProvider,
         _AuthStreamListenable(AuthService().authStateChanges),
       ]),
 
@@ -97,10 +103,23 @@ class AppRouter {
           }
         } else if (role == UserRole.almacen) {
           if (location.startsWith('/home') ||
+              location.startsWith('/onboarding') ||
               location.startsWith('/solicitudes') ||
               location.startsWith('/request/create')) {
             return '/dashboard';
           }
+        }
+
+        final isOnboardingFlowRoute =
+            location.startsWith('/onboarding') ||
+            location.startsWith('/profile/vehicles') ||
+            location.startsWith('/request/create');
+        if (role == UserRole.cliente &&
+            !onboardingProvider.isLoading &&
+            !onboardingProvider.isComplete &&
+            !onboardingProvider.isSkipped &&
+            !isOnboardingFlowRoute) {
+          return '/onboarding';
         }
 
         return null;
@@ -167,7 +186,12 @@ class AppRouter {
           builder: (context, state) => const VehiclesPage(),
         ),
 
-        // Flujo Cliente
+        // Flujo Cliente: ruta privada y destino del redirect de onboarding.
+        GoRoute(
+          path: '/onboarding',
+          name: RouteNames.onboarding,
+          builder: (context, state) => const OnboardingPage(),
+        ),
         GoRoute(
           path: '/home',
           name: RouteNames.home,

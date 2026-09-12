@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/user_role_provider.dart';
 import 'providers/orden_compra_provider.dart';
 import 'providers/create_request_provider.dart';
+import 'providers/onboarding_provider.dart';
 import 'providers/solicitudes_provider.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
@@ -16,22 +19,19 @@ import 'database/app_database.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_logger.dart';
+import 'config/app_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppConfig.assertValidConfiguration();
 
   // Inicializar Supabase (necesario al inicio)
   try {
     await Supabase.initialize(
-      url: 'https://vpgnasrlgdgkxpggorxl.supabase.co',
-      publishableKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZ25hc3JsZ2Rna3hwZ2dvcnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4Njg0MzgsImV4cCI6MjA5NjQ0NDQzOH0.iENx5XVTyvr2-GLqOKqPzxwsekThJu1PNGDDpDfrOOE',
+      url: AppConfig.supabaseUrl,
+      publishableKey: AppConfig.supabaseAnonKey,
     );
     AppLogger.info('Supabase inicializado correctamente', name: 'Supabase');
-    AppLogger.info(
-      'URL: https://vpgnasrlgdgkxpggorxl.supabase.co',
-      name: 'Supabase',
-    );
   } catch (e, st) {
     AppLogger.error(
       'Error de inicialización de Supabase',
@@ -62,12 +62,18 @@ class MyApp extends StatelessWidget {
   late final AlmacenRepository almacenRepository;
   late final OutboxService outboxService;
   late final SyncEngine syncEngine;
+  late final OnboardingProvider onboardingProvider;
 
   MyApp({super.key}) {
     solicitudRepository = SolicitudRepository(database);
     almacenRepository = AlmacenRepository(database);
     outboxService = OutboxService(database);
     syncEngine = SyncEngine(outboxService, solicitudRepository);
+    onboardingProvider = OnboardingProvider();
+    unawaited(onboardingProvider.load());
+    AuthService().authStateChanges.listen((state) {
+      if (state.user != null) unawaited(onboardingProvider.load());
+    });
 
     // Configurar limpieza de logout
     AuthService().onLogoutCleanup = () async {
@@ -88,6 +94,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserRoleProvider()),
         ChangeNotifierProvider(create: (_) => OrdenCompraProvider()),
         ChangeNotifierProvider(create: (_) => CreateRequestProvider()),
+        ChangeNotifierProvider.value(value: onboardingProvider),
         ChangeNotifierProvider(
           create: (_) => SolicitudesProvider(solicitudRepository),
         ),
@@ -98,7 +105,7 @@ class MyApp extends StatelessWidget {
             title: 'RepuestosYa',
             debugShowCheckedModeBanner: false,
             theme: darkTheme,
-            routerConfig: AppRouter.getRouter(roleProvider),
+            routerConfig: AppRouter.getRouter(roleProvider, onboardingProvider),
           );
         },
       ),

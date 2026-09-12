@@ -9,6 +9,7 @@ class RouteNames {
 
   // Private
   static const String completeProfile = 'complete-profile';
+  static const String onboarding = 'onboarding';
   static const String home = 'home'; // Cliente Home
   static const String dashboard = 'dashboard'; // Almacen Home
 

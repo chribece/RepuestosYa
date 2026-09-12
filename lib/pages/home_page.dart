@@ -360,7 +360,8 @@ class _HomePageState extends State<HomePage> {
           onTap: () async {
             await context.pushNamed(RouteNames.createRequest);
             if (mounted) {
-              context.read<SolicitudesProvider>().refreshFromServer();
+              await context.read<SolicitudesProvider>().refreshFromServer();
+              await _cargarEstadisticas();
             }
           },
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
@@ -692,7 +693,10 @@ class _HomePageState extends State<HomePage> {
                         context.pushNamed(
                           RouteNames.receivedQuotations,
                           pathParameters: {'id': solicitudLocal.id},
-                          extra: {'piezaNombre': solicitudLocal.piezaNombre},
+                          extra: {
+                            'piezaNombre': solicitudLocal.piezaNombre,
+                            'fotoUrl': solicitudLocal.fotoUrl,
+                          },
                         );
                       }
                     },

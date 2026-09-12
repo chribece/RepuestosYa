@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../utils/api_error_handler.dart';
 import '../models/almacen.dart';
 import 'api_client.dart';
@@ -25,54 +23,30 @@ class AlmacenService {
   /// Esta es la validación centralizada que usan tanto el flujo post-login
   /// (`LoginPage`) como la autocheck de `WarehouseDashboard` al inicio.
   Future<bool> hasWarehouseProfile() async {
-    final token = _apiClient.token;
-    if (token == null) {
-      throw ApiException(
-        'Tu sesión expiró. Inicia sesión nuevamente.',
-        statusCode: 401,
-        technicalMessage: 'No hay token de autenticación',
-      );
-    }
-
-    final uri = Uri.parse('${ApiClient.baseUrl}/warehouse/my-warehouse');
-    final http.Response response;
     try {
-      response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-    } on Exception catch (e) {
-      // Offline: intentar obtener del caché local
-      if (_repository != null) {
-        final local = await _repository.obtenerPerfilAlmacenLocal();
-        if (local != null) return true;
-      }
-      // TimeoutException y SocketException se traducen a mensajes amigables.
-      throw ApiErrorHandler.fromException(e);
-    }
+      final response = await _apiClient.get('/warehouse/my-warehouse');
 
-    if (response.statusCode == 200) {
-      // Guardar en caché local
       if (_repository != null) {
         try {
-          final data = json.decode(response.body);
-          await _repository.guardarPerfilAlmacen(Almacen.fromJson(data));
+          await _repository.guardarPerfilAlmacen(Almacen.fromJson(response));
         } catch (_) {}
       }
       return true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        // 404 = señal de negocio: el perfil de almacén aún no existe.
+        return false;
+      }
+
+      // Ante un fallo de red, intenta obtener el perfil desde el caché local.
+      if (e.statusCode == null || e.statusCode == 0 || e.statusCode == 504) {
+        if (_repository != null) {
+          final local = await _repository.obtenerPerfilAlmacenLocal();
+          if (local != null) return true;
+        }
+      }
+      rethrow;
     }
-    if (response.statusCode == 404) {
-      // 404 = señal de negocio: el perfil de almacén aún no existe.
-      // No se traduce como error: el caller lo trata como `false`.
-      return false;
-    }
-    // Cualquier otro status code se propaga como ApiException amigable.
-    throw ApiErrorHandler.fromResponse(response);
   }
 
   // Crear un nuevo almacén

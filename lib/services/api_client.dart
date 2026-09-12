@@ -219,6 +219,27 @@ class ApiClient {
     );
   }
 
+  // PATCH request
+  Future<Map<String, dynamic>> patch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    bool requireAuth = true,
+  }) async {
+    final uri = Uri.parse('$baseUrl$endpoint');
+
+    return _execute(
+      () => http.patch(
+        uri,
+        headers: _getHeaders(requireAuth: requireAuth),
+        body: body != null ? json.encode(body) : null,
+      ),
+      (response) {
+        if (response.body.isEmpty) return {};
+        return json.decode(response.body) as Map<String, dynamic>;
+      },
+    );
+  }
+
   // DELETE request
   Future<void> delete(String endpoint, {bool requireAuth = true}) async {
     final uri = Uri.parse('$baseUrl$endpoint');

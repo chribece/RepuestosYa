@@ -1,17 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import '../services/solicitud_service.dart';
 import '../services/solicitud_repository.dart';
-import '../services/catalog_service.dart';
-import '../services/vehiculo_service.dart';
-import '../services/direccion_service.dart';
-import '../database/app_database.dart';
 import '../utils/app_logger.dart';
 
 class SolicitudesProvider with ChangeNotifier {
-  final SolicitudService _service = SolicitudService();
-  final SolicitudRepository _repository;
+  final SolicitudRepositoryContract _repository;
 
   List<SolicitudLocal> _solicitudes = [];
   bool _isLoading = false;
@@ -21,7 +14,8 @@ class SolicitudesProvider with ChangeNotifier {
   StreamSubscription? _solicitudesSubscription;
   StreamSubscription? _connectivitySubscription;
 
-  SolicitudesProvider(this._repository) {
+  SolicitudesProvider(SolicitudRepositoryContract repository)
+    : _repository = repository {
     _init();
   }
 
@@ -48,11 +42,7 @@ class SolicitudesProvider with ChangeNotifier {
     });
 
     // 3. Escuchar cambios de conectividad
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
-      results,
-    ) {
-      final bool offline = results.contains(ConnectivityResult.none);
-
+    _connectivitySubscription = _repository.watchOffline().listen((offline) {
       if (_isOffline != offline) {
         _isOffline = offline;
         notifyListeners();
@@ -68,15 +58,13 @@ class SolicitudesProvider with ChangeNotifier {
   }
 
   Future<void> _checkInitialConnectivity() async {
-    final results = await Connectivity().checkConnectivity();
-    _isOffline = results.contains(ConnectivityResult.none);
+    _isOffline = await _repository.isOffline();
     notifyListeners();
     // No llamamos a refreshFromServer aquí para evitar conflictos con el Home
   }
 
   Future<void> refreshFromServer() async {
-    final connectivityResults = await Connectivity().checkConnectivity();
-    final bool offline = connectivityResults.contains(ConnectivityResult.none);
+    final offline = await _repository.isOffline();
 
     if (offline) {
       AppLogger.info(
@@ -97,7 +85,7 @@ class SolicitudesProvider with ChangeNotifier {
         'SINC-PROV: Pidiendo datos...',
         name: 'SolicitudesProvider',
       );
-      final remoteData = await _service.obtenerSolicitudesCliente('');
+      final remoteData = await _repository.obtenerSolicitudesCliente('');
 
       AppLogger.info(
         'SINC-PROV: Servidor respondió con ${remoteData.length} solicitudes',
@@ -108,7 +96,14 @@ class SolicitudesProvider with ChangeNotifier {
       await _repository.reemplazarDesdeServidor(mappedData);
 
       // Sincronizar metadatos para uso offline (Caché)
-      _sincronizarMetadatos();
+      unawaited(
+        _repository.sincronizarMetadatos().catchError((error) {
+          AppLogger.warning(
+            'No se pudieron sincronizar todos los metadatos: $error',
+            name: 'SolicitudesProvider',
+          );
+        }),
+      );
 
       _lastSync = await _repository.ultimaSincronizacion();
     } catch (e) {
@@ -119,37 +114,8 @@ class SolicitudesProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       // IMPORTANTE: Asegurar que _isOffline se actualice después del intento
-      final updatedConnectivity = await Connectivity().checkConnectivity();
-      _isOffline = updatedConnectivity.contains(ConnectivityResult.none);
+      _isOffline = await _repository.isOffline();
       notifyListeners();
-    }
-  }
-
-  Future<void> _sincronizarMetadatos() async {
-    try {
-      AppLogger.info(
-        'Sincronizando metadatos (caché offline)...',
-        name: 'SolicitudesProvider',
-      );
-
-      final categorias = await CatalogService().getPartCategories();
-      await _repository.guardarCategorias(categorias);
-
-      final vehiculos = await VehiculoService().getVehiculos();
-      await _repository.guardarVehiculos(vehiculos);
-
-      final direcciones = await DireccionService().getDirecciones();
-      await _repository.guardarDirecciones(direcciones);
-
-      AppLogger.info(
-        'Metadatos sincronizados con éxito',
-        name: 'SolicitudesProvider',
-      );
-    } catch (e) {
-      AppLogger.warning(
-        'No se pudieron sincronizar todos los metadatos: $e',
-        name: 'SolicitudesProvider',
-      );
     }
   }
 

@@ -2,23 +2,102 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../database/app_database.dart';
 import '../utils/app_logger.dart';
 import '../models/part_catalog.dart';
 import 'solicitud_service.dart';
+import 'catalog_service.dart';
+import 'vehiculo_service.dart';
+import 'direccion_service.dart';
 
-class SolicitudRepository {
+export '../database/app_database.dart' show SolicitudLocal;
+export 'solicitud_service.dart' show Solicitud;
+
+abstract class SolicitudRepositoryContract {
+  Stream<List<SolicitudLocal>> watchTodas();
+  Stream<bool> watchOffline();
+  Future<bool> isOffline();
+  Future<DateTime?> ultimaSincronizacion();
+  Future<List<Map<String, dynamic>>> obtenerSolicitudesCliente(
+    String clienteId,
+  );
+  Future<void> reemplazarDesdeServidor(List<Solicitud> datos);
+  Future<void> sincronizarMetadatos();
+  Future<void> insertarLocal(SolicitudLocal solicitud);
+  Future<void> marcarSincronizado(String tempId, Solicitud serverData);
+  Future<void> guardarCategorias(List<PartCategory> categorias);
+  Future<List<PartCategory>> obtenerCategoriasLocal();
+  Future<void> guardarRepuestos(
+    String categoriaId,
+    List<CatalogPart> repuestos,
+  );
+  Future<List<CatalogPart>> obtenerRepuestosLocal(String categoriaId);
+  Future<void> guardarVehiculos(List<Map<String, dynamic>> vehiculos);
+  Future<List<Map<String, dynamic>>> obtenerVehiculosLocal();
+  Future<void> guardarDirecciones(List<Map<String, dynamic>> direcciones);
+  Future<List<Map<String, dynamic>>> obtenerDireccionesLocal();
+}
+
+class SolicitudRepository implements SolicitudRepositoryContract {
   final AppDatabase _db;
+  final SolicitudService _remoteSolicitud;
+  final CatalogService _remoteCatalog;
+  final VehiculoService _remoteVehiculos;
+  final DireccionService _remoteDirecciones;
   static const String _lastSyncKey = 'repuestosya_last_solicitud_sync';
 
-  SolicitudRepository(this._db);
+  SolicitudRepository(
+    this._db, {
+    SolicitudService? remoteSolicitud,
+    CatalogService? remoteCatalog,
+    VehiculoService? remoteVehiculos,
+    DireccionService? remoteDirecciones,
+  }) : _remoteSolicitud = remoteSolicitud ?? SolicitudService(),
+       _remoteCatalog = remoteCatalog ?? CatalogService(),
+       _remoteVehiculos = remoteVehiculos ?? VehiculoService(),
+       _remoteDirecciones = remoteDirecciones ?? DireccionService();
+
+  @override
+  Stream<bool> watchOffline() {
+    return Connectivity().onConnectivityChanged.map(
+      (results) => results.contains(ConnectivityResult.none),
+    );
+  }
+
+  @override
+  Future<bool> isOffline() async {
+    final results = await Connectivity().checkConnectivity();
+    return results.contains(ConnectivityResult.none);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> obtenerSolicitudesCliente(
+    String clienteId,
+  ) {
+    return _remoteSolicitud.obtenerSolicitudesCliente(clienteId);
+  }
+
+  @override
+  Future<void> sincronizarMetadatos() async {
+    final categorias = await _remoteCatalog.getPartCategories();
+    await guardarCategorias(categorias);
+
+    final vehiculos = await _remoteVehiculos.getVehiculos();
+    await guardarVehiculos(vehiculos);
+
+    final direcciones = await _remoteDirecciones.getDirecciones();
+    await guardarDirecciones(direcciones);
+  }
 
   // Flujo reactivo para la UI
+  @override
   Stream<List<SolicitudLocal>> watchTodas() {
     return _db.select(_db.solicitudes).watch();
   }
 
   // Borra tabla y reinserta datos frescos del servidor
+  @override
   Future<void> reemplazarDesdeServidor(List<Solicitud> datos) async {
     try {
       debugPrint('SINCRO: Guardando ${datos.length} solicitudes en DB local');
@@ -67,6 +146,7 @@ class SolicitudRepository {
   }
 
   // Insertar una solicitud local (usado para offline creation)
+  @override
   Future<void> insertarLocal(SolicitudLocal solicitud) async {
     await _db
         .into(_db.solicitudes)
@@ -74,6 +154,7 @@ class SolicitudRepository {
   }
 
   // Marcar una solicitud como sincronizada (actualizando su ID si es necesario)
+  @override
   Future<void> marcarSincronizado(String tempId, Solicitud serverData) async {
     await _db.transaction(() async {
       // 1. Borrar la entrada temporal si el ID cambió
@@ -93,6 +174,7 @@ class SolicitudRepository {
 
   // --- METADATOS CACHE ---
 
+  @override
   Future<void> guardarCategorias(List<PartCategory> categorias) async {
     await _db.transaction(() async {
       await _db.delete(_db.categoriasCache).go();
@@ -111,6 +193,7 @@ class SolicitudRepository {
     });
   }
 
+  @override
   Future<List<PartCategory>> obtenerCategoriasLocal() async {
     final rows = await _db.select(_db.categoriasCache).get();
     return rows
@@ -120,6 +203,7 @@ class SolicitudRepository {
         .toList();
   }
 
+  @override
   Future<void> guardarRepuestos(
     String categoriaId,
     List<CatalogPart> repuestos,
@@ -144,6 +228,7 @@ class SolicitudRepository {
     });
   }
 
+  @override
   Future<List<CatalogPart>> obtenerRepuestosLocal(String categoriaId) async {
     final rows = await (_db.select(
       _db.partesCache,
@@ -153,6 +238,7 @@ class SolicitudRepository {
         .toList();
   }
 
+  @override
   Future<void> guardarVehiculos(List<Map<String, dynamic>> vehiculos) async {
     await _db.transaction(() async {
       await _db.delete(_db.vehiculosCache).go();
@@ -178,6 +264,7 @@ class SolicitudRepository {
     });
   }
 
+  @override
   Future<List<Map<String, dynamic>>> obtenerVehiculosLocal() async {
     final rows = await _db.select(_db.vehiculosCache).get();
     return rows
@@ -187,6 +274,7 @@ class SolicitudRepository {
         .toList();
   }
 
+  @override
   Future<void> guardarDirecciones(
     List<Map<String, dynamic>> direcciones,
   ) async {
@@ -207,6 +295,7 @@ class SolicitudRepository {
     });
   }
 
+  @override
   Future<List<Map<String, dynamic>>> obtenerDireccionesLocal() async {
     final rows = await _db.select(_db.direccionesCache).get();
     return rows
@@ -251,6 +340,7 @@ class SolicitudRepository {
   }
 
   // Marca de la última sincronización exitosa
+  @override
   Future<DateTime?> ultimaSincronizacion() async {
     final prefs = await SharedPreferences.getInstance();
     final lastSyncStr = prefs.getString(_lastSyncKey);

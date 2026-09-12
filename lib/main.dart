@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/user_role_provider.dart';
 import 'providers/orden_compra_provider.dart';
+import 'providers/cotizacion_provider.dart';
 import 'providers/create_request_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/solicitudes_provider.dart';
@@ -15,6 +16,10 @@ import 'services/solicitud_repository.dart';
 import 'services/almacen_repository.dart';
 import 'services/outbox.dart';
 import 'services/sync_engine.dart';
+import 'services/cotizacion_repository.dart';
+import 'services/orden_compra_repository.dart';
+import 'services/onboarding_repository.dart';
+import 'services/user_role_repository.dart';
 import 'database/app_database.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -62,6 +67,10 @@ class MyApp extends StatelessWidget {
   late final AlmacenRepository almacenRepository;
   late final OutboxService outboxService;
   late final SyncEngine syncEngine;
+  late final CotizacionRepository cotizacionRepository;
+  late final OrdenCompraRepository ordenCompraRepository;
+  late final OnboardingRepository onboardingRepository;
+  late final UserRoleRepository userRoleRepository;
   late final OnboardingProvider onboardingProvider;
 
   MyApp({super.key}) {
@@ -69,7 +78,13 @@ class MyApp extends StatelessWidget {
     almacenRepository = AlmacenRepository(database);
     outboxService = OutboxService(database);
     syncEngine = SyncEngine(outboxService, solicitudRepository);
-    onboardingProvider = OnboardingProvider();
+    cotizacionRepository = CotizacionRepositoryImpl();
+    ordenCompraRepository = OrdenCompraRepositoryImpl();
+    onboardingRepository = OnboardingRepositoryImpl(
+      solicitudes: solicitudRepository,
+    );
+    userRoleRepository = UserRoleRepositoryImpl();
+    onboardingProvider = OnboardingProvider(repository: onboardingRepository);
     unawaited(onboardingProvider.load());
     AuthService().authStateChanges.listen((state) {
       if (state.user != null) unawaited(onboardingProvider.load());
@@ -91,8 +106,23 @@ class MyApp extends StatelessWidget {
         Provider<AlmacenRepository>.value(value: almacenRepository),
         Provider<OutboxService>.value(value: outboxService),
         Provider<SyncEngine>.value(value: syncEngine),
-        ChangeNotifierProvider(create: (_) => UserRoleProvider()),
-        ChangeNotifierProvider(create: (_) => OrdenCompraProvider()),
+        Provider<CotizacionRepository>.value(value: cotizacionRepository),
+        Provider<OrdenCompraRepository>.value(value: ordenCompraRepository),
+        Provider<OnboardingRepository>.value(value: onboardingRepository),
+        Provider<UserRoleRepository>.value(value: userRoleRepository),
+        ChangeNotifierProvider(
+          create: (_) => UserRoleProvider(repository: userRoleRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => OrdenCompraProvider(
+            repository: context.read<OrdenCompraRepository>(),
+          ),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => CotizacionProvider(
+            repository: context.read<CotizacionRepository>(),
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => CreateRequestProvider()),
         ChangeNotifierProvider.value(value: onboardingProvider),
         ChangeNotifierProvider(

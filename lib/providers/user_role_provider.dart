@@ -1,21 +1,16 @@
 import 'package:flutter/foundation.dart';
-import '../services/profile_service.dart';
-import '../services/auth_service.dart';
+import '../services/user_role_repository.dart';
 
 enum UserRole { admin, cliente, almacen, unknown }
 
 class UserRoleProvider with ChangeNotifier {
-  final ProfileService _profileService = ProfileService();
-  final AuthService _authService = AuthService();
+  final UserRoleRepository _repository;
 
-  UserRole _currentRole = UserRole.unknown;
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  UserRoleProvider() {
+  UserRoleProvider({UserRoleRepository? repository})
+    : _repository = repository ?? UserRoleRepositoryImpl() {
     _initializeRole();
     // Escuchar cambios de autenticación para sincronizar el rol automáticamente
-    _authService.authStateChanges.listen((state) {
+    _repository.authStateChanges.listen((state) {
       if (state.user == null) {
         clearRole();
       } else if (state.user?.rol != null) {
@@ -24,8 +19,12 @@ class UserRoleProvider with ChangeNotifier {
     });
   }
 
+  UserRole _currentRole = UserRole.unknown;
+  bool _isLoading = false;
+  String? _errorMessage;
+
   void _initializeRole() {
-    final user = _authService.currentUser;
+    final user = _repository.currentUser;
     if (user != null && user.rol != null) {
       _currentRole = _parseRole(user.rol!);
     }
@@ -47,7 +46,7 @@ class UserRoleProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final roleString = await _profileService.getUserRole(userId);
+      final roleString = await _repository.getUserRole(userId);
 
       if (roleString == null) {
         _errorMessage = 'Perfil de usuario no encontrado';
@@ -67,7 +66,7 @@ class UserRoleProvider with ChangeNotifier {
 
   // Cargar el rol desde el usuario autenticado actual
   Future<void> loadUserRoleFromAuth() async {
-    final user = _authService.currentUser;
+    final user = _repository.currentUser;
     if (user != null && user.rol != null) {
       _currentRole = _parseRole(user.rol!);
       _errorMessage = null;

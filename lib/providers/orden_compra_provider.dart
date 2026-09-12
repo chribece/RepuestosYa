@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import '../models/orden_compra.dart';
-import '../services/orden_compra_service.dart';
+import '../services/orden_compra_repository.dart';
 import '../utils/api_error_handler.dart';
 
 class OrdenCompraProvider extends ChangeNotifier {
-  final OrdenCompraService _ordenCompraService = OrdenCompraService();
+  final OrdenCompraRepository _repository;
+
+  OrdenCompraProvider({OrdenCompraRepository? repository})
+    : _repository = repository ?? OrdenCompraRepositoryImpl();
 
   // Estado de carga
   bool _isLoading = false;
@@ -38,7 +41,7 @@ class OrdenCompraProvider extends ChangeNotifier {
       _setLoading(true);
       _setErrorMessage(null);
 
-      final orden = await _ordenCompraService.getOrdenDetalle(ordenId);
+      final orden = await _repository.getOrdenDetalle(ordenId);
       _orden = orden;
 
       notifyListeners();

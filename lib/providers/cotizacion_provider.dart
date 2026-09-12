@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import '../models/cotizacion.dart';
-import '../services/cotizacion_service.dart';
+import '../services/cotizacion_repository.dart';
 import '../utils/api_error_handler.dart';
 
 class CotizacionProvider extends ChangeNotifier {
-  final CotizacionService _cotizacionService = CotizacionService();
+  final CotizacionRepository _repository;
+
+  CotizacionProvider({CotizacionRepository? repository})
+    : _repository = repository ?? CotizacionRepositoryImpl();
 
   // Lista de cotizaciones
   List<Cotizacion> _cotizaciones = [];
@@ -57,8 +60,9 @@ class CotizacionProvider extends ChangeNotifier {
       _setLoading(true);
       _setErrorMessage(null);
 
-      final cotizaciones = await _cotizacionService
-          .obtenerCotizacionesPorSolicitud(solicitudId);
+      final cotizaciones = await _repository.getCotizacionesPorSolicitud(
+        solicitudId,
+      );
       _cotizaciones = cotizaciones;
 
       notifyListeners();
@@ -74,7 +78,7 @@ class CotizacionProvider extends ChangeNotifier {
       _setCotizacionProcesando(cotizacionId, true);
       _setErrorMessage(null);
 
-      final result = await _cotizacionService.aceptarCotizacion(cotizacionId);
+      final result = await _repository.aceptarCotizacion(cotizacionId);
 
       _ordenCompraId = result['ordenId']?.toString();
       _solicitudCerrada = false;
@@ -100,7 +104,7 @@ class CotizacionProvider extends ChangeNotifier {
       _setCotizacionProcesando(cotizacionId, true);
       _setErrorMessage(null);
 
-      final result = await _cotizacionService.rechazarCotizacion(cotizacionId);
+      final result = await _repository.rechazarCotizacion(cotizacionId);
 
       _solicitudCerrada = result['solicitudCerrada'] as bool? ?? false;
       _ordenCompraId = null;

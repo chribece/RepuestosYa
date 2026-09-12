@@ -1,21 +1,13 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../services/auth_service.dart';
-import '../services/solicitud_service.dart';
-import '../services/vehiculo_service.dart';
+import '../services/onboarding_repository.dart';
 
 class OnboardingProvider with ChangeNotifier {
   static const String skippedKey = 'onboarding_skipped';
 
-  final VehiculoService _vehiculoService = VehiculoService();
-  final SolicitudService _solicitudService = SolicitudService();
-  final AuthService _authService = AuthService();
+  final OnboardingRepository _repository;
 
-  String get _userSkippedKey {
-    final userId = _authService.currentUser?.id;
-    return userId == null ? skippedKey : '$skippedKey:$userId';
-  }
+  OnboardingProvider({OnboardingRepository? repository})
+    : _repository = repository ?? OnboardingRepositoryImpl();
 
   bool _isLoadingVehicle = false;
   bool _isLoadingRequest = false;
@@ -40,17 +32,15 @@ class OnboardingProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _isSkipped = prefs.getBool(_userSkippedKey) ?? false;
+      _isSkipped = await _repository.isSkipped();
 
-      final clienteId = _authService.currentUser?.id ?? '';
       final results = await Future.wait([
-        _vehiculoService.getVehiculos(),
-        _solicitudService.obtenerSolicitudesCliente(clienteId),
+        _repository.hasVehicle(),
+        _repository.hasRequest(),
       ]);
 
-      _hasVehicle = results[0].isNotEmpty;
-      _hasRequest = results[1].isNotEmpty;
+      _hasVehicle = results[0];
+      _hasRequest = results[1];
     } catch (e) {
       _errorMessage = 'No se pudo cargar el estado del onboarding.';
     } finally {
@@ -61,21 +51,13 @@ class OnboardingProvider with ChangeNotifier {
   }
 
   Future<void> skip() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(skippedKey, true);
-    if (_userSkippedKey != skippedKey) {
-      await prefs.setBool(_userSkippedKey, true);
-    }
+    await _repository.setSkipped();
     _isSkipped = true;
     notifyListeners();
   }
 
   Future<void> reset() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(skippedKey);
-    if (_userSkippedKey != skippedKey) {
-      await prefs.remove(_userSkippedKey);
-    }
+    await _repository.clearSkipped();
     _isSkipped = false;
     _hasVehicle = false;
     _hasRequest = false;

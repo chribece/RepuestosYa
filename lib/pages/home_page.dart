@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -27,6 +28,11 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   Map<String, dynamic> _estadisticas = {};
   Timer? _refreshTimer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  /// Estado de conectividad previo para detectar la transición offline →
+  /// online y avisar/recargar solo cuando realmente vuelve la red.
+  bool _wasOffline = false;
 
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
@@ -37,6 +43,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _cargarEstadisticas();
     _suscribirANotificaciones();
+    _initConnectivityWatcher();
 
     // El SolicitudesProvider ya se inicializa y sincroniza solo al ser creado en MultiProvider
     // Pero forzamos un refresco por seguridad
@@ -47,6 +54,50 @@ class _HomePageState extends State<HomePage> {
     // Timer para actualizar el "tiempo transcurrido" en la UI cada minuto
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) setState(() {});
+    });
+  }
+
+  /// Escucha los cambios de conectividad. Al volver la red (offline → online)
+  /// avisa con un SnackBar y recarga automáticamente "Mis Solicitudes" y las
+  /// estadísticas — sin salir de la pantalla ni entrar al listado. Al perderla
+  /// avisa que se muestran los datos disponibles.
+  void _initConnectivityWatcher() {
+    Connectivity().checkConnectivity().then((results) {
+      if (mounted) _wasOffline = results.contains(ConnectivityResult.none);
+    });
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
+      if (!mounted) return;
+
+      final isOffline = results.contains(ConnectivityResult.none);
+      final wasOffline = _wasOffline;
+      _wasOffline = isOffline;
+
+      if (wasOffline && !isOffline) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              '¡Has vuelto a tener conexión! Actualizando solicitudes...',
+            ),
+            backgroundColor: AppColors.primaryContainer,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.read<SolicitudesProvider>().refreshFromServer();
+        _cargarEstadisticas();
+      } else if (!wasOffline && isOffline) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Sin conexión. Se muestran los datos disponibles.',
+            ),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     });
   }
 
@@ -104,6 +155,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
     RealtimeNotificationService().unsubscribe();
     RealtimeNotificationService().unsubscribeMultiple();
     super.dispose();
@@ -236,41 +289,85 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.w500,
               ),
             ),
-            onTap: () async {
+            onTap: () {
               Navigator.pop(context);
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.primaryContainer,
-                  ),
-                ),
-              );
-
-              try {
-                await _authService.signOut();
-                if (context.mounted) Navigator.pop(context);
-                // El router redirigirá automáticamente a welcome/login al detectar el cambio de estado.
-              } catch (e) {
-                if (context.mounted) Navigator.pop(context);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Error al cerrar sesión: '
-                        '${ApiErrorHandler.userMessage(e)}',
-                      ),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              }
+              _confirmarCierreSesion();
             },
           ),
         ],
       ),
     );
+  }
+
+  /// Pide confirmación antes de cerrar la sesión (evita cierres accidentales).
+  /// Al confirmar, ejecuta el cierre con indicador de progreso; el router
+  /// redirige solo a /welcome al detectar el cambio de estado de auth.
+  void _confirmarCierreSesion() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: Text('Cerrar Sesión', style: AppTextStyles.textStyleTitle),
+        content: Text(
+          '¿Estás seguro de que deseas salir de la aplicación?',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancelar',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              _cerrarSesionConFeedback();
+            },
+            child: Text(
+              'Salir',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Ejecuta el cierre de sesión mostrando un indicador de progreso mientras
+  /// se limpia la sesión (token, almacenamiento seguro y DB local).
+  Future<void> _cerrarSesionConFeedback() async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryContainer),
+      ),
+    );
+
+    try {
+      await _authService.signOut();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al cerrar sesión: ${ApiErrorHandler.userMessage(e)}',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   // --- APPBAR SUPERIOR ---

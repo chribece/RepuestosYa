@@ -28,28 +28,49 @@ app.use(morgan(isProd ? ':method :url :status' : 'dev'));
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
-/*app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-production-domain.com'] 
-    : ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.10.232:3000'],
-  credentials: true
-}));*/
+// CORS configuration con switch por ambiente.
+// En producción la allowlist se lee de ALLOWED_ORIGINS (lista separada por comas);
+// en desarrollo se usa la allowlist local (admin panel en 3002, móvil en 3000).
+const allowedOrigins = isProd
+  ? (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+  : ['http://localhost:3000', 'http://127.0.0.1:3000',
+     'http://localhost:3002', 'http://127.0.0.1:3002',
+     'http://192.168.100.2:3000', 'http://192.168.100.2:3002'];
 
-// CORS (abierto para desarrollo)
 app.use(cors({
-  origin: ['http://localhost:3002', 'http://127.0.0.1:3002', 'http://192.168.100.2:3002', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://192.168.100.2:3000'], // Admin panel (3002) y móvil (3000)
-  credentials: true
+  origin(origin, callback) {
+    // Permite peticiones sin origin (curl, apps nativas)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
 }));
 
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting por capas. Los endpoints de credenciales/token (login,
+// register, refresh) llevan un límite estricto anti fuerza bruta y se
+// registran ANTES del límite genérico, porque app.use('/api/', ...) también
+// matchea /api/auth/* y, de registrarse primero, contaría esas peticiones
+// contra el límite general.
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 20, // intentos de credenciales por IP por ventana
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Demasiados intentos. Intenta nuevamente en unos minutos.'
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/refresh', authLimiter);
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 300, // peticiones por IP por ventana (el upload de imágenes va directo a Supabase)
+  standardHeaders: true,
+  legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.'
 });
-app.use('/api/', limiter);
+app.use('/api/', apiLimiter);
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));
@@ -79,12 +100,17 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Error handler
+// Error handler. En producción nunca se expone el mensaje interno (p. ej.
+// errores crudos de Supabase o de negocio); el detalle queda solo para
+// desarrollo. El stack no se envía al cliente en ningún ambiente de producción.
 app.use((err, req, res, next) => {
+  if (isProd) {
+    return res.status(err.status || 500).json({ error: 'Internal server error' });
+  }
   console.error(err.stack);
   res.status(err.status || 500).json({
     error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    stack: err.stack
   });
 });
 

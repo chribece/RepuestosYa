@@ -234,10 +234,11 @@ const refresh = async (req, res) => {
   }
 
   try {
-    // No existe SUPABASE_ANON_KEY en el entorno actual; el fallback es
-    // exclusivamente server-side y nunca se incluye en la respuesta.
-    const supabaseAuthKey =
-      process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // El refresh de sesión es una operación de cliente y SOLO debe usar la
+    // anon key. NUNCA se usa la service-role key aquí: un endpoint público
+    // operando con la service key tendría privilegios de administrador
+    // (bypass de RLS) y elevaría cualquier abuso de refresh tokens.
+    const supabaseAuthKey = process.env.SUPABASE_ANON_KEY;
 
     if (!process.env.SUPABASE_URL || !supabaseAuthKey) {
       return res.status(500).json({

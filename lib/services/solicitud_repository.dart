@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../database/app_database.dart';
@@ -46,6 +45,11 @@ class SolicitudRepository implements SolicitudRepositoryContract {
   final VehiculoService _remoteVehiculos;
   final DireccionService _remoteDirecciones;
   static const String _lastSyncKey = 'repuestosya_last_solicitud_sync';
+
+  /// Gracia para el borrado espejo: filas sincronizadas más recientes que
+  /// esta ventana se conservan aunque no estén en el snapshot, para no perder
+  /// una solicitud recién sincronizada durante la carrera pull/push.
+  static const Duration _syncGrace = Duration(seconds: 30);
 
   SolicitudRepository(
     this._db, {
@@ -93,22 +97,50 @@ class SolicitudRepository implements SolicitudRepositoryContract {
   // Flujo reactivo para la UI
   @override
   Stream<List<SolicitudLocal>> watchTodas() {
-    return _db.select(_db.solicitudes).watch();
+    return (_db.select(_db.solicitudes)..orderBy([
+          // Orden determinista: más recientes primero. Sin ORDER BY, SQLite
+          // devuelve por rowid físico y el INSERT OR REPLACE del upsert
+          // reubica filas, haciendo que el take(3) del Home muestre
+          // solicitudes "al azar" (la recién sincronizada podía desaparecer).
+          (t) => OrderingTerm(expression: t.updatedAt, mode: OrderingMode.desc),
+          (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+        ]))
+        .watch();
   }
 
-  // Borra tabla y reinserta datos frescos del servidor
+  /// Espeja los datos frescos del servidor contra la DB local.
+  ///
+  /// 1. **Borrado espejo con gracia temporal:** elimina las filas
+  ///    sincronizadas que ya no existen en el snapshot (p. ej. una solicitud
+  ///    borrada en Supabase), pero conserva las actualizadas en los últimos
+  ///    [_syncGrace]: esas pueden ser una solicitud recién sincronizada por
+  ///    SyncEngine que el snapshot (tomado antes del POST del outbox) aún no
+  ///    incluye. Así el borrado remoto se refleja sin reintroducir la carrera
+  ///    que hacía desaparecer solicitudes recién sincronizadas.
+  /// 2. **UPSERT por id** de los datos del servidor: no toca las filas
+  ///    pendientes de envío offline (synced = false).
   @override
   Future<void> reemplazarDesdeServidor(List<Solicitud> datos) async {
     try {
-      debugPrint('SINCRO: Guardando ${datos.length} solicitudes en DB local');
+      AppLogger.info(
+        'SINCRO: Guardando ${datos.length} solicitudes en DB local',
+        name: 'SolicitudRepository',
+      );
 
       await _db.transaction(() async {
-        // 1. Borrar solo lo que ya estaba sincronizado (para no tocar lo pendiente de envío offline)
-        await (_db.delete(
-          _db.solicitudes,
-        )..where((t) => t.synced.equals(true))).go();
+        final ids = datos.map((s) => s.id).toSet();
+        final graceCutoff = DateTime.now().subtract(_syncGrace);
 
-        // 2. Insertar los nuevos datos del servidor
+        await (_db.delete(_db.solicitudes)..where(
+              (t) =>
+                  t.synced.equals(true) &
+                  t.id.isNotIn(ids) &
+                  t.updatedAt.isSmallerThanValue(graceCutoff),
+            ))
+            .go();
+
+        // UPSERT: inserta/actualiza las solicitudes del servidor sin borrar
+        // las locales (pendientes de outbox o recién sincronizadas).
         for (var s in datos) {
           final local = _mapToServerLocal(s);
           await _db
@@ -119,9 +151,15 @@ class SolicitudRepository implements SolicitudRepositoryContract {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_lastSyncKey, DateTime.now().toIso8601String());
-      debugPrint('SINCRO: Éxito total en base de datos');
+      AppLogger.info(
+        'SINCRO: Éxito total en base de datos',
+        name: 'SolicitudRepository',
+      );
     } catch (e) {
-      debugPrint('SINCRO: Error al guardar en DB: $e');
+      AppLogger.error(
+        'SINCRO: Error al guardar en DB: $e',
+        name: 'SolicitudRepository',
+      );
     }
   }
 

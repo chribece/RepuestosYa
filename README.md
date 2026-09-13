@@ -41,6 +41,7 @@ RepuestosYa es una aplicación multicapa compuesta por tres componentes principa
 ### Para Clientes
 - Registro y gestión de vehículos
 - Solicitud de repuestos específicos
+- Creación de solicitudes **sin conexión** (Outbox) con sincronización automática al reconectar
 - Recepción de cotizaciones de múltiples almacenes
 - Seguimiento de órdenes de compra
 - Geolocalización para direcciones de entrega
@@ -48,6 +49,8 @@ RepuestosYa es una aplicación multicapa compuesta por tres componentes principa
 ### Para Almacenes
 - Registro y verificación de negocio
 - Acceso a solicitudes de repuestos activas
+- Dashboard con **recarga automática al recuperar la conexión** (aviso incluido)
+- Activación automática del feed de solicitudes al ser **aprobado por el admin** (≤ 10 s)
 - Envío de cotizaciones con fotos y precios
 - Gestión de órdenes de compra
 - Dashboard de métricas y rendimiento
@@ -87,7 +90,8 @@ RepuestosYa/
 │   ├── 02-mvc-architecture.md
 │   ├── 03-backend-tecnico.md
 │   ├── 04-git-repositorio.md
-│   └── 05-documentacion-tecnica.md
+│   ├── 05-documentacion-tecnica.md
+│   └── AUDITORIA_SEGURIDAD.md  # Auditoría de red, persistencia y seguridad
 ├── .devin/                  # Configuración Devin AI
 ├── API_DOCUMENTATION.md     # Documentación API REST
 └── README.md               # Este archivo
@@ -129,6 +133,7 @@ Para documentación técnica detallada, consulta la carpeta [`docs/`](./docs/):
 
 Documentación adicional:
 - **[API Documentation](./API_DOCUMENTATION.md)**: Endpoints y ejemplos de API REST
+- **[Auditoría de Seguridad](./docs/AUDITORIA_SEGURIDAD.md)**: Auditoría de la capa de red, persistencia y seguridad (hallazgos, correcciones B1–B8 y brechas pendientes)
 - **[Base de Datos](./.devin/rules/bd-repuestosya-tablas.md)**: Esquema de base de datos
 - **[Tutorial Implementación](./.devin/rules/tutorial-implementacion-bd.md)**: Guía de implementación
 
@@ -180,14 +185,17 @@ Crea archivos `.env` en los directorios correspondientes:
 
 **Backend (.env):**
 ```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRES_IN=24h
 PORT=3000
 NODE_ENV=development
+ALLOWED_ORIGINS=https://app.repuestosya.com,https://admin.repuestosya.com  # CORS en producción (separado por comas)
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key     # Requerida por /auth/refresh (nunca usar la service-role key en endpoints públicos)
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key  # Solo operaciones server-side (bypass de RLS)
+JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=24h
 ```
+
+> Referencia completa: `backend/.env.example`
 
 **Admin Panel (.env.local):**
 ```env
@@ -233,12 +241,18 @@ Para más detalles, consulta [`.devin/rules/bd-repuestosya-tablas.md`](./.devin/
 
 ## 🔐 Seguridad
 
-- **Autenticación**: JWT tokens + Supabase Auth
-- **Autorización**: Role-based access control (admin, cliente, almacen)
+- **Autenticación**: JWT tokens + Supabase Auth, con renovación automática (single-flight) y cierre de sesión ante 401
+- **Autorización**: Role-based access control (admin, cliente, almacen) + protección de rutas por rol en el router
+- **Almacenamiento de tokens**: `flutter_secure_storage` (Keystore Android / Keychain iOS); sesión cifrada
 - **RLS**: Row Level Security en Supabase
-- **CORS**: Configuración para orígenes permitidos
-- **Rate Limiting**: Protección contra DDoS
+- **CORS**: Switch por ambiente — allowlist de desarrollo en dev; en producción se lee de `ALLOWED_ORIGINS` (comma-separated)
+- **Rate Limiting**: Por capas — `authLimiter` (20 intentos/15 min, compartido login/register/refresh) + `apiLimiter` (300 req/15 min)
+- **Error handler**: En producción responde `{"error":"Internal server error"}` — nunca filtra mensajes internos ni stack traces
+- **`/auth/refresh`**: Usa exclusivamente `SUPABASE_ANON_KEY`; sin ella falla cerrado (nunca degrada a service-role key)
+- **Logging**: `console.*` y morgan restringidos en producción (`:method :url :status`); logger de la app solo en `kDebugMode`
 - **Helmet**: Headers de seguridad HTTP
+
+> Detalle completo, correcciones aplicadas (B1–B8) y brechas pendientes en [docs/AUDITORIA_SEGURIDAD.md](./docs/AUDITORIA_SEGURIDAD.md)
 
 ## 🌐 API Endpoints
 

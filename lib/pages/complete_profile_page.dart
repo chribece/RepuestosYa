@@ -36,6 +36,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   );
 
   bool _isSubmitting = false;
+  bool _isConfirmingExit = false;
   Map<String, String> _fieldErrors = {};
   final AuthService _authService = AuthService();
   late final AlmacenService _almacenService;
@@ -125,61 +126,128 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     }
   }
 
+  /// Intercepta el intento de retroceder (botón atrás del AppBar o gesto del
+  /// sistema). Como esta pantalla es un gate obligatorio sin pantalla anterior
+  /// válida, se ofrece cerrar sesión con confirmación; el router redirige a
+  /// /welcome automáticamente al emitirse el AuthState con usuario nulo.
+  Future<void> _confirmarSalida() async {
+    if (_isSubmitting || _isConfirmingExit) return;
+    _isConfirmingExit = true;
+    try {
+      final salir = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainerHigh,
+          title: Text(
+            'Salir del registro',
+            style: AppTextStyles.textStyleTitle,
+          ),
+          content: Text(
+            'Tu perfil de almacén aún no está completo. Si sales, tu sesión '
+            'se cerrará y deberás iniciar sesión nuevamente.',
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancelar',
+                style: AppTextStyles.textStyleButton.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Cerrar sesión',
+                style: AppTextStyles.textStyleButton.copyWith(
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (salir == true && mounted) {
+        await _authService.signOut();
+      }
+    } finally {
+      _isConfirmingExit = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: AppColors.primary,
-            size: 28,
+    return PopScope(
+      // /complete-profile se alcanza siempre con context.goNamed(...), que
+      // reemplaza el stack completo de navegación: no existe una pantalla
+      // anterior válida a la que volver (login, dashboard y perfil de almacén
+      // redirigen de nuevo aquí cuando el perfil no existe). El botón atrás
+      // y el gesto del sistema se interceptan para ofrecer la única salida
+      // coherente: cerrar sesión.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmarSalida();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back,
+              color: AppColors.primary,
+              size: 28,
+            ),
+            onPressed: _confirmarSalida,
           ),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Completar Perfil',
-          style: AppTextStyles.textStyleTitle.copyWith(
-            color: AppColors.onSurface,
+          title: Text(
+            'Completar Perfil',
+            style: AppTextStyles.textStyleTitle.copyWith(
+              color: AppColors.onSurface,
+            ),
           ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.spacingMd),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildWelcomeText(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildNombreField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildRucField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildRepresentanteField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildTelefonoField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildDireccionField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                Row(
-                  children: [
-                    Expanded(child: _buildLatField()),
-                    const SizedBox(width: AppSpacing.spacingMd),
-                    Expanded(child: _buildLonField()),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildCompleteButton(),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildInfoBox(),
-              ],
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildWelcomeText(),
+                  const SizedBox(height: AppSpacing.spacingXl),
+                  _buildNombreField(),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  _buildRucField(),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  _buildRepresentanteField(),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  _buildTelefonoField(),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  _buildDireccionField(),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  Row(
+                    children: [
+                      Expanded(child: _buildLatField()),
+                      const SizedBox(width: AppSpacing.spacingMd),
+                      Expanded(child: _buildLonField()),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.spacingXl),
+                  _buildCompleteButton(),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildInfoBox(),
+                ],
+              ),
             ),
           ),
         ),

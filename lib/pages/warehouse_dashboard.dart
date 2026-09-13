@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -37,6 +39,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   static const String _logName = 'WarehouseDashboard';
   static const String _filterLogName = 'WarehouseDashboard.Filter';
 
+  /// Intervalo de verificación del estado de aprobación mientras el almacén
+  /// no esté aprobado. Se detiene automáticamente al pasar a `approved`.
+  static const Duration _approvalPollInterval = Duration(seconds: 10);
+
+  Timer? _approvalTimer;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  /// Estado de conectividad del dashboard: permite detectar la transición
+  /// offline → online y recargar automáticamente el feed de solicitudes.
+  bool _isOffline = false;
+
   bool _isOpen = true;
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _solicitudes = [];
@@ -69,6 +82,92 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     super.initState();
     _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _validateAndLoad();
+    _initConnectivityWatcher();
+  }
+
+  /// Escucha los cambios de conectividad. Al volver la conexión (offline →
+  /// online) muestra un aviso y recarga automáticamente el perfil, las
+  /// solicitudes y las cotizaciones — sin necesidad de salir de la pantalla,
+  /// entrar al listado ni cerrar/abrir sesión. Al perderla, avisa que se
+  /// muestran los datos disponibles.
+  void _initConnectivityWatcher() {
+    Connectivity().checkConnectivity().then((results) {
+      if (mounted) _isOffline = results.contains(ConnectivityResult.none);
+    });
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
+      results,
+    ) {
+      if (!mounted) return;
+
+      final isOffline = results.contains(ConnectivityResult.none);
+      final wasOffline = _isOffline;
+      _isOffline = isOffline;
+
+      if (wasOffline && !isOffline) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              '¡Has vuelto a tener conexión! Actualizando solicitudes...',
+            ),
+            backgroundColor: AppColors.primaryContainer,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _validateAndLoad();
+      } else if (!wasOffline && isOffline) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Sin conexión. Se muestran los datos disponibles.',
+            ),
+            backgroundColor: AppColors.warning,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+  }
+
+  /// Pide confirmación antes de cerrar la sesión (consistente con el Home del
+  /// cliente y el perfil); el router redirige solo a /welcome tras el signOut.
+  void _confirmarCierreSesion() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: Text('Cerrar Sesión', style: AppTextStyles.textStyleTitle),
+        content: Text(
+          '¿Estás seguro de que deseas salir de la aplicación?',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(
+              'Cancelar',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _authService.signOut();
+            },
+            child: Text(
+              'Salir',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Validación centralizada: primero confirma que existe el perfil de
@@ -84,6 +183,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         await _cargarAlmacen();
         await _cargarSolicitudes();
         await _cargarCotizacionesEnviadas();
+        _startApprovalWatcherIfPending();
       } else {
         AppLogger.info(
           'WarehouseDashboard: perfil de almacén no existe (404). '
@@ -204,8 +304,66 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
   }
 
+  /// Mientras el almacén no esté aprobado, verifica periódicamente el estado
+  /// de verificación (GET /warehouse/my-warehouse). Cuando el admin aprueba
+  /// desde el panel, el dashboard se actualiza solo: activa el feed de
+  /// solicitudes, la suscripción realtime de nuevas solicitudes y muestra un
+  /// aviso — sin salir de la pantalla ni cerrar/abrir sesión.
+  void _startApprovalWatcherIfPending() {
+    if (_isApproved) return;
+    _approvalTimer ??= Timer.periodic(_approvalPollInterval, (_) {
+      if (mounted) _checkApprovalStatus();
+    });
+  }
+
+  Future<void> _checkApprovalStatus() async {
+    if (_profileCheck != _ProfileCheckState.ready) return;
+
+    try {
+      final almacen = await _almacenService.obtenerMiAlmacen();
+      if (!mounted || almacen == null) return;
+
+      final wasApproved = _isApproved;
+      setState(() {
+        _almacenData = almacen;
+        _nombreAlmacen =
+            almacen['nombre_comercial']?.toString() ?? _nombreAlmacen;
+        _isOpen = almacen['estado_abierto'] ?? _isOpen;
+      });
+
+      if (_isApproved && !wasApproved) {
+        _approvalTimer?.cancel();
+        _approvalTimer = null;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              '¡Tu almacén ha sido aprobado! Ya puedes ver y responder solicitudes.',
+            ),
+            backgroundColor: AppColors.primaryContainer,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        await _cargarSolicitudes();
+        await _cargarCotizacionesEnviadas();
+
+        final almacenId = almacen['id']?.toString();
+        if (almacenId != null) {
+          await RealtimeNotificationService().subscribeToNuevasSolicitudes();
+        }
+      }
+    } catch (e) {
+      AppLogger.warning('Fallo el chequeo de aprobación: $e', name: _logName);
+    }
+  }
+
   @override
   void dispose() {
+    _approvalTimer?.cancel();
+    _approvalTimer = null;
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
     RealtimeNotificationService().unsubscribe();
     super.dispose();
   }
@@ -307,10 +465,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     color: AppColors.error,
                   ),
                 ),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(context);
-                  await _authService.signOut();
-                  // Router redirigirá automáticamente
+                  _confirmarCierreSesion();
                 },
               ),
             ],

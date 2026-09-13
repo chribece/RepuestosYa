@@ -244,22 +244,30 @@ class ApiErrorHandler {
       final decoded = json.decode(technical);
       if (decoded is! Map) return {};
 
+      final Map<String, String> result = {};
+
+      // Formato 1 y 2 (lista normalizada / legacy):
       final errorsList = decoded['errors'] ?? decoded['errores'];
       if (errorsList is List) {
-        final Map<String, String> result = {};
         for (var err in errorsList) {
           if (err is Map) {
-            // Soporte para campo/field y mensaje/message
             final field = err['field'] ?? err['campo'];
             final message = err['message'] ?? err['mensaje'];
-
             if (field != null && message != null) {
               result[field.toString()] = message.toString();
             }
           }
         }
-        return result;
       }
+
+      // Formato 3 (objeto plano en la raíz, usado por el RUC):
+      final rootField = decoded['field'] ?? decoded['campo'];
+      final rootMessage = decoded['message'] ?? decoded['mensaje'];
+      if (result.isEmpty && rootField != null && rootMessage != null) {
+        result[rootField.toString()] = rootMessage.toString();
+      }
+
+      return result;
     } catch (e) {
       AppLogger.error(
         'Error al parsear errores 422',

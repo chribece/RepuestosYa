@@ -39,6 +39,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   bool _isSubmitting = false;
   bool _isLoading = true;
   String? _errorMessage;
+  Map<String, String> _fieldErrors = {};
   Map<String, dynamic>? _almacenData;
 
   late final AlmacenService _almacenService;
@@ -108,6 +109,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   }
 
   Future<void> _guardarCambios() async {
+    setState(() => _fieldErrors = {});
     AppLogger.debug('Iniciando _guardarCambios...', name: 'PerfilAlmacenPage');
 
     if (!_formKey.currentState!.validate()) {
@@ -184,15 +186,21 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         error: e,
       );
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error al actualizar perfil: ${ApiErrorHandler.userMessage(e)}',
+      final validationErrors = ApiErrorHandler.mapValidationErrors(e);
+      setState(() {
+        _isSubmitting = false;
+        _fieldErrors = validationErrors;
+      });
+      if (validationErrors.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al actualizar perfil: ${ApiErrorHandler.userMessage(e)}',
+            ),
+            backgroundColor: AppColors.error,
           ),
-          backgroundColor: AppColors.error,
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -642,6 +650,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           isReadOnly: !_isEditing,
           isRequired: true,
           maxLength: 13,
+          errorText: _fieldErrors['ruc'],
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'El RUC es requerido';

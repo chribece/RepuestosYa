@@ -2,10 +2,12 @@ const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const isProd = process.env.NODE_ENV === 'production';
 
-console.log('Supabase Configuration:');
-console.log('URL:', supabaseUrl ? supabaseUrl : 'MISSING');
-console.log('Service Key:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 10)}...` : 'MISSING');
+if (!isProd) {
+  console.log('Supabase Configuration:');
+  console.log('URL:', supabaseUrl ? supabaseUrl : 'MISSING');
+}
 
 if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables');
@@ -24,18 +26,18 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// Test connection with more detailed logging
-console.log('Testing Supabase connection...');
-supabase.auth.getSession().then(({ data, error }) => {
-  if (error) {
-    console.error('Supabase connection test failed:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
-  } else {
-    console.log('Supabase connection test successful');
-  }
-}).catch(err => {
-  console.error('Supabase connection test error:', err);
-  console.error('Error details:', JSON.stringify(err, null, 2));
-});
+// Test de conexión solo con detalle durante desarrollo.
+if (!isProd) {
+  console.log('Testing Supabase connection...');
+  supabase.auth.getSession().then(({ error }) => {
+    if (error) {
+      console.error('Supabase connection test failed:', error.message);
+    } else {
+      console.log('Supabase connection test successful');
+    }
+  }).catch(() => {
+    console.error('Supabase connection test error');
+  });
+}
 
 module.exports = supabase;

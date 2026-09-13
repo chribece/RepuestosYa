@@ -1,4 +1,16 @@
 require('dotenv').config();
+
+const isProd = process.env.NODE_ENV === 'production';
+
+// En producción se desactiva console.* para impedir que controladores y
+// servicios existentes filtren emails, IDs, perfiles o errores sensibles.
+// Morgan conserva únicamente método, ruta y status HTTP.
+if (isProd) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -10,8 +22,8 @@ const timingMiddleware = require('./src/middleware/timing');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware de logging (MORGAN) - muestra cada petición en consola
-app.use(morgan('dev'));
+// En producción solo se conservan método, ruta y estado HTTP.
+app.use(morgan(isProd ? ':method :url :status' : 'dev'));
 
 // Security middleware
 app.use(helmet());
@@ -43,9 +55,11 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-//  Middleware de logging manual (por si morgan falla)
+// Middleware de logging manual solo para desarrollo.
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  if (!isProd) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  }
   next();
 });
 
@@ -76,8 +90,10 @@ app.use((err, req, res, next) => {
 
 // Escuchar en todas las interfaces (para que el teléfono pueda conectar)
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(` Server running on port ${PORT}`);
-  console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(` API Base URL: http://localhost:${PORT}/api`);
-  console.log(` Accesible desde la red local en: http://192.168.100.2:${PORT}/api`);
+  if (!isProd) {
+    console.log(` Server running on port ${PORT}`);
+    console.log(` Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(` API Base URL: http://localhost:${PORT}/api`);
+    console.log(` Accesible desde la red local en: http://192.168.100.2:${PORT}/api`);
+  }
 });

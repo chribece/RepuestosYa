@@ -1,6 +1,14 @@
 const { Worker } = require('bullmq');
 const Redis = require('ioredis');
 
+const isProd = process.env.NODE_ENV === 'production';
+
+if (isProd) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
+
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const connection = new Redis(redisUrl, {

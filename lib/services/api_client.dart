@@ -145,6 +145,7 @@ class ApiClient {
     bool notifyUnauthorized = true,
     bool retryOnGet = false,
     int networkAttempt = 0,
+    String? requestToken,
   }) async {
     try {
       final response = await request().timeout(_requestTimeout);
@@ -160,6 +161,21 @@ class ApiClient {
 
       if (response.statusCode == 401 && retryOnUnauthorized && !hasRetried) {
         try {
+          // Si otro request ya actualizó el token mientras esta respuesta
+          // estaba en vuelo, se reutiliza sin iniciar un segundo refresh.
+          if (requestToken != null && requestToken != _token) {
+            return _execute(
+              request,
+              onSuccess,
+              retryOnUnauthorized: false,
+              hasRetried: true,
+              notifyUnauthorized: notifyUnauthorized,
+              retryOnGet: retryOnGet,
+              networkAttempt: networkAttempt,
+              requestToken: requestToken,
+            );
+          }
+
           final newToken = await _refreshTokenOnce();
           if (newToken.isNotEmpty) {
             return _execute(
@@ -170,6 +186,7 @@ class ApiClient {
               notifyUnauthorized: notifyUnauthorized,
               retryOnGet: retryOnGet,
               networkAttempt: networkAttempt,
+              requestToken: requestToken,
             );
           }
         } catch (_) {
@@ -191,6 +208,7 @@ class ApiClient {
           notifyUnauthorized: notifyUnauthorized,
           retryOnGet: true,
           networkAttempt: networkAttempt + 1,
+          requestToken: requestToken,
         );
       }
 
@@ -209,6 +227,7 @@ class ApiClient {
           notifyUnauthorized: notifyUnauthorized,
           retryOnGet: true,
           networkAttempt: networkAttempt + 1,
+          requestToken: requestToken,
         );
       }
       throw ApiErrorHandler.timeoutException();
@@ -226,21 +245,29 @@ class ApiClient {
           notifyUnauthorized: notifyUnauthorized,
           retryOnGet: true,
           networkAttempt: networkAttempt + 1,
+          requestToken: requestToken,
         );
       }
       throw mappedError;
     }
   }
 
-  Future<String> _refreshTokenOnce() async {
-    if (_isRefreshing && _refreshCompleter != null) {
-      return (await _refreshCompleter!.future)!;
+  Future<String> _refreshTokenOnce() {
+    final inFlightRefresh = _refreshCompleter;
+    if (_isRefreshing && inFlightRefresh != null) {
+      return inFlightRefresh.future.then((token) => token!);
     }
 
+    // Estas asignaciones son síncronas y ocurren antes de cualquier await:
+    // la primera llamada publica el Completer y las demás se encolan en él.
     final completer = Completer<String?>();
-    _isRefreshing = true;
     _refreshCompleter = completer;
+    _isRefreshing = true;
+    unawaited(_runRefresh(completer));
+    return completer.future.then((token) => token!);
+  }
 
+  Future<void> _runRefresh(Completer<String?> completer) async {
     try {
       final refreshedToken = await onRefreshToken?.call();
       if (refreshedToken == null || refreshedToken.isEmpty) {
@@ -256,8 +283,6 @@ class ApiClient {
       _isRefreshing = false;
       _refreshCompleter = null;
     }
-
-    return (await completer.future)!;
   }
 
   Future<void> _handleRefreshFailure() async {
@@ -298,6 +323,7 @@ class ApiClient {
       retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: true,
+      requestToken: _token,
     );
   }
 
@@ -324,6 +350,7 @@ class ApiClient {
       retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: true,
+      requestToken: _token,
     );
   }
 
@@ -345,8 +372,9 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
-      retryOnUnauthorized: false,
+      // Un 401 puede reintentarse una vez tras renovar el token. Los retries
+      // de transporte siguen deshabilitados porque podrían duplicar datos.
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: false,
     );
@@ -370,8 +398,9 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
-      retryOnUnauthorized: false,
+      // Un 401 puede reintentarse una vez tras renovar el token. Los retries
+      // de transporte siguen deshabilitados porque podrían duplicar datos.
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: false,
     );
@@ -395,8 +424,9 @@ class ApiClient {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
       },
-      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
-      retryOnUnauthorized: false,
+      // Un 401 puede reintentarse una vez tras renovar el token. Los retries
+      // de transporte siguen deshabilitados porque podrían duplicar datos.
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: false,
     );
@@ -409,8 +439,9 @@ class ApiClient {
     await _execute(
       () => http.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (_) => null,
-      // Las escrituras nunca se reintentan automáticamente: podrían duplicar datos.
-      retryOnUnauthorized: false,
+      // Un 401 puede reintentarse una vez tras renovar el token. Los retries
+      // de transporte siguen deshabilitados porque podrían duplicar datos.
+      retryOnUnauthorized: _shouldRefresh(endpoint, requireAuth),
       notifyUnauthorized: endpoint != '/auth/refresh',
       retryOnGet: false,
     );

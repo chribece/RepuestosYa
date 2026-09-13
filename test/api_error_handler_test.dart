@@ -20,6 +20,19 @@ void main() {
     expect(error.message, ApiErrorHandler.serverMessage);
   });
 
+  test('mapea el error 422 de objeto plano al campo', () {
+    final error = ApiErrorHandler.fromResponse(
+      http.Response(
+        '{"field":"ruc","message":"El RUC ya está registrado"}',
+        422,
+      ),
+    );
+
+    expect(ApiErrorHandler.mapValidationErrors(error), {
+      'ruc': 'El RUC ya está registrado',
+    });
+  });
+
   test('conserva el mapeo de errores de validación 422', () {
     final error = ApiErrorHandler.fromResponse(
       http.Response(

@@ -35,6 +35,23 @@ const createAlmacen = async (req, res) => {
       });
     }
 
+    // Unicidad: verificar si el RUC ya está registrado
+    const { data: rucExistente, error: rucError } = await supabase
+      .from('almacenes')
+      .select('id')
+      .eq('ruc', normalizedRuc)
+      .maybeSingle();
+
+    if (rucError) {
+      return res.status(400).json({ error: rucError.message });
+    }
+    if (rucExistente) {
+      return res.status(422).json({
+        field: 'ruc',
+        message: 'El RUC ya está registrado'
+      });
+    }
+
     // First, update the user's role to 'almacen' in profiles
     const { error: roleError } = await supabase
       .from('profiles')
@@ -52,7 +69,7 @@ const createAlmacen = async (req, res) => {
       .insert({
         encargado_id,
         nombre_comercial,
-        ruc,
+        ruc: normalizedRuc,
         representante_legal,
         telefono,
         email,
@@ -151,6 +168,25 @@ const updateAlmacen = async (req, res) => {
           message: 'El RUC debe tener exactamente 13 dígitos'
         });
       }
+
+      // Unicidad: excluir el almacén actual
+      const { data: rucExistente, error: rucError } = await supabase
+        .from('almacenes')
+        .select('id')
+        .eq('ruc', normalizedRuc)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (rucError) {
+        return res.status(400).json({ error: rucError.message });
+      }
+      if (rucExistente) {
+        return res.status(422).json({
+          field: 'ruc',
+          message: 'El RUC ya está registrado'
+        });
+      }
+
       updateData.ruc = normalizedRuc;
     }
 

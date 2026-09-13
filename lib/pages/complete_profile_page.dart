@@ -36,6 +36,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   );
 
   bool _isSubmitting = false;
+  Map<String, String> _fieldErrors = {};
   final AuthService _authService = AuthService();
   late final AlmacenService _almacenService;
 
@@ -64,6 +65,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
   Future<void> _completarPerfil() async {
     if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _fieldErrors = {});
 
     setState(() {
       _isSubmitting = true;
@@ -105,15 +108,19 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       }
     } catch (e) {
       if (mounted) {
+        final validationErrors = ApiErrorHandler.mapValidationErrors(e);
         setState(() {
           _isSubmitting = false;
+          _fieldErrors = validationErrors;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorHandler.userMessage(e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        if (validationErrors.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ApiErrorHandler.userMessage(e)),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
     }
   }
@@ -228,6 +235,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       type: RyTextFieldType.number,
       isRequired: true,
       maxLength: 13,
+      errorText: _fieldErrors['ruc'],
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'El RUC es requerido';

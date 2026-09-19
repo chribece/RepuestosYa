@@ -53,6 +53,37 @@ class OutboxService {
     return clientId;
   }
 
+  /// Guarda Outbox y la cotización pendiente en una única transacción Drift.
+  /// Mismo patrón que [enqueueSolicitud], para el flujo offline de cotizaciones.
+  Future<String> enqueueCotizacion({
+    required Map<String, dynamic> payload,
+    required CotizacionPendiente Function(String clientId) localQuotation,
+  }) async {
+    final clientId = _uuid.v4();
+    final entry = _buildEntry(
+      clientId: clientId,
+      entityType: 'cotizacion',
+      operation: 'CREATE',
+      payload: payload,
+    );
+
+    await _db.transaction(() async {
+      await _db.into(_db.outbox).insert(entry);
+      await _db
+          .into(_db.cotizacionesPendientes)
+          .insert(localQuotation(clientId), mode: InsertMode.insertOrReplace);
+    });
+    return clientId;
+  }
+
+  /// Elimina la fila pendiente de una cotización local (ya sincronizada o
+  /// descartada). No toca la entrada de Outbox.
+  Future<void> deleteCotizacionPendiente(String clientId) async {
+    await (_db.delete(
+      _db.cotizacionesPendientes,
+    )..where((t) => t.clientId.equals(clientId))).go();
+  }
+
   OutboxCompanion _buildEntry({
     required String clientId,
     required String entityType,
@@ -67,6 +98,10 @@ class OutboxService {
       status: const Value('PENDING'),
       attempts: const Value(0),
       createdAt: DateTime.now(),
+      // Clave de idempotencia generada UNA sola vez al encolar. Se envía al
+      // backend en cada reintento para que un replay post-crash no duplique
+      // el registro remoto (brecha B10).
+      idempotencyKey: Value(_uuid.v4()),
     );
   }
 

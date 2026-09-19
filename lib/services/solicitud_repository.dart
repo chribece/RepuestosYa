@@ -348,6 +348,7 @@ class SolicitudRepository implements SolicitudRepositoryContract {
     try {
       await _db.transaction(() async {
         await _db.delete(_db.solicitudes).go();
+        await _db.delete(_db.cotizacionesPendientes).go();
         await _db.delete(_db.outbox).go();
         await _db.delete(_db.categoriasCache).go();
         await _db.delete(_db.vehiculosCache).go();

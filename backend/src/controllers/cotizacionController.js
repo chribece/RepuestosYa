@@ -2,6 +2,10 @@ const supabase = require('../services/supabase');
 const { invalidatePattern, getOrSet } = require('../services/cache');
 const notificacionesQueue = require('../queues/notificaciones.queue');
 const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError } = require('../services/cotizacionService');
+const { validationError, validateImageUrl } = require('../utils/validation');
+
+// Shape de respuesta con las relaciones que necesita el cliente.
+const COTIZACION_SELECT = '*, almacenes(nombre_comercial)';
 
 // POST /quotations (solo almacenes)
 const createCotizacion = async (req, res) => {
@@ -11,10 +15,34 @@ const createCotizacion = async (req, res) => {
       return res.status(403).json({ error: 'Only warehouses can create quotes' });
     }
 
-    const { solicitud_id, almacen_id, precio_venta, condicion_repuesto, foto_evidencia_url, notas_adicionales, tiempo_entrega_estimado } = req.body;
+    const { solicitud_id, almacen_id, precio_venta, condicion_repuesto, foto_evidencia_url, notas_adicionales, tiempo_entrega_estimado, idempotency_key } = req.body;
 
     if (!solicitud_id || !almacen_id || !precio_venta) {
       return res.status(400).json({ error: 'solicitud_id, almacen_id and precio_venta are required' });
+    }
+
+    // Validar la URL de la foto de evidencia (si se envía): debe pertenecer al
+    // Storage del proyecto y el objeto debe existir con Content-Type image/*
+    // y tamaño <= 10 MB. Error normalizado 422 como el resto del contrato.
+    if (foto_evidencia_url) {
+      const imageCheck = await validateImageUrl(foto_evidencia_url);
+      if (!imageCheck.valid) {
+        return res.status(422).json(validationError('foto_evidencia_url', imageCheck.message));
+      }
+    }
+
+    // Idempotencia (Outbox de cotizaciones): si la key ya fue procesada,
+    // devolver el registro existente en lugar de crear uno nuevo.
+    if (idempotency_key) {
+      const { data: existing, error: existingError } = await supabase
+        .from('cotizaciones')
+        .select(COTIZACION_SELECT)
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle();
+
+      if (!existingError && existing) {
+        return res.status(200).json(existing);
+      }
     }
 
     // Verify solicitud is active
@@ -55,22 +83,42 @@ const createCotizacion = async (req, res) => {
       });
     }
 
+    const insertData = {
+      solicitud_id,
+      almacen_id,
+      precio_venta,
+      condicion_repuesto,
+      foto_evidencia_url,
+      notas_adicionales,
+      tiempo_entrega_estimado,
+      estado: 'pendiente'
+    };
+
+    if (idempotency_key) {
+      insertData.idempotency_key = idempotency_key;
+    }
+
     const { data: cotizacion, error } = await supabase
       .from('cotizaciones')
-      .insert({
-        solicitud_id,
-        almacen_id,
-        precio_venta,
-        condicion_repuesto,
-        foto_evidencia_url,
-        notas_adicionales,
-        tiempo_entrega_estimado,
-        estado: 'pendiente'
-      })
-      .select('*, almacenes(nombre_comercial)')
+      .insert(insertData)
+      .select(COTIZACION_SELECT)
       .single();
 
     if (error) {
+      // Idempotencia: carrera entre reintentos con la misma key; devolver el
+      // registro existente en lugar de fallar.
+      if (error.code === '23505' && idempotency_key) {
+        const { data: existing } = await supabase
+          .from('cotizaciones')
+          .select(COTIZACION_SELECT)
+          .eq('idempotency_key', idempotency_key)
+          .maybeSingle();
+
+        if (existing) {
+          return res.status(200).json(existing);
+        }
+      }
+
       return res.status(400).json({ error: error.message });
     }
 

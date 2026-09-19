@@ -10,11 +10,152 @@ import 'ry_button.dart';
 
 enum RyPartCardVariant { client, warehouse, compact }
 
+class RyAdditionalPart {
+  final String name;
+  final String quantity;
+  final String? detail;
+
+  const RyAdditionalPart({
+    required this.name,
+    required this.quantity,
+    this.detail,
+  });
+}
+
+class RyAdditionalPartsList extends StatelessWidget {
+  final String? summary;
+
+  const RyAdditionalPartsList({super.key, required this.summary});
+
+  static const _summaryHeaders = [
+    'Repuestos adicionales:',
+    'Piezas adicionales solicitadas:',
+  ];
+
+  static List<RyAdditionalPart> parse(String? value) {
+    if (value == null || value.trim().isEmpty) return const [];
+
+    final lines = value.split('\n');
+    final parts = <RyAdditionalPart>[];
+    RyAdditionalPart? currentPart;
+    String? currentDetail;
+    var readingParts = false;
+    final partPattern = RegExp(
+      r'^\d+\.\s*Categoría:\s*(.*?)\s*\|\s*Repuesto:\s*(.*?)\s*\|\s*Cantidad:\s*(.*?)\s*$',
+    );
+
+    void saveCurrentPart() {
+      if (currentPart != null) {
+        parts.add(
+          RyAdditionalPart(
+            name: currentPart!.name,
+            quantity: currentPart!.quantity,
+            detail: currentDetail,
+          ),
+        );
+      }
+      currentPart = null;
+      currentDetail = null;
+    }
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      if (_summaryHeaders.contains(line)) {
+        saveCurrentPart();
+        readingParts = true;
+        continue;
+      }
+      if (!readingParts) continue;
+
+      final match = partPattern.firstMatch(line);
+      if (match != null) {
+        saveCurrentPart();
+        currentPart = RyAdditionalPart(
+          name: match.group(2)!.trim(),
+          quantity: match.group(3)!.trim(),
+        );
+      } else if (line.startsWith('Detalle:') && currentPart != null) {
+        currentDetail = line.substring('Detalle:'.length).trim();
+      }
+    }
+    saveCurrentPart();
+    return parts;
+  }
+
+  static String mainDescription(String? value) {
+    if (value == null) return '';
+    final lines = value.split('\n');
+    final headerIndex = lines.indexWhere(_summaryHeaders.contains);
+    if (headerIndex < 0) return value.trim();
+    return lines.take(headerIndex).join('\n').trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = parse(summary);
+    if (parts.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Repuestos adicionales',
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.spacingXs),
+        ...parts.map(
+          (part) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.spacingXs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.build_outlined,
+                    size: 18,
+                    color: AppColors.primaryContainer,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${part.name} (Cant: ${part.quantity})',
+                        style: AppTextStyles.textStyleBody.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (part.detail != null && part.detail!.isNotEmpty)
+                        Text(
+                          part.detail!,
+                          style: AppTextStyles.textStyleCaption.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class RyPartCard extends StatelessWidget {
   final String partName;
   final String? imageUrl;
   final String? vehicleInfo;
   final String? description;
+  final String? additionalPartsSummary;
   final String status;
   final String? price;
   final String? location;
@@ -38,6 +179,7 @@ class RyPartCard extends StatelessWidget {
     this.imageUrl,
     this.vehicleInfo,
     this.description,
+    this.additionalPartsSummary,
     required this.status,
     this.price,
     this.location,
@@ -239,6 +381,37 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
+  Widget _buildDescriptionContent() {
+    final summary = additionalPartsSummary ?? description;
+    final String? mainDescription = additionalPartsSummary == null
+        ? RyAdditionalPartsList.mainDescription(description)
+        : description;
+    final hasMainDescription =
+        mainDescription != null && mainDescription.trim().isNotEmpty;
+    final hasAdditionalParts = RyAdditionalPartsList.parse(summary).isNotEmpty;
+
+    if (!hasMainDescription && !hasAdditionalParts) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasMainDescription)
+          Text(
+            mainDescription,
+            style: AppTextStyles.textStyleBody,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        if (hasAdditionalParts) ...[
+          if (hasMainDescription) const SizedBox(height: AppSpacing.spacingSm),
+          RyAdditionalPartsList(summary: summary),
+        ],
+      ],
+    );
+  }
+
   Widget _buildClientContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,14 +446,12 @@ class RyPartCard extends StatelessWidget {
             ),
           ],
         ),
-        if (description != null) ...[
+        if ((description != null && description!.trim().isNotEmpty) ||
+            RyAdditionalPartsList.parse(
+              additionalPartsSummary ?? description,
+            ).isNotEmpty) ...[
           const SizedBox(height: AppSpacing.spacingSm),
-          Text(
-            description!,
-            style: AppTextStyles.textStyleBody,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          _buildDescriptionContent(),
         ],
         const SizedBox(height: AppSpacing.spacingSm),
         Row(
@@ -302,7 +473,12 @@ class RyPartCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.spacingSm),
             ],
             const Spacer(),
-            Text(_formatDate(createdAt), style: AppTextStyles.textStyleSmall),
+            Text(
+              _formatDate(createdAt),
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
         if (showPrice && price != null) ...[
@@ -377,14 +553,12 @@ class RyPartCard extends StatelessWidget {
             ),
           ],
         ),
-        if (description != null) ...[
+        if ((description != null && description!.trim().isNotEmpty) ||
+            RyAdditionalPartsList.parse(
+              additionalPartsSummary ?? description,
+            ).isNotEmpty) ...[
           const SizedBox(height: AppSpacing.spacingSm),
-          Text(
-            description!,
-            style: AppTextStyles.textStyleBody,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          _buildDescriptionContent(),
         ],
         const SizedBox(height: AppSpacing.spacingSm),
         Row(
@@ -406,7 +580,12 @@ class RyPartCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.spacingSm),
             ],
             const Spacer(),
-            Text(_formatDate(createdAt), style: AppTextStyles.textStyleSmall),
+            Text(
+              _formatDate(createdAt),
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.spacingSm),

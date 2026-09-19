@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/realtime_notification_service.dart';
+import '../services/sync_engine.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
@@ -43,8 +45,18 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   /// no esté aprobado. Se detiene automáticamente al pasar a `approved`.
   static const Duration _approvalPollInterval = Duration(seconds: 10);
 
+  /// Espera entre reintentos automáticos de carga tras un error de red
+  /// (p. ej. el teléfono aún no reasocia WiFi al salir del modo avión).
+  static const Duration _networkRetryDelay = Duration(seconds: 10);
+
   Timer? _approvalTimer;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+
+  /// Timer de reintento automático tras un fallo de red en las cargas.
+  Timer? _networkRetryTimer;
+
+  /// Evita repetir el SnackBar de error en cada reintento automático.
+  bool _hadNetworkError = false;
 
   /// Estado de conectividad del dashboard: permite detectar la transición
   /// offline → online y recargar automáticamente el feed de solicitudes.
@@ -105,6 +117,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       _isOffline = isOffline;
 
       if (wasOffline && !isOffline) {
+        // Disparar la cola Outbox: envía solicitudes/cotizaciones creadas
+        // offline (el evento de conectividad del SyncEngine puede no bastar
+        // en algunos dispositivos al salir del modo avión).
+        context.read<SyncEngine>().procesarCola();
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
@@ -115,6 +132,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ),
         );
         _validateAndLoad();
+
+        // Recargar tras la sincronización para mostrar lo recién enviado
+        // (p. ej. la cotización creada offline que acaba de llegar al server).
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) _validateAndLoad();
+        });
       } else if (!wasOffline && isOffline) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -170,6 +193,24 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
+  /// Distingue errores de red (transitorios) de errores de negocio.
+  bool _isNetworkError(Object e) {
+    if (e is ApiException) {
+      return e.statusCode == null || e.statusCode == 0 || e.statusCode == 504;
+    }
+    return e is SocketException || e is TimeoutException;
+  }
+
+  /// Si la carga falló por red (la conexión puede volver en segundos), agenda
+  /// una recarga automática acotada. Evita timers duplicados.
+  void _scheduleNetworkReload() {
+    if (!mounted || _networkRetryTimer != null) return;
+    _networkRetryTimer = Timer(_networkRetryDelay, () {
+      _networkRetryTimer = null;
+      if (mounted) _validateAndLoad();
+    });
+  }
+
   /// Validación centralizada: primero confirma que existe el perfil de
   /// almacén (GET /warehouse/my-warehouse). Solo si existe (200) procede a
   /// cargar solicitudes, datos del almacén y cotizaciones. Si responde 404
@@ -179,6 +220,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       final hasProfile = await _almacenService.hasWarehouseProfile();
       if (!mounted) return;
       if (hasProfile) {
+        _hadNetworkError = false;
         setState(() => _profileCheck = _ProfileCheckState.ready);
         await _cargarAlmacen();
         await _cargarSolicitudes();
@@ -200,6 +242,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         error: e,
       );
       if (!mounted) return;
+      if (_isNetworkError(e)) {
+        _scheduleNetworkReload();
+      }
       setState(() {
         _profileCheck = _ProfileCheckState.error;
         _profileCheckError = ApiErrorHandler.userMessage(e);
@@ -254,6 +299,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       if (mounted) {
         setState(() => _isLoadingCotizaciones = false);
       }
+      if (_isNetworkError(e)) {
+        _scheduleNetworkReload();
+      }
     }
   }
 
@@ -286,6 +334,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
         _solicitudes = List<Map<String, dynamic>>.from(solicitudes);
         _isLoadingSolicitudes = false;
+        _hadNetworkError = false;
       });
     } catch (e) {
       AppLogger.error('Error al cargar solicitudes', name: _logName, error: e);
@@ -293,13 +342,28 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         _isLoadingSolicitudes = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
+        final isNetwork = _isNetworkError(e);
+        // El SnackBar solo la primera vez: los reintentos automáticos no
+        // deberían spamear mensajes.
+        if (isNetwork && !_hadNetworkError) {
+          _hadNetworkError = true;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
+              ),
             ),
-          ),
-        );
+          );
+          _scheduleNetworkReload();
+        } else if (!isNetwork) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -362,6 +426,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   void dispose() {
     _approvalTimer?.cancel();
     _approvalTimer = null;
+    _networkRetryTimer?.cancel();
+    _networkRetryTimer = null;
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
     RealtimeNotificationService().unsubscribe();
@@ -1027,10 +1093,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           '${marca['nombre'] ?? ''} ${modelo['nombre'] ?? ''} • ${vehiculo['año'] ?? ''}';
     }
 
-    final String subtitle = (solicitudObj.displayDescription.trim().isNotEmpty)
-        ? solicitudObj.displayDescription
-        : detallesVehiculo;
-
     // TODO(geo): la distancia es un placeholder hasta que exista geolocalización
     // de almacén y dirección de entrega.
     const String distance = '2.8 km';
@@ -1054,8 +1116,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     return RyPartCard(
       partName: title,
       imageUrl: imageUrl,
-      vehicleInfo: subtitle,
+      vehicleInfo: detallesVehiculo,
       description: 'Cliente: $clienteNombre',
+      additionalPartsSummary: solicitudObj.descripcionProblema,
       location: distance,
       status: esUrgente ? 'urgente' : 'estandar',
       createdAt: DateTime.tryParse('$createdAt') ?? DateTime.now(),

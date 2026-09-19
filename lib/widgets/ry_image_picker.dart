@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/app_logger.dart';
 
 enum RyImagePickerMode { single, multiple }
 
@@ -21,6 +24,10 @@ class RyImagePicker extends StatelessWidget {
   final ValueChanged<File?>? onImageSelected;
   final ValueChanged<String?>? onImageUrlChanged;
   final VoidCallback? onRemove;
+
+  /// Si se provee, muestra un botón de "ver imagen completa" sobre el preview
+  /// cuando hay imagen seleccionada (para abrir un visor full-screen).
+  final VoidCallback? onViewFullImage;
   final Widget? customPreview;
   final Widget? customPlaceholder;
 
@@ -37,18 +44,179 @@ class RyImagePicker extends StatelessWidget {
     this.onImageSelected,
     this.onImageUrlChanged,
     this.onRemove,
+    this.onViewFullImage,
     this.customPreview,
     this.customPlaceholder,
   });
 
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source, imageQuality: 85);
-
-    if (pickedFile != null) {
-      final file = File(pickedFile.path);
-      onImageSelected?.call(file);
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    // La galería no requiere permiso explícito (Photo Picker en Android 13+ /
+    // iOS 14+). La cámara sí: gestionamos los 4 estados posibles.
+    if (source == ImageSource.camera) {
+      final canUseCamera = await _ensureCameraPermission(context);
+      if (!canUseCamera) return;
     }
+
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+
+      if (pickedFile != null) {
+        final file = File(pickedFile.path);
+        onImageSelected?.call(file);
+      }
+      // pickedFile == null: el usuario canceló la selección — flujo normal,
+      // sin mensaje (solo se informa cuando el permiso fue denegado, arriba).
+    } on PlatformException catch (e) {
+      AppLogger.warning(
+        'image_picker PlatformException: $e',
+        name: 'RyImagePicker',
+      );
+      if (!context.mounted) return;
+      _showError(
+        context,
+        'No se pudo acceder a la cámara o galería en este dispositivo.',
+      );
+    } catch (e) {
+      AppLogger.error(
+        'image_picker error inesperado',
+        name: 'RyImagePicker',
+        error: e,
+      );
+      if (!context.mounted) return;
+      _showError(
+        context,
+        'Ocurrió un error al seleccionar la imagen. Inténtalo de nuevo.',
+      );
+    }
+  }
+
+  /// Verifica el permiso de cámara y gestiona los 4 estados:
+  /// granted → true; denied → diálogo con reintento; permanentlyDenied →
+  /// diálogo con "Abrir Ajustes"; restricted → mensaje informativo.
+  Future<bool> _ensureCameraPermission(BuildContext context) async {
+    final status = await Permission.camera.status;
+    if (!context.mounted) return false;
+
+    if (status.isGranted) return true;
+
+    if (status.isPermanentlyDenied) {
+      await _showSettingsDialog(context);
+      return false;
+    }
+
+    if (status.isRestricted) {
+      await _showRestrictedMessage(context);
+      return false;
+    }
+
+    // denied (o primera solicitud): pedir el permiso.
+    final requested = await Permission.camera.request();
+    if (!context.mounted) return false;
+    if (requested.isGranted) return true;
+
+    if (requested.isPermanentlyDenied) {
+      await _showSettingsDialog(context);
+      return false;
+    }
+
+    // Negado de nuevo: ofrecer un reintento con contexto explicativo.
+    if (!context.mounted) return false;
+    final retry = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Permiso de cámara'),
+        content: const Text(
+          'RepuestosYa usa la cámara para fotografiar la pieza que necesitas '
+          'o el repuesto que ofreces. ¿Quieres intentarlo de nuevo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Ahora no'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
+    );
+
+    if (retry != true) return false;
+
+    final secondAttempt = await Permission.camera.request();
+    if (!context.mounted) return false;
+    if (secondAttempt.isGranted) return true;
+
+    if (secondAttempt.isPermanentlyDenied) {
+      await _showSettingsDialog(context);
+    }
+    return false;
+  }
+
+  Future<void> _showSettingsDialog(BuildContext context) async {
+    if (!context.mounted) return;
+    final open = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Permiso de cámara bloqueado'),
+        content: const Text(
+          'El acceso a la cámara está bloqueado en los ajustes del '
+          'dispositivo. Puedes habilitarlo desde Ajustes → Aplicaciones.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Abrir Ajustes'),
+          ),
+        ],
+      ),
+    );
+    if (open == true) {
+      await openAppSettings();
+    }
+  }
+
+  Future<void> _showRestrictedMessage(BuildContext context) async {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Cámara no disponible'),
+        content: const Text(
+          'El acceso a la cámara está restringido por el dispositivo o por '
+          'políticas de tu organización. Puedes seguir usando fotos de la '
+          'galería.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showError(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+      ),
+    );
   }
 
   void _showPickerOptions(BuildContext context) {
@@ -73,7 +241,7 @@ class RyImagePicker extends StatelessWidget {
                 title: const Text('Cámara'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
+                  _pickImage(context, ImageSource.camera);
                 },
               ),
             if (allowGallery)
@@ -82,7 +250,7 @@ class RyImagePicker extends StatelessWidget {
                 title: const Text('Galería'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
+                  _pickImage(context, ImageSource.gallery);
                 },
               ),
             const SizedBox(height: AppSpacing.spacingMd),
@@ -141,6 +309,7 @@ class RyImagePicker extends StatelessWidget {
             ),
           ),
           _buildRemoveButton(width, height),
+          if (onViewFullImage != null) _buildFullViewButton(width, height),
         ],
       );
     }
@@ -166,6 +335,7 @@ class RyImagePicker extends StatelessWidget {
             ),
           ),
           _buildRemoveButton(width, height),
+          if (onViewFullImage != null) _buildFullViewButton(width, height),
         ],
       );
     }
@@ -216,6 +386,30 @@ class RyImagePicker extends StatelessWidget {
               width: 48,
               height: 48,
               child: const Icon(Icons.close, color: Colors.white, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullViewButton(double width, double height) {
+    return Positioned(
+      bottom: AppSpacing.spacingXxs,
+      right: AppSpacing.spacingXxs,
+      child: Semantics(
+        button: true,
+        label: 'Ver imagen completa',
+        child: Material(
+          color: Colors.black.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+          child: InkWell(
+            onTap: onViewFullImage,
+            borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+            child: const SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(Icons.open_in_full, color: Colors.white, size: 20),
             ),
           ),
         ),

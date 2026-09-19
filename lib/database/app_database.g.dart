@@ -821,6 +821,17 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _idempotencyKeyMeta = const VerificationMeta(
+    'idempotencyKey',
+  );
+  @override
+  late final GeneratedColumn<String> idempotencyKey = GeneratedColumn<String>(
+    'idempotency_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     clientId,
@@ -831,6 +842,7 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
     attempts,
     lastError,
     createdAt,
+    idempotencyKey,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -902,6 +914,15 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('idempotency_key')) {
+      context.handle(
+        _idempotencyKeyMeta,
+        idempotencyKey.isAcceptableOrUnknown(
+          data['idempotency_key']!,
+          _idempotencyKeyMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -943,6 +964,10 @@ class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      idempotencyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}idempotency_key'],
+      ),
     );
   }
 
@@ -961,6 +986,11 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
   final int attempts;
   final String? lastError;
   final DateTime createdAt;
+
+  /// UUID v4 de idempotencia, generado UNA vez al encolar (no al reintentar).
+  /// Se envía al backend en POST /requests y POST /quotations para que un
+  /// reintento post-crash no duplique el registro remoto (brecha B10).
+  final String? idempotencyKey;
   const OutboxData({
     required this.clientId,
     required this.entityType,
@@ -970,6 +1000,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
     required this.attempts,
     this.lastError,
     required this.createdAt,
+    this.idempotencyKey,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -984,6 +1015,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       map['last_error'] = Variable<String>(lastError);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || idempotencyKey != null) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey);
+    }
     return map;
   }
 
@@ -999,6 +1033,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           ? const Value.absent()
           : Value(lastError),
       createdAt: Value(createdAt),
+      idempotencyKey: idempotencyKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(idempotencyKey),
     );
   }
 
@@ -1016,6 +1053,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       attempts: serializer.fromJson<int>(json['attempts']),
       lastError: serializer.fromJson<String?>(json['lastError']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      idempotencyKey: serializer.fromJson<String?>(json['idempotencyKey']),
     );
   }
   @override
@@ -1030,6 +1068,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       'attempts': serializer.toJson<int>(attempts),
       'lastError': serializer.toJson<String?>(lastError),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'idempotencyKey': serializer.toJson<String?>(idempotencyKey),
     };
   }
 
@@ -1042,6 +1081,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
     int? attempts,
     Value<String?> lastError = const Value.absent(),
     DateTime? createdAt,
+    Value<String?> idempotencyKey = const Value.absent(),
   }) => OutboxData(
     clientId: clientId ?? this.clientId,
     entityType: entityType ?? this.entityType,
@@ -1051,6 +1091,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
     attempts: attempts ?? this.attempts,
     lastError: lastError.present ? lastError.value : this.lastError,
     createdAt: createdAt ?? this.createdAt,
+    idempotencyKey: idempotencyKey.present
+        ? idempotencyKey.value
+        : this.idempotencyKey,
   );
   OutboxData copyWithCompanion(OutboxCompanion data) {
     return OutboxData(
@@ -1064,6 +1107,9 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
       attempts: data.attempts.present ? data.attempts.value : this.attempts,
       lastError: data.lastError.present ? data.lastError.value : this.lastError,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      idempotencyKey: data.idempotencyKey.present
+          ? data.idempotencyKey.value
+          : this.idempotencyKey,
     );
   }
 
@@ -1077,7 +1123,8 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           ..write('status: $status, ')
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('idempotencyKey: $idempotencyKey')
           ..write(')'))
         .toString();
   }
@@ -1092,6 +1139,7 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
     attempts,
     lastError,
     createdAt,
+    idempotencyKey,
   );
   @override
   bool operator ==(Object other) =>
@@ -1104,7 +1152,8 @@ class OutboxData extends DataClass implements Insertable<OutboxData> {
           other.status == this.status &&
           other.attempts == this.attempts &&
           other.lastError == this.lastError &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.idempotencyKey == this.idempotencyKey);
 }
 
 class OutboxCompanion extends UpdateCompanion<OutboxData> {
@@ -1116,6 +1165,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
   final Value<int> attempts;
   final Value<String?> lastError;
   final Value<DateTime> createdAt;
+  final Value<String?> idempotencyKey;
   final Value<int> rowid;
   const OutboxCompanion({
     this.clientId = const Value.absent(),
@@ -1126,6 +1176,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.idempotencyKey = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OutboxCompanion.insert({
@@ -1137,6 +1188,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     this.attempts = const Value.absent(),
     this.lastError = const Value.absent(),
     required DateTime createdAt,
+    this.idempotencyKey = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : clientId = Value(clientId),
        entityType = Value(entityType),
@@ -1152,6 +1204,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     Expression<int>? attempts,
     Expression<String>? lastError,
     Expression<DateTime>? createdAt,
+    Expression<String>? idempotencyKey,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1163,6 +1216,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
       if (attempts != null) 'attempts': attempts,
       if (lastError != null) 'last_error': lastError,
       if (createdAt != null) 'created_at': createdAt,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1176,6 +1230,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     Value<int>? attempts,
     Value<String?>? lastError,
     Value<DateTime>? createdAt,
+    Value<String?>? idempotencyKey,
     Value<int>? rowid,
   }) {
     return OutboxCompanion(
@@ -1187,6 +1242,7 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
       attempts: attempts ?? this.attempts,
       lastError: lastError ?? this.lastError,
       createdAt: createdAt ?? this.createdAt,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1218,6 +1274,9 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (idempotencyKey.present) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1235,6 +1294,766 @@ class OutboxCompanion extends UpdateCompanion<OutboxData> {
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('createdAt: $createdAt, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CotizacionesPendientesTable extends CotizacionesPendientes
+    with TableInfo<$CotizacionesPendientesTable, CotizacionPendiente> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CotizacionesPendientesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _clientIdMeta = const VerificationMeta(
+    'clientId',
+  );
+  @override
+  late final GeneratedColumn<String> clientId = GeneratedColumn<String>(
+    'client_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _solicitudIdMeta = const VerificationMeta(
+    'solicitudId',
+  );
+  @override
+  late final GeneratedColumn<String> solicitudId = GeneratedColumn<String>(
+    'solicitud_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _almacenIdMeta = const VerificationMeta(
+    'almacenId',
+  );
+  @override
+  late final GeneratedColumn<String> almacenId = GeneratedColumn<String>(
+    'almacen_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _precioMeta = const VerificationMeta('precio');
+  @override
+  late final GeneratedColumn<double> precio = GeneratedColumn<double>(
+    'precio',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _condicionMeta = const VerificationMeta(
+    'condicion',
+  );
+  @override
+  late final GeneratedColumn<String> condicion = GeneratedColumn<String>(
+    'condicion',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fotoUrlMeta = const VerificationMeta(
+    'fotoUrl',
+  );
+  @override
+  late final GeneratedColumn<String> fotoUrl = GeneratedColumn<String>(
+    'foto_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notasMeta = const VerificationMeta('notas');
+  @override
+  late final GeneratedColumn<String> notas = GeneratedColumn<String>(
+    'notas',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tiempoEntregaMeta = const VerificationMeta(
+    'tiempoEntrega',
+  );
+  @override
+  late final GeneratedColumn<String> tiempoEntrega = GeneratedColumn<String>(
+    'tiempo_entrega',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _estadoMeta = const VerificationMeta('estado');
+  @override
+  late final GeneratedColumn<String> estado = GeneratedColumn<String>(
+    'estado',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pendiente'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedMeta = const VerificationMeta('synced');
+  @override
+  late final GeneratedColumn<bool> synced = GeneratedColumn<bool>(
+    'synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    clientId,
+    solicitudId,
+    almacenId,
+    precio,
+    condicion,
+    fotoUrl,
+    notas,
+    tiempoEntrega,
+    estado,
+    createdAt,
+    updatedAt,
+    synced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cotizaciones_pendientes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CotizacionPendiente> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('client_id')) {
+      context.handle(
+        _clientIdMeta,
+        clientId.isAcceptableOrUnknown(data['client_id']!, _clientIdMeta),
+      );
+    }
+    if (data.containsKey('solicitud_id')) {
+      context.handle(
+        _solicitudIdMeta,
+        solicitudId.isAcceptableOrUnknown(
+          data['solicitud_id']!,
+          _solicitudIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_solicitudIdMeta);
+    }
+    if (data.containsKey('almacen_id')) {
+      context.handle(
+        _almacenIdMeta,
+        almacenId.isAcceptableOrUnknown(data['almacen_id']!, _almacenIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_almacenIdMeta);
+    }
+    if (data.containsKey('precio')) {
+      context.handle(
+        _precioMeta,
+        precio.isAcceptableOrUnknown(data['precio']!, _precioMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_precioMeta);
+    }
+    if (data.containsKey('condicion')) {
+      context.handle(
+        _condicionMeta,
+        condicion.isAcceptableOrUnknown(data['condicion']!, _condicionMeta),
+      );
+    }
+    if (data.containsKey('foto_url')) {
+      context.handle(
+        _fotoUrlMeta,
+        fotoUrl.isAcceptableOrUnknown(data['foto_url']!, _fotoUrlMeta),
+      );
+    }
+    if (data.containsKey('notas')) {
+      context.handle(
+        _notasMeta,
+        notas.isAcceptableOrUnknown(data['notas']!, _notasMeta),
+      );
+    }
+    if (data.containsKey('tiempo_entrega')) {
+      context.handle(
+        _tiempoEntregaMeta,
+        tiempoEntrega.isAcceptableOrUnknown(
+          data['tiempo_entrega']!,
+          _tiempoEntregaMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_tiempoEntregaMeta);
+    }
+    if (data.containsKey('estado')) {
+      context.handle(
+        _estadoMeta,
+        estado.isAcceptableOrUnknown(data['estado']!, _estadoMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('synced')) {
+      context.handle(
+        _syncedMeta,
+        synced.isAcceptableOrUnknown(data['synced']!, _syncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CotizacionPendiente map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CotizacionPendiente(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      clientId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_id'],
+      ),
+      solicitudId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}solicitud_id'],
+      )!,
+      almacenId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}almacen_id'],
+      )!,
+      precio: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}precio'],
+      )!,
+      condicion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condicion'],
+      ),
+      fotoUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}foto_url'],
+      ),
+      notas: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notas'],
+      ),
+      tiempoEntrega: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tiempo_entrega'],
+      )!,
+      estado: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}estado'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      synced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}synced'],
+      )!,
+    );
+  }
+
+  @override
+  $CotizacionesPendientesTable createAlias(String alias) {
+    return $CotizacionesPendientesTable(attachedDatabase, alias);
+  }
+}
+
+class CotizacionPendiente extends DataClass
+    implements Insertable<CotizacionPendiente> {
+  final String id;
+  final String? clientId;
+  final String solicitudId;
+  final String almacenId;
+  final double precio;
+  final String? condicion;
+  final String? fotoUrl;
+  final String? notas;
+  final String tiempoEntrega;
+  final String estado;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool synced;
+  const CotizacionPendiente({
+    required this.id,
+    this.clientId,
+    required this.solicitudId,
+    required this.almacenId,
+    required this.precio,
+    this.condicion,
+    this.fotoUrl,
+    this.notas,
+    required this.tiempoEntrega,
+    required this.estado,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.synced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || clientId != null) {
+      map['client_id'] = Variable<String>(clientId);
+    }
+    map['solicitud_id'] = Variable<String>(solicitudId);
+    map['almacen_id'] = Variable<String>(almacenId);
+    map['precio'] = Variable<double>(precio);
+    if (!nullToAbsent || condicion != null) {
+      map['condicion'] = Variable<String>(condicion);
+    }
+    if (!nullToAbsent || fotoUrl != null) {
+      map['foto_url'] = Variable<String>(fotoUrl);
+    }
+    if (!nullToAbsent || notas != null) {
+      map['notas'] = Variable<String>(notas);
+    }
+    map['tiempo_entrega'] = Variable<String>(tiempoEntrega);
+    map['estado'] = Variable<String>(estado);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['synced'] = Variable<bool>(synced);
+    return map;
+  }
+
+  CotizacionesPendientesCompanion toCompanion(bool nullToAbsent) {
+    return CotizacionesPendientesCompanion(
+      id: Value(id),
+      clientId: clientId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(clientId),
+      solicitudId: Value(solicitudId),
+      almacenId: Value(almacenId),
+      precio: Value(precio),
+      condicion: condicion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(condicion),
+      fotoUrl: fotoUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fotoUrl),
+      notas: notas == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notas),
+      tiempoEntrega: Value(tiempoEntrega),
+      estado: Value(estado),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      synced: Value(synced),
+    );
+  }
+
+  factory CotizacionPendiente.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CotizacionPendiente(
+      id: serializer.fromJson<String>(json['id']),
+      clientId: serializer.fromJson<String?>(json['clientId']),
+      solicitudId: serializer.fromJson<String>(json['solicitudId']),
+      almacenId: serializer.fromJson<String>(json['almacenId']),
+      precio: serializer.fromJson<double>(json['precio']),
+      condicion: serializer.fromJson<String?>(json['condicion']),
+      fotoUrl: serializer.fromJson<String?>(json['fotoUrl']),
+      notas: serializer.fromJson<String?>(json['notas']),
+      tiempoEntrega: serializer.fromJson<String>(json['tiempoEntrega']),
+      estado: serializer.fromJson<String>(json['estado']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      synced: serializer.fromJson<bool>(json['synced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'clientId': serializer.toJson<String?>(clientId),
+      'solicitudId': serializer.toJson<String>(solicitudId),
+      'almacenId': serializer.toJson<String>(almacenId),
+      'precio': serializer.toJson<double>(precio),
+      'condicion': serializer.toJson<String?>(condicion),
+      'fotoUrl': serializer.toJson<String?>(fotoUrl),
+      'notas': serializer.toJson<String?>(notas),
+      'tiempoEntrega': serializer.toJson<String>(tiempoEntrega),
+      'estado': serializer.toJson<String>(estado),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'synced': serializer.toJson<bool>(synced),
+    };
+  }
+
+  CotizacionPendiente copyWith({
+    String? id,
+    Value<String?> clientId = const Value.absent(),
+    String? solicitudId,
+    String? almacenId,
+    double? precio,
+    Value<String?> condicion = const Value.absent(),
+    Value<String?> fotoUrl = const Value.absent(),
+    Value<String?> notas = const Value.absent(),
+    String? tiempoEntrega,
+    String? estado,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? synced,
+  }) => CotizacionPendiente(
+    id: id ?? this.id,
+    clientId: clientId.present ? clientId.value : this.clientId,
+    solicitudId: solicitudId ?? this.solicitudId,
+    almacenId: almacenId ?? this.almacenId,
+    precio: precio ?? this.precio,
+    condicion: condicion.present ? condicion.value : this.condicion,
+    fotoUrl: fotoUrl.present ? fotoUrl.value : this.fotoUrl,
+    notas: notas.present ? notas.value : this.notas,
+    tiempoEntrega: tiempoEntrega ?? this.tiempoEntrega,
+    estado: estado ?? this.estado,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    synced: synced ?? this.synced,
+  );
+  CotizacionPendiente copyWithCompanion(CotizacionesPendientesCompanion data) {
+    return CotizacionPendiente(
+      id: data.id.present ? data.id.value : this.id,
+      clientId: data.clientId.present ? data.clientId.value : this.clientId,
+      solicitudId: data.solicitudId.present
+          ? data.solicitudId.value
+          : this.solicitudId,
+      almacenId: data.almacenId.present ? data.almacenId.value : this.almacenId,
+      precio: data.precio.present ? data.precio.value : this.precio,
+      condicion: data.condicion.present ? data.condicion.value : this.condicion,
+      fotoUrl: data.fotoUrl.present ? data.fotoUrl.value : this.fotoUrl,
+      notas: data.notas.present ? data.notas.value : this.notas,
+      tiempoEntrega: data.tiempoEntrega.present
+          ? data.tiempoEntrega.value
+          : this.tiempoEntrega,
+      estado: data.estado.present ? data.estado.value : this.estado,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      synced: data.synced.present ? data.synced.value : this.synced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CotizacionPendiente(')
+          ..write('id: $id, ')
+          ..write('clientId: $clientId, ')
+          ..write('solicitudId: $solicitudId, ')
+          ..write('almacenId: $almacenId, ')
+          ..write('precio: $precio, ')
+          ..write('condicion: $condicion, ')
+          ..write('fotoUrl: $fotoUrl, ')
+          ..write('notas: $notas, ')
+          ..write('tiempoEntrega: $tiempoEntrega, ')
+          ..write('estado: $estado, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('synced: $synced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    clientId,
+    solicitudId,
+    almacenId,
+    precio,
+    condicion,
+    fotoUrl,
+    notas,
+    tiempoEntrega,
+    estado,
+    createdAt,
+    updatedAt,
+    synced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CotizacionPendiente &&
+          other.id == this.id &&
+          other.clientId == this.clientId &&
+          other.solicitudId == this.solicitudId &&
+          other.almacenId == this.almacenId &&
+          other.precio == this.precio &&
+          other.condicion == this.condicion &&
+          other.fotoUrl == this.fotoUrl &&
+          other.notas == this.notas &&
+          other.tiempoEntrega == this.tiempoEntrega &&
+          other.estado == this.estado &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.synced == this.synced);
+}
+
+class CotizacionesPendientesCompanion
+    extends UpdateCompanion<CotizacionPendiente> {
+  final Value<String> id;
+  final Value<String?> clientId;
+  final Value<String> solicitudId;
+  final Value<String> almacenId;
+  final Value<double> precio;
+  final Value<String?> condicion;
+  final Value<String?> fotoUrl;
+  final Value<String?> notas;
+  final Value<String> tiempoEntrega;
+  final Value<String> estado;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<bool> synced;
+  final Value<int> rowid;
+  const CotizacionesPendientesCompanion({
+    this.id = const Value.absent(),
+    this.clientId = const Value.absent(),
+    this.solicitudId = const Value.absent(),
+    this.almacenId = const Value.absent(),
+    this.precio = const Value.absent(),
+    this.condicion = const Value.absent(),
+    this.fotoUrl = const Value.absent(),
+    this.notas = const Value.absent(),
+    this.tiempoEntrega = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.synced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CotizacionesPendientesCompanion.insert({
+    required String id,
+    this.clientId = const Value.absent(),
+    required String solicitudId,
+    required String almacenId,
+    required double precio,
+    this.condicion = const Value.absent(),
+    this.fotoUrl = const Value.absent(),
+    this.notas = const Value.absent(),
+    required String tiempoEntrega,
+    this.estado = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.synced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       solicitudId = Value(solicitudId),
+       almacenId = Value(almacenId),
+       precio = Value(precio),
+       tiempoEntrega = Value(tiempoEntrega),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<CotizacionPendiente> custom({
+    Expression<String>? id,
+    Expression<String>? clientId,
+    Expression<String>? solicitudId,
+    Expression<String>? almacenId,
+    Expression<double>? precio,
+    Expression<String>? condicion,
+    Expression<String>? fotoUrl,
+    Expression<String>? notas,
+    Expression<String>? tiempoEntrega,
+    Expression<String>? estado,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? synced,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (clientId != null) 'client_id': clientId,
+      if (solicitudId != null) 'solicitud_id': solicitudId,
+      if (almacenId != null) 'almacen_id': almacenId,
+      if (precio != null) 'precio': precio,
+      if (condicion != null) 'condicion': condicion,
+      if (fotoUrl != null) 'foto_url': fotoUrl,
+      if (notas != null) 'notas': notas,
+      if (tiempoEntrega != null) 'tiempo_entrega': tiempoEntrega,
+      if (estado != null) 'estado': estado,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (synced != null) 'synced': synced,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CotizacionesPendientesCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? clientId,
+    Value<String>? solicitudId,
+    Value<String>? almacenId,
+    Value<double>? precio,
+    Value<String?>? condicion,
+    Value<String?>? fotoUrl,
+    Value<String?>? notas,
+    Value<String>? tiempoEntrega,
+    Value<String>? estado,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<bool>? synced,
+    Value<int>? rowid,
+  }) {
+    return CotizacionesPendientesCompanion(
+      id: id ?? this.id,
+      clientId: clientId ?? this.clientId,
+      solicitudId: solicitudId ?? this.solicitudId,
+      almacenId: almacenId ?? this.almacenId,
+      precio: precio ?? this.precio,
+      condicion: condicion ?? this.condicion,
+      fotoUrl: fotoUrl ?? this.fotoUrl,
+      notas: notas ?? this.notas,
+      tiempoEntrega: tiempoEntrega ?? this.tiempoEntrega,
+      estado: estado ?? this.estado,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      synced: synced ?? this.synced,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (clientId.present) {
+      map['client_id'] = Variable<String>(clientId.value);
+    }
+    if (solicitudId.present) {
+      map['solicitud_id'] = Variable<String>(solicitudId.value);
+    }
+    if (almacenId.present) {
+      map['almacen_id'] = Variable<String>(almacenId.value);
+    }
+    if (precio.present) {
+      map['precio'] = Variable<double>(precio.value);
+    }
+    if (condicion.present) {
+      map['condicion'] = Variable<String>(condicion.value);
+    }
+    if (fotoUrl.present) {
+      map['foto_url'] = Variable<String>(fotoUrl.value);
+    }
+    if (notas.present) {
+      map['notas'] = Variable<String>(notas.value);
+    }
+    if (tiempoEntrega.present) {
+      map['tiempo_entrega'] = Variable<String>(tiempoEntrega.value);
+    }
+    if (estado.present) {
+      map['estado'] = Variable<String>(estado.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (synced.present) {
+      map['synced'] = Variable<bool>(synced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CotizacionesPendientesCompanion(')
+          ..write('id: $id, ')
+          ..write('clientId: $clientId, ')
+          ..write('solicitudId: $solicitudId, ')
+          ..write('almacenId: $almacenId, ')
+          ..write('precio: $precio, ')
+          ..write('condicion: $condicion, ')
+          ..write('fotoUrl: $fotoUrl, ')
+          ..write('notas: $notas, ')
+          ..write('tiempoEntrega: $tiempoEntrega, ')
+          ..write('estado: $estado, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('synced: $synced, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2859,6 +3678,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $SolicitudesTable solicitudes = $SolicitudesTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
+  late final $CotizacionesPendientesTable cotizacionesPendientes =
+      $CotizacionesPendientesTable(this);
   late final $VehiculosCacheTable vehiculosCache = $VehiculosCacheTable(this);
   late final $DireccionesCacheTable direccionesCache = $DireccionesCacheTable(
     this,
@@ -2876,6 +3697,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     solicitudes,
     outbox,
+    cotizacionesPendientes,
     vehiculosCache,
     direccionesCache,
     categoriasCache,
@@ -3237,6 +4059,7 @@ typedef $$OutboxTableCreateCompanionBuilder =
       Value<int> attempts,
       Value<String?> lastError,
       required DateTime createdAt,
+      Value<String?> idempotencyKey,
       Value<int> rowid,
     });
 typedef $$OutboxTableUpdateCompanionBuilder =
@@ -3249,6 +4072,7 @@ typedef $$OutboxTableUpdateCompanionBuilder =
       Value<int> attempts,
       Value<String?> lastError,
       Value<DateTime> createdAt,
+      Value<String?> idempotencyKey,
       Value<int> rowid,
     });
 
@@ -3298,6 +4122,11 @@ class $$OutboxTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3350,6 +4179,11 @@ class $$OutboxTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$OutboxTableAnnotationComposer
@@ -3386,6 +4220,11 @@ class $$OutboxTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => column,
+  );
 }
 
 class $$OutboxTableTableManager
@@ -3424,6 +4263,7 @@ class $$OutboxTableTableManager
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> idempotencyKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OutboxCompanion(
                 clientId: clientId,
@@ -3434,6 +4274,7 @@ class $$OutboxTableTableManager
                 attempts: attempts,
                 lastError: lastError,
                 createdAt: createdAt,
+                idempotencyKey: idempotencyKey,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3446,6 +4287,7 @@ class $$OutboxTableTableManager
                 Value<int> attempts = const Value.absent(),
                 Value<String?> lastError = const Value.absent(),
                 required DateTime createdAt,
+                Value<String?> idempotencyKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => OutboxCompanion.insert(
                 clientId: clientId,
@@ -3456,6 +4298,7 @@ class $$OutboxTableTableManager
                 attempts: attempts,
                 lastError: lastError,
                 createdAt: createdAt,
+                idempotencyKey: idempotencyKey,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3478,6 +4321,381 @@ typedef $$OutboxTableProcessedTableManager =
       $$OutboxTableUpdateCompanionBuilder,
       (OutboxData, BaseReferences<_$AppDatabase, $OutboxTable, OutboxData>),
       OutboxData,
+      PrefetchHooks Function()
+    >;
+typedef $$CotizacionesPendientesTableCreateCompanionBuilder =
+    CotizacionesPendientesCompanion Function({
+      required String id,
+      Value<String?> clientId,
+      required String solicitudId,
+      required String almacenId,
+      required double precio,
+      Value<String?> condicion,
+      Value<String?> fotoUrl,
+      Value<String?> notas,
+      required String tiempoEntrega,
+      Value<String> estado,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<bool> synced,
+      Value<int> rowid,
+    });
+typedef $$CotizacionesPendientesTableUpdateCompanionBuilder =
+    CotizacionesPendientesCompanion Function({
+      Value<String> id,
+      Value<String?> clientId,
+      Value<String> solicitudId,
+      Value<String> almacenId,
+      Value<double> precio,
+      Value<String?> condicion,
+      Value<String?> fotoUrl,
+      Value<String?> notas,
+      Value<String> tiempoEntrega,
+      Value<String> estado,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<bool> synced,
+      Value<int> rowid,
+    });
+
+class $$CotizacionesPendientesTableFilterComposer
+    extends Composer<_$AppDatabase, $CotizacionesPendientesTable> {
+  $$CotizacionesPendientesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get solicitudId => $composableBuilder(
+    column: $table.solicitudId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get almacenId => $composableBuilder(
+    column: $table.almacenId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get precio => $composableBuilder(
+    column: $table.precio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get condicion => $composableBuilder(
+    column: $table.condicion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fotoUrl => $composableBuilder(
+    column: $table.fotoUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notas => $composableBuilder(
+    column: $table.notas,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tiempoEntrega => $composableBuilder(
+    column: $table.tiempoEntrega,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get estado => $composableBuilder(
+    column: $table.estado,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CotizacionesPendientesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CotizacionesPendientesTable> {
+  $$CotizacionesPendientesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientId => $composableBuilder(
+    column: $table.clientId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get solicitudId => $composableBuilder(
+    column: $table.solicitudId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get almacenId => $composableBuilder(
+    column: $table.almacenId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get precio => $composableBuilder(
+    column: $table.precio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get condicion => $composableBuilder(
+    column: $table.condicion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fotoUrl => $composableBuilder(
+    column: $table.fotoUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notas => $composableBuilder(
+    column: $table.notas,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tiempoEntrega => $composableBuilder(
+    column: $table.tiempoEntrega,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get estado => $composableBuilder(
+    column: $table.estado,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get synced => $composableBuilder(
+    column: $table.synced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CotizacionesPendientesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CotizacionesPendientesTable> {
+  $$CotizacionesPendientesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get clientId =>
+      $composableBuilder(column: $table.clientId, builder: (column) => column);
+
+  GeneratedColumn<String> get solicitudId => $composableBuilder(
+    column: $table.solicitudId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get almacenId =>
+      $composableBuilder(column: $table.almacenId, builder: (column) => column);
+
+  GeneratedColumn<double> get precio =>
+      $composableBuilder(column: $table.precio, builder: (column) => column);
+
+  GeneratedColumn<String> get condicion =>
+      $composableBuilder(column: $table.condicion, builder: (column) => column);
+
+  GeneratedColumn<String> get fotoUrl =>
+      $composableBuilder(column: $table.fotoUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get notas =>
+      $composableBuilder(column: $table.notas, builder: (column) => column);
+
+  GeneratedColumn<String> get tiempoEntrega => $composableBuilder(
+    column: $table.tiempoEntrega,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get estado =>
+      $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get synced =>
+      $composableBuilder(column: $table.synced, builder: (column) => column);
+}
+
+class $$CotizacionesPendientesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CotizacionesPendientesTable,
+          CotizacionPendiente,
+          $$CotizacionesPendientesTableFilterComposer,
+          $$CotizacionesPendientesTableOrderingComposer,
+          $$CotizacionesPendientesTableAnnotationComposer,
+          $$CotizacionesPendientesTableCreateCompanionBuilder,
+          $$CotizacionesPendientesTableUpdateCompanionBuilder,
+          (
+            CotizacionPendiente,
+            BaseReferences<
+              _$AppDatabase,
+              $CotizacionesPendientesTable,
+              CotizacionPendiente
+            >,
+          ),
+          CotizacionPendiente,
+          PrefetchHooks Function()
+        > {
+  $$CotizacionesPendientesTableTableManager(
+    _$AppDatabase db,
+    $CotizacionesPendientesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CotizacionesPendientesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CotizacionesPendientesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CotizacionesPendientesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> clientId = const Value.absent(),
+                Value<String> solicitudId = const Value.absent(),
+                Value<String> almacenId = const Value.absent(),
+                Value<double> precio = const Value.absent(),
+                Value<String?> condicion = const Value.absent(),
+                Value<String?> fotoUrl = const Value.absent(),
+                Value<String?> notas = const Value.absent(),
+                Value<String> tiempoEntrega = const Value.absent(),
+                Value<String> estado = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> synced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CotizacionesPendientesCompanion(
+                id: id,
+                clientId: clientId,
+                solicitudId: solicitudId,
+                almacenId: almacenId,
+                precio: precio,
+                condicion: condicion,
+                fotoUrl: fotoUrl,
+                notas: notas,
+                tiempoEntrega: tiempoEntrega,
+                estado: estado,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                synced: synced,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> clientId = const Value.absent(),
+                required String solicitudId,
+                required String almacenId,
+                required double precio,
+                Value<String?> condicion = const Value.absent(),
+                Value<String?> fotoUrl = const Value.absent(),
+                Value<String?> notas = const Value.absent(),
+                required String tiempoEntrega,
+                Value<String> estado = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<bool> synced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CotizacionesPendientesCompanion.insert(
+                id: id,
+                clientId: clientId,
+                solicitudId: solicitudId,
+                almacenId: almacenId,
+                precio: precio,
+                condicion: condicion,
+                fotoUrl: fotoUrl,
+                notas: notas,
+                tiempoEntrega: tiempoEntrega,
+                estado: estado,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                synced: synced,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CotizacionesPendientesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CotizacionesPendientesTable,
+      CotizacionPendiente,
+      $$CotizacionesPendientesTableFilterComposer,
+      $$CotizacionesPendientesTableOrderingComposer,
+      $$CotizacionesPendientesTableAnnotationComposer,
+      $$CotizacionesPendientesTableCreateCompanionBuilder,
+      $$CotizacionesPendientesTableUpdateCompanionBuilder,
+      (
+        CotizacionPendiente,
+        BaseReferences<
+          _$AppDatabase,
+          $CotizacionesPendientesTable,
+          CotizacionPendiente
+        >,
+      ),
+      CotizacionPendiente,
       PrefetchHooks Function()
     >;
 typedef $$VehiculosCacheTableCreateCompanionBuilder =
@@ -4457,6 +5675,11 @@ class $AppDatabaseManager {
       $$SolicitudesTableTableManager(_db, _db.solicitudes);
   $$OutboxTableTableManager get outbox =>
       $$OutboxTableTableManager(_db, _db.outbox);
+  $$CotizacionesPendientesTableTableManager get cotizacionesPendientes =>
+      $$CotizacionesPendientesTableTableManager(
+        _db,
+        _db.cotizacionesPendientes,
+      );
   $$VehiculosCacheTableTableManager get vehiculosCache =>
       $$VehiculosCacheTableTableManager(_db, _db.vehiculosCache);
   $$DireccionesCacheTableTableManager get direccionesCache =>

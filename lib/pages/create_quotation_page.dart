@@ -4,18 +4,26 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'dart:io';
+import '../database/app_database.dart';
 import '../services/solicitud_service.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
+import '../services/outbox.dart';
+import '../services/upload_service.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_image_picker.dart';
+import '../widgets/ry_full_image_viewer.dart';
+import '../widgets/ry_part_card.dart';
+import '../widgets/ry_section_card.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
-import '../utils/app_logger.dart';
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
@@ -52,93 +60,46 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     super.dispose();
   }
 
-  /// Sube una imagen al bucket `Repuestosya` bajo la ruta:
-  /// `evidencias/cotizaciones/{almacenId}/cotizacion_{timestamp}.jpg`
-  ///
-  /// Devuelve la URL pública del archivo, o `null` si la subida falla.
-  /// Patrón unificado con `CreateRequestPage._uploadImageToSupabase`:
-  /// mismo bucket, misma carpeta base `evidencias/`, separación por dominio
-  /// (`solicitudes/{clienteId}/...` para solicitudes,
-  /// `cotizaciones/{almacenId}/...` para cotizaciones).
-  Future<String?> _uploadImageToSupabase(
-    File imageFile,
-    String almacenId,
-  ) async {
-    try {
-      AppLogger.debug(
-        '[UPLOAD] Iniciando subida de imagen de cotización...',
-        name: 'CreateQuotationPage',
-      );
+  /// Copia la imagen seleccionada a un directorio persistente para su subida
+  /// diferida (Outbox), mismo patrón que `CreateRequestPage._persistOfflineImage`.
+  /// Devuelve la ruta persistida, o `null` si no hay imagen.
+  Future<String?> _persistOfflineImage(File? image) async {
+    if (image == null) return null;
 
-      final supabase = Supabase.instance.client;
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final imagesDirectory = Directory(
+      p.join(documentsDirectory.path, 'repuestosya_pending_images'),
+    );
+    await imagesDirectory.create(recursive: true);
 
-      // Verificar sesión de autenticación
-      final session = supabase.auth.currentSession;
-      if (session == null) {
-        AppLogger.warning(
-          '[UPLOAD] No hay sesión activa. Intentando refrescar...',
-          name: 'CreateQuotationPage',
-        );
-        try {
-          await supabase.auth.refreshSession();
-          AppLogger.info(
-            '[UPLOAD] Sesión refrescada',
-            name: 'CreateQuotationPage',
-          );
-        } catch (e) {
-          AppLogger.error(
-            '[UPLOAD] Error al refrescar sesión',
-            name: 'CreateQuotationPage',
-            error: e,
-          );
-          return null;
-        }
-      }
+    final extension = p.extension(image.path);
+    final persistentPath = p.join(
+      imagesDirectory.path,
+      'cotizacion_${const Uuid().v4()}$extension',
+    );
+    final persistedImage = await image.copy(persistentPath);
+    return persistedImage.path;
+  }
 
-      // Generar nombre único y ruta por dominio funcional.
-      // Patrón unificado con solicitudes:
-      //   solicitudes  -> evidencias/solicitudes/{clienteId}/solicitud_{ts}.jpg
-      //   cotizaciones -> evidencias/cotizaciones/{almacenId}/cotizacion_{ts}.jpg
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'cotizacion_$timestamp.jpg';
-      final filePath = 'evidencias/cotizaciones/$almacenId/$fileName';
-      AppLogger.debug(
-        '[UPLOAD] FilePath: $filePath (${await imageFile.length()} bytes)',
-        name: 'CreateQuotationPage',
-      );
+  /// Detecta si el dispositivo está sin conexión de red.
+  Future<bool> _isOffline() async {
+    final connectivityResults = await Connectivity().checkConnectivity();
+    return connectivityResults.any(
+      (result) => result == ConnectivityResult.none,
+    );
+  }
 
-      // Subir al bucket `Repuestosya` (mismo bucket que solicitudes)
-      await supabase.storage
-          .from('Repuestosya')
-          .upload(
-            filePath,
-            imageFile,
-            fileOptions: const FileOptions(
-              cacheControl: '3600',
-              upsert: false,
-              contentType: 'image/jpeg',
-            ),
-          );
-
-      // Obtener URL pública (mismo patrón que solicitudes)
-      final publicUrl = supabase.storage
-          .from('Repuestosya')
-          .getPublicUrl(filePath);
-
-      AppLogger.info(
-        '[UPLOAD] URL pública: $publicUrl',
-        name: 'CreateQuotationPage',
-      );
-
-      return publicUrl;
-    } catch (e, stackTrace) {
-      AppLogger.error(
-        '[UPLOAD] Error al subir imagen de cotización',
-        name: 'CreateQuotationPage',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return null;
+  /// Abre la imagen en pantalla completa con zoom. Soporta URL de red,
+  /// rutas locales absolutas (legacy) y prefijo `file://`.
+  void _openFullImage(String imagePath) {
+    if (!mounted) return;
+    final path = imagePath.trim();
+    if (path.startsWith('file://')) {
+      RyFullImageViewer.showFile(context, File(path.substring(7)));
+    } else if (path.startsWith('/')) {
+      RyFullImageViewer.showFile(context, File(path));
+    } else {
+      RyFullImageViewer.showNetwork(context, path);
     }
   }
 
@@ -149,13 +110,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       _isSubmitting = true;
     });
 
+    // Declaradas fuera del try para poder usarlas en el catch (error de red
+    // a mitad de envío → diferir a Outbox).
+    String solicitudId = '';
+    String almacenId = '';
+    String? uploadedImageUrl;
+
     try {
       final Map<String, dynamic> objetoInterno =
           widget.solicitud['solicitud'] is Map<String, dynamic>
           ? widget.solicitud['solicitud'] as Map<String, dynamic>
           : {};
 
-      final String solicitudId =
+      solicitudId =
           objetoInterno['id']?.toString() ??
           widget.solicitud['solicitud_id']?.toString() ??
           widget.solicitud['id']?.toString() ??
@@ -168,8 +135,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       }
 
       // Obtener el almacén ANTES de subir la imagen, porque el path de
-      // Storage ahora se segmenta por dominio funcional:
-      //   evidencias/cotizaciones/{almacenId}/cotizacion_{timestamp}.jpg
+      // Storage se segmenta por dominio funcional:
+      //   evidencias/cotizaciones/{almacenId}/...
       final almacen = await _almacenService.obtenerMiAlmacen();
       if (almacen == null) {
         throw Exception(
@@ -177,44 +144,49 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         );
       }
 
-      final String almacenId = almacen['id']?.toString() ?? '';
+      almacenId = almacen['id']?.toString() ?? '';
       if (almacenId.isEmpty || almacenId == 'null') {
         throw Exception('El ID del almacén es inválido o está vacío.');
       }
 
-      // Subir imagen (si hay) usando el path unificado por dominio.
-      // Si la subida falla, no se crea la cotización: se informa al usuario
-      // (mismo patrón que CreateRequestPage._handleSubmit).
-      String? uploadedImageUrl;
-      if (_selectedImage != null) {
-        uploadedImageUrl = await _uploadImageToSupabase(
+      final double precio = double.tryParse(_priceController.text) ?? 0.0;
+      final String notas = _notesController.text.trim();
+
+      // Modo offline: no se intenta la subida directa; todo pasa por Outbox.
+      final bool offline = await _isOffline();
+
+      bool enqueueForLater = offline;
+
+      if (_selectedImage != null && !offline) {
+        // Subida directa a Supabase Storage (mismo servicio que solicitudes).
+        uploadedImageUrl = await UploadService().uploadQuotationImage(
           _selectedImage!,
           almacenId,
         );
-
         if (uploadedImageUrl == null || uploadedImageUrl.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'No se pudo subir la imagen. Verifica tu conexión e inténtalo de nuevo.',
-                ),
-                backgroundColor: AppColors.error,
-              ),
-            );
-          }
-          setState(() => _isSubmitting = false);
-          return;
+          // Subida online fallida (red): se difiere a Outbox en vez de
+          // descartar la foto (hallazgo [10]).
+          enqueueForLater = true;
         }
+      }
+
+      if (enqueueForLater) {
+        await _encolarCotizacionOffline(
+          solicitudId: solicitudId,
+          almacenId: almacenId,
+          precio: precio,
+          notas: notas,
+          fotoUrlAlreadyUploaded: uploadedImageUrl,
+        );
+        return;
       }
 
       // Consumo del servicio con los nombres y valores en español ya homologados
       await _solicitudService.crearCotizacion(
         solicitudId: solicitudId,
         almacenId: almacenId,
-        precio: double.tryParse(_priceController.text) ?? 0.0,
-        notas: _notesController.text
-            .trim(), // CORRECCIÓN: "notas" en lugar de "notes"
+        precio: precio,
+        notas: notas,
         fotoUrl: uploadedImageUrl,
         tiempoEntrega: _selectedDeliveryTime,
         estadoRepuesto: _selectedCondition,
@@ -226,6 +198,31 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         });
         context.pop(true);
       }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      // Errores de negocio (422/403/400/404): no se encola, se informa.
+      if (e.statusCode != null && e.statusCode != 0 && e.statusCode != 504) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error al procesar la cotización: '
+              '${ApiErrorHandler.userMessage(e)}',
+            ),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+      // Error de red en el POST (la foto ya quedó subida): diferir a Outbox.
+      await _encolarCotizacionOffline(
+        solicitudId: solicitudId,
+        almacenId: almacenId,
+        precio: double.tryParse(_priceController.text) ?? 0.0,
+        notas: _notesController.text.trim(),
+        fotoUrlAlreadyUploaded: uploadedImageUrl,
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -243,6 +240,96 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         );
       }
     }
+  }
+
+  /// Encola la cotización en el Outbox (registro atómico Drift + Outbox) y
+  /// avisa que se enviará al recuperar la conexión.
+  Future<void> _encolarCotizacionOffline({
+    required String solicitudId,
+    required String almacenId,
+    required double precio,
+    required String notas,
+    String? fotoUrlAlreadyUploaded,
+  }) async {
+    // Capturado antes de cualquier await para no usar el context a través de
+    // un async gap.
+    final outboxService = context.read<OutboxService>();
+
+    // Si la subida online ya ocurrió pero el POST falló por red, se guarda la
+    // URL remota en el payload y el SyncEngine no re-subirá la foto (evita
+    // duplicados en Storage). En caso contrario se persiste el archivo local.
+    String? persistentImagePath;
+    String? fotoUrl = fotoUrlAlreadyUploaded;
+
+    if (fotoUrl == null && _selectedImage != null) {
+      persistentImagePath = await _persistOfflineImage(_selectedImage);
+      if (persistentImagePath != null) {
+        fotoUrl = 'file://$persistentImagePath';
+      }
+    }
+
+    final payload = {
+      'solicitud_id': solicitudId,
+      'almacen_id': almacenId,
+      'precio': precio,
+      'condicion_repuesto': _selectedCondition,
+      'notas': notas,
+      'tiempo_entrega_estimado': _selectedDeliveryTime,
+      'foto_evidencia_url': fotoUrl,
+      'local_image_path': ?persistentImagePath,
+    };
+
+    try {
+      await outboxService.enqueueCotizacion(
+        payload: payload,
+        localQuotation: (clientId) => CotizacionPendiente(
+          id: clientId,
+          clientId: clientId,
+          solicitudId: solicitudId,
+          almacenId: almacenId,
+          precio: precio,
+          condicion: _selectedCondition,
+          fotoUrl: fotoUrl,
+          notas: notas,
+          tiempoEntrega: _selectedDeliveryTime,
+          estado: 'pendiente',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          synced: false,
+        ),
+      );
+    } catch (_) {
+      if (persistentImagePath != null) {
+        try {
+          await File(persistentImagePath).delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Guardado localmente'),
+        content: const Text(
+          'Tu cotización se ha guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.pop(true);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -319,6 +406,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSummaryCard(piezaNombre, descripcion),
+                          _buildAdditionalPartsSection(objetoInterno),
                           const SizedBox(height: AppSpacing.spacingLg),
 
                           // SECCIÓN DE ESPECIFICACIONES TÉCNICAS Y VIN
@@ -392,6 +480,23 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
+  Widget _buildAdditionalPartsSection(Map<String, dynamic> solicitud) {
+    final additionalPartsSummary = solicitud['descripcion_problema']
+        ?.toString();
+    if (RyAdditionalPartsList.parse(additionalPartsSummary).isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingLg),
+      child: RySectionCard(
+        title: 'Repuestos adicionales solicitados',
+        icon: Icons.build_outlined,
+        children: [RyAdditionalPartsList(summary: additionalPartsSummary)],
+      ),
+    );
+  }
+
   Widget _buildSummaryCard(String title, String subtitle) {
     final Map<String, dynamic> objetoInterno =
         widget.solicitud['solicitud'] is Map<String, dynamic>
@@ -403,6 +508,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         objetoInterno['image_url'] ??
         widget.solicitud['foto_url'] ??
         widget.solicitud['image_url'];
+    final bool hasImage = urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -413,58 +519,100 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-              border: Border.all(color: AppColors.outlineVariant, width: 1),
-            ),
-            child: (urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty)
-                ? ClipRRect(
-                    // ajuste fino intencional: 1px menos que el radio del borde exterior
-                    borderRadius: BorderRadius.circular(AppRadius.radiusSm - 1),
-                    child: urlDeLaImagen.trim().startsWith('/')
-                        ? Image.file(
-                            File(urlDeLaImagen.trim()),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                                  Icons.precision_manufacturing,
-                                  color: AppColors.primaryContainer,
-                                  size: 32,
-                                ),
-                          )
-                        : Image.network(
-                            urlDeLaImagen.trim(),
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                                  Icons.precision_manufacturing,
-                                  color: AppColors.primaryContainer,
-                                  size: 32,
-                                ),
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primary,
+          // Foto de la solicitud: tap para ver en pantalla completa (igual o
+          // mejor que la vista del cliente cuando recibe la cotización).
+          Semantics(
+            button: hasImage,
+            label: hasImage
+                ? 'Ver foto de la solicitud en pantalla completa'
+                : 'Sin foto de la solicitud',
+            child: GestureDetector(
+              onTap: hasImage ? () => _openFullImage(urlDeLaImagen) : null,
+              child: Stack(
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                      border: Border.all(
+                        color: AppColors.outlineVariant,
+                        width: 1,
+                      ),
+                    ),
+                    child: hasImage
+                        ? ClipRRect(
+                            // ajuste fino intencional: 1px menos que el radio del borde exterior
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.radiusSm - 1,
+                            ),
+                            child: urlDeLaImagen.trim().startsWith('/')
+                                ? Image.file(
+                                    File(urlDeLaImagen.trim()),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(
+                                          Icons.precision_manufacturing,
+                                          color: AppColors.primaryContainer,
+                                          size: 32,
+                                        ),
+                                  )
+                                : Image.network(
+                                    urlDeLaImagen.trim(),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(
+                                          Icons.precision_manufacturing,
+                                          color: AppColors.primaryContainer,
+                                          size: 32,
+                                        ),
+                                    loadingBuilder:
+                                        (context, child, loadingProgress) {
+                                          if (loadingProgress == null) {
+                                            return child;
+                                          }
+                                          return const Center(
+                                            child: SizedBox(
+                                              width: 16,
+                                              height: 16,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          );
+                                        },
                                   ),
-                                ),
-                              );
-                            },
+                          )
+                        : const Icon(
+                            Icons.precision_manufacturing,
+                            color: AppColors.primaryContainer,
+                            size: 32,
                           ),
-                  )
-                : const Icon(
-                    Icons.precision_manufacturing,
-                    color: AppColors.primaryContainer,
-                    size: 32,
                   ),
+                  // Badge de "ver completa" para descubribilidad del tap.
+                  if (hasImage)
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.open_in_full,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
@@ -877,6 +1025,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           onRemove: () {
             setState(() => _selectedImage = null);
           },
+          // Ver la evidencia seleccionada en pantalla completa antes de enviar.
+          onViewFullImage: _selectedImage != null
+              ? () => _openFullImage(_selectedImage!.path)
+              : null,
           customPlaceholder: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

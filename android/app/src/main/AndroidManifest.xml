@@ -1,10 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-<uses-permission android:name="android.permission.VIBRATE"/>
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <!-- Cámara para fotografiar la pieza (solicitudes) y el repuesto ofertado
+         (cotizaciones). Se solicita en runtime vía permission_handler antes
+         de invocar image_picker. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Sin android:name: no hay Application custom (MainActivity : FlutterActivity).
+         Se omite a proposito: el placeholder  del template no se
+         sustituye con AGP 9.0.1 (el merger emite android:name="" y AAPT falla).
+         Omitirlo equivale a android.app.Application (ver BaseApplicationNameHandler). -->
     <application
         android:label="repuestosya"
-        android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

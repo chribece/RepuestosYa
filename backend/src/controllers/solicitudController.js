@@ -1,16 +1,13 @@
 const supabase = require('../services/supabase');
 const { getOrSet, invalidatePattern } = require('../services/cache');
+const {
+  validationError,
+  validationErrors,
+  validateImageUrl
+} = require('../utils/validation');
 
-// Helpers para normalización de errores de validación (422)
-const validationError = (field, message) => ({
-  message: 'Errores de validación',
-  errors: [{ field, message }]
-});
-
-const validationErrors = (errors) => ({
-  message: 'Errores de validación',
-  errors
-});
+// Shape de respuesta con las relaciones que necesita el cliente.
+const SOLICITUD_SELECT = '*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))';
 
 /**
  * ESTRATEGIA DE CARGA DE DATOS
@@ -147,7 +144,8 @@ const createSolicitud = async (req, res) => {
       categoria_id,
       repuesto_id,
       repuesto_nombre_snapshot,
-      descripcion_problema
+      descripcion_problema,
+      idempotency_key
     } = req.body;
 
     const errors = [];
@@ -199,6 +197,30 @@ const createSolicitud = async (req, res) => {
       return res.status(422).json(validationErrors(errors));
     }
 
+    // 1b. Validar la URL de la foto (si se envía): debe pertenecer al Storage
+    // del proyecto y el objeto debe existir con Content-Type image/* y
+    // tamaño <= 10 MB. Errores normalizados 422 como el resto del contrato.
+    if (foto_url) {
+      const imageCheck = await validateImageUrl(foto_url);
+      if (!imageCheck.valid) {
+        return res.status(422).json(validationError('foto_url', imageCheck.message));
+      }
+    }
+
+    // 1c. Idempotencia (Outbox): si la key ya fue procesada, devolver el
+    // registro existente en lugar de crear uno nuevo (idempotent replay).
+    if (idempotency_key) {
+      const { data: existing, error: existingError } = await supabase
+        .from('solicitudes_repuesto')
+        .select(SOLICITUD_SELECT)
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle();
+
+      if (!existingError && existing) {
+        return res.status(200).json(existing);
+      }
+    }
+
     // 2. Validar que el repuesto exista, esté activo y pertenezca a la categoría
     const { data: repuesto, error: repuestoError } = await supabase
       .from('repuestos_catalogo')
@@ -238,14 +260,32 @@ const createSolicitud = async (req, res) => {
       descripcion_problema
     };
 
+    if (idempotency_key) {
+      data.idempotency_key = idempotency_key;
+    }
+
     // 4. Inserción con manejo de errores de base de datos (422 si es FK violation)
     const { data: solicitud, error } = await supabase
       .from('solicitudes_repuesto')
       .insert(data)
-      .select('*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))')
+      .select(SOLICITUD_SELECT)
       .single();
 
     if (error) {
+      // Idempotencia: si otro intento con la misma key ya insertó el registro
+      // (carrera entre reintentos), devolver el existente en lugar de fallar.
+      if (error.code === '23505' && idempotency_key) {
+        const { data: existing } = await supabase
+          .from('solicitudes_repuesto')
+          .select(SOLICITUD_SELECT)
+          .eq('idempotency_key', idempotency_key)
+          .maybeSingle();
+
+        if (existing) {
+          return res.status(200).json(existing);
+        }
+      }
+
       // Manejo específico de errores de integridad referencial
       if (error.code === '23503') {
         if (error.message.includes('vehiculo_id')) {

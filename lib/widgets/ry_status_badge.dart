@@ -228,7 +228,17 @@ class RyStatusBadge extends StatelessWidget {
           border: borderSide != null ? Border.fromBorderSide(borderSide) : null,
           borderRadius: BorderRadius.circular(AppRadius.radiusSm),
         ),
-        child: Text(label, style: textStyle.copyWith(color: textColor)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (status.toLowerCase() == 'urgente' ||
+                status.toLowerCase() == 'urgent') ...[
+              Icon(Icons.warning_amber_rounded, size: 16, color: textColor),
+              const SizedBox(width: AppSpacing.spacingXxs),
+            ],
+            Text(label, style: textStyle.copyWith(color: textColor)),
+          ],
+        ),
       ),
     );
   }

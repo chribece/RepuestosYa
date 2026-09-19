@@ -381,9 +381,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                               child: RyPartCard(
                                 partName: solicitudLocal.piezaNombre,
                                 imageUrl: solicitudLocal.fotoUrl,
-                                vehicleInfo: solicitudLocal.synced
-                                    ? 'Sincronizado'
-                                    : 'Pendiente de envío',
+                                vehicleInfo: null,
                                 description: solicitudLocal.descripcion,
                                 status: estado,
                                 createdAt: solicitudLocal

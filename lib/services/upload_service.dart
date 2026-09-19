@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/app_logger.dart';
 
@@ -8,11 +9,54 @@ class UploadService {
   UploadService._internal();
 
   /// Sube una imagen al bucket `Repuestosya` bajo la ruta:
-  /// `evidencias/solicitudes/{clienteId}/solicitud_{timestamp}.jpg`
-  Future<String?> uploadRequestImage(File imageFile, String clienteId) async {
+  /// `evidencias/solicitudes/{clienteId}/solicitud_{key}.{ext}`
+  ///
+  /// [idempotencyKey] (UUID del Outbox) determina el nombre del objeto: un
+  /// reintento con la misma key sobrescribe el MISMO objeto (upsert) en vez
+  /// de crear un duplicado (corrige el hallazgo [12]). Sin key se usa un
+  /// timestamp y `upsert: false`.
+  Future<String?> uploadRequestImage(
+    File imageFile,
+    String clienteId, {
+    String? idempotencyKey,
+  }) {
+    return _upload(
+      imageFile,
+      folder: 'solicitudes',
+      ownerId: clienteId,
+      prefix: 'solicitud',
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  /// Sube una imagen al bucket `Repuestosya` bajo la ruta:
+  /// `evidencias/cotizaciones/{almacenId}/cotizacion_{key}.{ext}`
+  ///
+  /// Mismo patrón que [uploadRequestImage], segmentado por dominio funcional.
+  Future<String?> uploadQuotationImage(
+    File imageFile,
+    String almacenId, {
+    String? idempotencyKey,
+  }) {
+    return _upload(
+      imageFile,
+      folder: 'cotizaciones',
+      ownerId: almacenId,
+      prefix: 'cotizacion',
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  Future<String?> _upload(
+    File imageFile, {
+    required String folder,
+    required String ownerId,
+    required String prefix,
+    String? idempotencyKey,
+  }) async {
     try {
       AppLogger.debug(
-        '[UPLOAD] Iniciando subida de imagen de solicitud...',
+        '[UPLOAD] Iniciando subida de imagen ($folder)...',
         name: 'UploadService',
       );
 
@@ -38,10 +82,14 @@ class UploadService {
         }
       }
 
-      // Generar nombre único
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final fileName = 'solicitud_$timestamp.jpg';
-      final filePath = 'evidencias/solicitudes/$clienteId/$fileName';
+      // Nombre determinista con la key de idempotencia (reintentos → mismo
+      // objeto, sin duplicados) o timestamp como fallback. Se conserva la
+      // extensión real del archivo y el contentType correspondiente en vez de
+      // forzar siempre .jpg/image/jpeg.
+      final ext = _extensionFor(imageFile);
+      final namePart = idempotencyKey ?? '${DateTime.now().millisecondsSinceEpoch}';
+      final fileName = '${prefix}_$namePart.$ext';
+      final filePath = 'evidencias/$folder/$ownerId/$fileName';
 
       // Subir al bucket `Repuestosya`
       await supabase.storage
@@ -49,10 +97,12 @@ class UploadService {
           .upload(
             filePath,
             imageFile,
-            fileOptions: const FileOptions(
+            fileOptions: FileOptions(
               cacheControl: '3600',
-              upsert: false,
-              contentType: 'image/jpeg',
+              // Con key determinista, un reintento sobrescribe el mismo
+              // objeto; sin key, los nombres por timestamp nunca chocan.
+              upsert: idempotencyKey != null,
+              contentType: _contentTypeFor(ext),
             ),
           );
 
@@ -75,6 +125,36 @@ class UploadService {
         stackTrace: stackTrace,
       );
       return null;
+    }
+  }
+
+  /// Extensión real del archivo sin el punto (p. ej. `jpg`, `png`, `heic`).
+  /// Fallback a `jpg` si no se puede determinar.
+  String _extensionFor(File file) {
+    final ext = p.extension(file.path).toLowerCase();
+    if (ext.isEmpty) return 'jpg';
+    return ext.substring(1);
+  }
+
+  /// Mapea la extensión real al `contentType` correcto para Storage.
+  String _contentTypeFor(String ext) {
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'heic':
+        return 'image/heic';
+      case 'heif':
+        return 'image/heif';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'jpg':
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
     }
   }
 }

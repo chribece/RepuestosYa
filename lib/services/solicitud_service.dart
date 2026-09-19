@@ -126,6 +126,7 @@ class SolicitudService {
     String? repuestoId,
     String? repuestoNombreSnapshot,
     String? descripcionProblema,
+    String? idempotencyKey,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -153,6 +154,12 @@ class SolicitudService {
       }
       if (descripcionProblema != null) {
         data['descripcion_problema'] = descripcionProblema;
+      }
+
+      // Idempotencia del Outbox: un reintento post-crash no duplica el
+      // registro remoto (brecha B10); el backend responde el existente.
+      if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+        data['idempotency_key'] = idempotencyKey;
       }
 
       final response = await _apiClient.post(
@@ -230,6 +237,7 @@ class SolicitudService {
     String? fotoUrl,
     required String tiempoEntrega,
     String? estadoRepuesto,
+    String? idempotencyKey,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -250,6 +258,11 @@ class SolicitudService {
         data['condicion_repuesto'] = estadoRepuesto;
         data['estado_repuesto'] = estadoRepuesto;
         data['condicion'] = estadoRepuesto;
+      }
+
+      // Idempotencia del Outbox de cotizaciones (mismo patrón que solicitudes).
+      if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+        data['idempotency_key'] = idempotencyKey;
       }
 
       final response = await _apiClient.post(

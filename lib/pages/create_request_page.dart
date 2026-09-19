@@ -951,7 +951,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           backgroundColor: AppColors.surfaceContainerHigh,
           title: const Text('¡Solicitud Enviada!'),
           content: const Text(
-            'Tu solicitud ha sido enviada. Te notificaremos cuando recibas ofertas.',
+            'Los proveedores se encuentran revisando tu solicitud. Pronto recibirás respuesta en tu bandeja de cotizaciones. Te notificaremos cuando recibas ofertas.',
           ),
           actions: [
             TextButton(

@@ -1,20 +1,45 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
-import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
+import '../services/geocoding_service.dart';
+import '../services/ubicacion_service.dart';
 import '../widgets/ry_text_field.dart';
+import '../widgets/ry_button.dart';
+import '../widgets/ry_location_picker.dart';
+import '../widgets/flujo_ubicacion.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../router/route_names.dart';
 
+/// Formulario de registro/completado del perfil de almacén.
+///
+/// La ubicación se define con el selector visual embebido (Opción A):
+/// - Mapa interactivo con pin arrastrable (long-press) y tap-to-move,
+///   etiquetado "Ubicación del Almacén", + botón "Usar mi ubicación actual".
+/// - Al mover el pin o usar el GPS se hace reverse geocoding (Nominatim) y la
+///   "Dirección" se presurtiene automáticamente si está vacía (o no fue
+///   editada por el usuario).
+/// - Las coordenadas se guardan internamente en el estado al mover el pin;
+///   NO hay inputs de latitud/longitud visibles.
 class CompleteProfilePage extends StatefulWidget {
-  const CompleteProfilePage({super.key});
+  const CompleteProfilePage({
+    super.key,
+    this.ubicacionService,
+    this.geocodingService,
+  });
+
+  /// Inyectables para tests; por defecto servicios reales.
+  final UbicacionService? ubicacionService;
+  final GeocodingService? geocodingService;
 
   @override
   State<CompleteProfilePage> createState() => _CompleteProfilePageState();
@@ -28,12 +53,24 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
-  final TextEditingController _latController = TextEditingController(
-    text: '0.0',
-  );
-  final TextEditingController _lonController = TextEditingController(
-    text: '0.0',
-  );
+
+  late final UbicacionService _ubicacionService =
+      widget.ubicacionService ?? UbicacionService();
+  late final GeocodingService _geocodingService =
+      widget.geocodingService ?? GeocodingService();
+
+  // Ubicación del almacén (se guarda internamente, sin inputs visibles).
+  double? _lat;
+  double? _lng;
+  bool get _ubicacionFijada => _lat != null && _lng != null;
+
+  // Autocompletado de la Dirección desde el mapa (reverse geocoding).
+  Timer? _debounceTimer;
+  int _autocompletarSeq = 0;
+  bool _aplicandoAutocompletado = false;
+  bool _direccionEditadaPorUsuario = false;
+  bool _direccionAutocompletada = false;
+  bool _autocompletando = false;
 
   bool _isSubmitting = false;
   bool _isConfirmingExit = false;
@@ -41,10 +78,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final AuthService _authService = AuthService();
   late final AlmacenService _almacenService;
 
+  // Centro inicial del mapa: núcleo urbano de Quito (alcance actual).
+  static const LatLng _centroInicialQuito = LatLng(-0.2201, -78.5128);
+
   @override
   void initState() {
     super.initState();
     _almacenService = AlmacenService(context.read<AlmacenRepository>());
+    _direccionController.addListener(_onDireccionCambio);
     // Pre-llenar el nombre del representante desde el auth
     final currentUser = _authService.currentUser;
     if (currentUser?.nombreCompleto != null) {
@@ -54,18 +95,108 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _nombreController.dispose();
     _rucController.dispose();
     _representanteController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
-    _latController.dispose();
-    _lonController.dispose();
     super.dispose();
+  }
+
+  void _onDireccionCambio() {
+    if (_aplicandoAutocompletado) return;
+    if (_direccionController.text.isEmpty) {
+      // Borró el autocompletado: vuelve a permitir autocompletar.
+      _direccionEditadaPorUsuario = false;
+      _direccionAutocompletada = false;
+    } else {
+      _direccionEditadaPorUsuario = true;
+      _direccionAutocompletada = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _usarUbicacionActual() async {
+    // Flujo compartido: progreso → Reintentar / Abrir Ajustes / manual.
+    final resultado = await flujoUbicacionGps(context, _ubicacionService);
+    if (!mounted) return;
+    if (resultado.disponible) {
+      setState(() {
+        _lat = resultado.latitude;
+        _lng = resultado.longitude;
+      });
+      _solicitarAutocompletadoDireccion(
+        resultado.latitude!,
+        resultado.longitude!,
+      );
+    }
+    // Si el GPS no resuelve: el usuario escribe la dirección (el backend la
+    // geocodifica al registrar el almacén).
+  }
+
+  /// Debounce del reverse geocoding: al arrastrar el pin se disparan muchos
+  /// eventos; solo se consulta tras 700ms de reposo (respetando el límite de
+  /// uso de Nominatim).
+  void _solicitarAutocompletadoDireccion(double lat, double lng) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 700),
+      () => _autocompletarDireccion(lat, lng),
+    );
+  }
+
+  Future<void> _autocompletarDireccion(double lat, double lng) async {
+    final seq = ++_autocompletarSeq;
+    if (mounted) setState(() => _autocompletando = true);
+    final resultado =
+        await _geocodingService.reverseGeocode(lat: lat, lng: lng);
+    if (!mounted || seq != _autocompletarSeq) return;
+
+    setState(() {
+      _autocompletando = false;
+      if (resultado == null) return; // degradación: el usuario escribe
+      if (_direccionEditadaPorUsuario) return;
+
+      final partes = <String>[
+        if (resultado.callePrincipal != null &&
+            resultado.callePrincipal!.isNotEmpty)
+          resultado.callePrincipal!,
+        if (resultado.referencia != null && resultado.referencia!.isNotEmpty)
+          resultado.referencia!,
+      ];
+      final texto = partes.join(', ');
+      if (texto.isEmpty) return;
+
+      _aplicandoAutocompletado = true;
+      _direccionController.text = texto;
+      _aplicandoAutocompletado = false;
+      _direccionAutocompletada = true;
+    });
+  }
+
+  void _moverPin(LatLng latLng) {
+    setState(() {
+      _lat = latLng.latitude;
+      _lng = latLng.longitude;
+    });
+    // Reverse geocoding en vivo (debounced) para presurtir la Dirección.
+    _solicitarAutocompletadoDireccion(latLng.latitude, latLng.longitude);
   }
 
   Future<void> _completarPerfil() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // La ubicación en el mapa es obligatoria para un almacén comercial.
+    if (!_ubicacionFijada) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ubica tu almacén en el mapa antes de continuar.'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
 
     setState(() => _fieldErrors = {});
 
@@ -89,8 +220,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         'telefono': _telefonoController.text.trim(),
         'email': _authService.currentUser?.email ?? '',
         'direccion_texto': _direccionController.text.trim(),
-        'latitude': double.tryParse(_latController.text) ?? 0.0,
-        'longitude': double.tryParse(_lonController.text) ?? 0.0,
+        'latitude': _lat,
+        'longitude': _lng,
       });
 
       if (mounted) {
@@ -233,19 +364,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   const SizedBox(height: AppSpacing.spacingLg),
                   _buildTelefonoField(),
                   const SizedBox(height: AppSpacing.spacingLg),
-                  _buildDireccionField(),
+                  // Ubicación: mapa embebido (reemplaza a lat/lng).
+                  _buildUbicacionAlmacen(),
                   const SizedBox(height: AppSpacing.spacingLg),
-                  Row(
-                    children: [
-                      Expanded(child: _buildLatField()),
-                      const SizedBox(width: AppSpacing.spacingMd),
-                      Expanded(child: _buildLonField()),
-                    ],
-                  ),
+                  _buildDireccionField(),
                   const SizedBox(height: AppSpacing.spacingXl),
                   _buildCompleteButton(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildInfoBox(),
                 ],
               ),
             ),
@@ -353,6 +477,133 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     );
   }
 
+  /// Selector de ubicación embebido: mapa con pin arrastrable + botón GPS.
+  /// Las coordenadas se guardan internamente al mover el pin; sin inputs de
+  /// latitud/longitud visibles.
+  Widget _buildUbicacionAlmacen() {
+    final pin = _ubicacionFijada
+        ? LatLng(_lat!, _lng!)
+        : _centroInicialQuito;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.storefront_outlined,
+                size: 18,
+                color: AppColors.primaryContainer,
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Text(
+                'Ubicación del Almacén',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              if (_ubicacionFijada)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingXs,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                    border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.verified,
+                        color: SemanticColors.colorSuccess,
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Ubicación fijada',
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: SemanticColors.colorSuccess,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyLocationMapPicker(
+            initialPosition: pin,
+            height: 220,
+            // Sin pin fantasma: el marcador aparece cuando el usuario toca el
+            // mapa o cuando el GPS/GPS fija la posición (showPin). Al resolver
+            // el GPS, el picker recentra la cámara en el punto automáticamente.
+            showPin: _ubicacionFijada,
+            // Al mover el pin se guardan las coordenadas internamente y se
+            // dispara el reverse geocoding (debounced) para presurtir la
+            // Dirección. NO se pide al usuario interactuar con números.
+            onChanged: _moverPin,
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyButton(
+            label: 'Usar mi ubicación actual',
+            icon: Icons.my_location,
+            variant: RyButtonVariant.primary,
+            isFullWidth: true,
+            onPressed: _usarUbicacionActual,
+          ),
+          if (_autocompletando || _direccionAutocompletada) ...[
+            const SizedBox(height: AppSpacing.spacingXs),
+            Row(
+              children: [
+                _autocompletando
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.edit_location_alt_outlined,
+                        size: 16,
+                        color: AppColors.secondary,
+                      ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Expanded(
+                  child: Text(
+                    _autocompletando
+                        ? 'Obteniendo la dirección desde el mapa…'
+                        : 'Dirección autocompletada desde el mapa. Revisa y corrige.',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildDireccionField() {
     return RyTextField(
       label: 'Dirección',
@@ -360,68 +611,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       controller: _direccionController,
       maxLines: 3,
       isRequired: true,
+      errorText: _fieldErrors['direccion_texto'],
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'La dirección es requerida';
         }
         if (value.trim().length < 5) {
           return 'La dirección debe tener al menos 5 caracteres';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildLatField() {
-    return RyTextField(
-      label: 'Latitud',
-      hint: '0.0',
-      controller: _latController,
-      keyboardType: const TextInputType.numberWithOptions(
-        decimal: true,
-        signed: true,
-      ),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
-      ],
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return null; // Optional field
-        }
-        final lat = double.tryParse(value.trim());
-        if (lat == null) {
-          return 'Ingresa un número válido';
-        }
-        if (lat < -90 || lat > 90) {
-          return 'Latitud debe estar entre -90 y 90';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _buildLonField() {
-    return RyTextField(
-      label: 'Longitud',
-      hint: '0.0',
-      controller: _lonController,
-      keyboardType: const TextInputType.numberWithOptions(
-        decimal: true,
-        signed: true,
-      ),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d+')),
-      ],
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return null; // Optional field
-        }
-        final lon = double.tryParse(value.trim());
-        if (lon == null) {
-          return 'Ingresa un número válido';
-        }
-        if (lon < -180 || lon > 180) {
-          return 'Longitud debe estar entre -180 y 180';
         }
         return null;
       },
@@ -486,35 +682,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   ),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildInfoBox() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
-          const SizedBox(width: AppSpacing.spacingSm),
-          Expanded(
-            child: Text(
-              'Las coordenadas son opcionales. Puedes actualizarlas más tarde desde tu perfil.',
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

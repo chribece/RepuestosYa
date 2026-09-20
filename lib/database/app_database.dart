@@ -14,6 +14,12 @@ class Solicitudes extends Table {
   TextColumn get estado => text()();
   TextColumn get descripcion => text().nullable()();
   TextColumn get fotoUrl => text().nullable()();
+  // Coordenadas de entrega persistidas en columnas dedicadas (además del
+  // JSON del payload del Outbox): permiten leer la ubicación de una
+  // solicitud pendiente sin parsear el payload. locationSource: 'gps'|'manual'.
+  RealColumn get latitude => real().nullable()();
+  RealColumn get longitude => real().nullable()();
+  TextColumn get locationSource => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()(); // Server timestamp
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
@@ -136,7 +142,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase._internal() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9; // Aumentado a 9
+  int get schemaVersion => 10; // v10: columnas de coordenadas en Solicitudes
 
   @override
   MigrationStrategy get migration {
@@ -169,6 +175,11 @@ class AppDatabase extends _$AppDatabase {
         if (from < 9) {
           await m.addColumn(outbox, outbox.idempotencyKey);
           await m.createTable(cotizacionesPendientes);
+        }
+        if (from < 10) {
+          await m.addColumn(solicitudes, solicitudes.latitude);
+          await m.addColumn(solicitudes, solicitudes.longitude);
+          await m.addColumn(solicitudes, solicitudes.locationSource);
         }
       },
       beforeOpen: (details) async {

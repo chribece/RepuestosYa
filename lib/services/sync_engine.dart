@@ -225,6 +225,17 @@ class SyncEngine {
       }
     }
 
+    // Coordenadas GPS capturadas offline (opcionales): si no vienen, el
+    // backend geocodifica la dirección server-side al sincronizar.
+    final payloadLatitude = payload['latitude'];
+    final payloadLongitude = payload['longitude'];
+    final double? latitude = payloadLatitude is num
+        ? payloadLatitude.toDouble()
+        : double.tryParse(payloadLatitude?.toString() ?? '');
+    final double? longitude = payloadLongitude is num
+        ? payloadLongitude.toDouble()
+        : double.tryParse(payloadLongitude?.toString() ?? '');
+
     final response = await _solicitudService.crearSolicitud(
       clienteId: payload['cliente_id'],
       vehiculoId: payload['vehiculo_id'],
@@ -238,6 +249,10 @@ class SyncEngine {
       repuestoNombreSnapshot: payload['repuesto_nombre_snapshot'],
       descripcionProblema: payload['descripcion_problema'],
       idempotencyKey: idempotencyKey,
+      latitude: latitude,
+      longitude: longitude,
+      coordenadasFuente:
+          payload['coordenadas_fuente']?.toString() ?? 'gps',
     );
 
     final serverSolicitud = Solicitud(response);

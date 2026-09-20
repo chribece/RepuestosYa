@@ -104,6 +104,39 @@ class $SolicitudesTable extends Solicitudes
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _locationSourceMeta = const VerificationMeta(
+    'locationSource',
+  );
+  @override
+  late final GeneratedColumn<String> locationSource = GeneratedColumn<String>(
+    'location_source',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -150,6 +183,9 @@ class $SolicitudesTable extends Solicitudes
     estado,
     descripcion,
     fotoUrl,
+    latitude,
+    longitude,
+    locationSource,
     createdAt,
     updatedAt,
     synced,
@@ -234,6 +270,27 @@ class $SolicitudesTable extends Solicitudes
         fotoUrl.isAcceptableOrUnknown(data['foto_url']!, _fotoUrlMeta),
       );
     }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    }
+    if (data.containsKey('location_source')) {
+      context.handle(
+        _locationSourceMeta,
+        locationSource.isAcceptableOrUnknown(
+          data['location_source']!,
+          _locationSourceMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -301,6 +358,18 @@ class $SolicitudesTable extends Solicitudes
         DriftSqlType.string,
         data['${effectivePrefix}foto_url'],
       ),
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      ),
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      ),
+      locationSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}location_source'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -332,6 +401,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
   final String estado;
   final String? descripcion;
   final String? fotoUrl;
+  final double? latitude;
+  final double? longitude;
+  final String? locationSource;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool synced;
@@ -345,6 +417,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
     required this.estado,
     this.descripcion,
     this.fotoUrl,
+    this.latitude,
+    this.longitude,
+    this.locationSource,
     required this.createdAt,
     required this.updatedAt,
     required this.synced,
@@ -370,6 +445,15 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
     }
     if (!nullToAbsent || fotoUrl != null) {
       map['foto_url'] = Variable<String>(fotoUrl);
+    }
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
+    }
+    if (!nullToAbsent || locationSource != null) {
+      map['location_source'] = Variable<String>(locationSource);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -398,6 +482,15 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
       fotoUrl: fotoUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(fotoUrl),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
+      locationSource: locationSource == null && nullToAbsent
+          ? const Value.absent()
+          : Value(locationSource),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       synced: Value(synced),
@@ -419,6 +512,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
       estado: serializer.fromJson<String>(json['estado']),
       descripcion: serializer.fromJson<String?>(json['descripcion']),
       fotoUrl: serializer.fromJson<String?>(json['fotoUrl']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
+      locationSource: serializer.fromJson<String?>(json['locationSource']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       synced: serializer.fromJson<bool>(json['synced']),
@@ -437,6 +533,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
       'estado': serializer.toJson<String>(estado),
       'descripcion': serializer.toJson<String?>(descripcion),
       'fotoUrl': serializer.toJson<String?>(fotoUrl),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
+      'locationSource': serializer.toJson<String?>(locationSource),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'synced': serializer.toJson<bool>(synced),
@@ -453,6 +552,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
     String? estado,
     Value<String?> descripcion = const Value.absent(),
     Value<String?> fotoUrl = const Value.absent(),
+    Value<double?> latitude = const Value.absent(),
+    Value<double?> longitude = const Value.absent(),
+    Value<String?> locationSource = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? synced,
@@ -466,6 +568,11 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
     estado: estado ?? this.estado,
     descripcion: descripcion.present ? descripcion.value : this.descripcion,
     fotoUrl: fotoUrl.present ? fotoUrl.value : this.fotoUrl,
+    latitude: latitude.present ? latitude.value : this.latitude,
+    longitude: longitude.present ? longitude.value : this.longitude,
+    locationSource: locationSource.present
+        ? locationSource.value
+        : this.locationSource,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     synced: synced ?? this.synced,
@@ -491,6 +598,11 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
           ? data.descripcion.value
           : this.descripcion,
       fotoUrl: data.fotoUrl.present ? data.fotoUrl.value : this.fotoUrl,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      locationSource: data.locationSource.present
+          ? data.locationSource.value
+          : this.locationSource,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       synced: data.synced.present ? data.synced.value : this.synced,
@@ -509,6 +621,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
           ..write('estado: $estado, ')
           ..write('descripcion: $descripcion, ')
           ..write('fotoUrl: $fotoUrl, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('locationSource: $locationSource, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('synced: $synced')
@@ -527,6 +642,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
     estado,
     descripcion,
     fotoUrl,
+    latitude,
+    longitude,
+    locationSource,
     createdAt,
     updatedAt,
     synced,
@@ -544,6 +662,9 @@ class SolicitudLocal extends DataClass implements Insertable<SolicitudLocal> {
           other.estado == this.estado &&
           other.descripcion == this.descripcion &&
           other.fotoUrl == this.fotoUrl &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.locationSource == this.locationSource &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.synced == this.synced);
@@ -559,6 +680,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
   final Value<String> estado;
   final Value<String?> descripcion;
   final Value<String?> fotoUrl;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
+  final Value<String?> locationSource;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> synced;
@@ -573,6 +697,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
     this.estado = const Value.absent(),
     this.descripcion = const Value.absent(),
     this.fotoUrl = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.locationSource = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.synced = const Value.absent(),
@@ -588,6 +715,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
     required String estado,
     this.descripcion = const Value.absent(),
     this.fotoUrl = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.locationSource = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.synced = const Value.absent(),
@@ -608,6 +738,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
     Expression<String>? estado,
     Expression<String>? descripcion,
     Expression<String>? fotoUrl,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<String>? locationSource,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? synced,
@@ -623,6 +756,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
       if (estado != null) 'estado': estado,
       if (descripcion != null) 'descripcion': descripcion,
       if (fotoUrl != null) 'foto_url': fotoUrl,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (locationSource != null) 'location_source': locationSource,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (synced != null) 'synced': synced,
@@ -640,6 +776,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
     Value<String>? estado,
     Value<String?>? descripcion,
     Value<String?>? fotoUrl,
+    Value<double?>? latitude,
+    Value<double?>? longitude,
+    Value<String?>? locationSource,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<bool>? synced,
@@ -655,6 +794,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
       estado: estado ?? this.estado,
       descripcion: descripcion ?? this.descripcion,
       fotoUrl: fotoUrl ?? this.fotoUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      locationSource: locationSource ?? this.locationSource,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       synced: synced ?? this.synced,
@@ -692,6 +834,15 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
     if (fotoUrl.present) {
       map['foto_url'] = Variable<String>(fotoUrl.value);
     }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (locationSource.present) {
+      map['location_source'] = Variable<String>(locationSource.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -719,6 +870,9 @@ class SolicitudesCompanion extends UpdateCompanion<SolicitudLocal> {
           ..write('estado: $estado, ')
           ..write('descripcion: $descripcion, ')
           ..write('fotoUrl: $fotoUrl, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('locationSource: $locationSource, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('synced: $synced, ')
@@ -3717,6 +3871,9 @@ typedef $$SolicitudesTableCreateCompanionBuilder =
       required String estado,
       Value<String?> descripcion,
       Value<String?> fotoUrl,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> locationSource,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<bool> synced,
@@ -3733,6 +3890,9 @@ typedef $$SolicitudesTableUpdateCompanionBuilder =
       Value<String> estado,
       Value<String?> descripcion,
       Value<String?> fotoUrl,
+      Value<double?> latitude,
+      Value<double?> longitude,
+      Value<String?> locationSource,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<bool> synced,
@@ -3790,6 +3950,21 @@ class $$SolicitudesTableFilterComposer
 
   ColumnFilters<String> get fotoUrl => $composableBuilder(
     column: $table.fotoUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get locationSource => $composableBuilder(
+    column: $table.locationSource,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3863,6 +4038,21 @@ class $$SolicitudesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get locationSource => $composableBuilder(
+    column: $table.locationSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3925,6 +4115,17 @@ class $$SolicitudesTableAnnotationComposer
   GeneratedColumn<String> get fotoUrl =>
       $composableBuilder(column: $table.fotoUrl, builder: (column) => column);
 
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<String> get locationSource => $composableBuilder(
+    column: $table.locationSource,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -3975,6 +4176,9 @@ class $$SolicitudesTableTableManager
                 Value<String> estado = const Value.absent(),
                 Value<String?> descripcion = const Value.absent(),
                 Value<String?> fotoUrl = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> locationSource = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<bool> synced = const Value.absent(),
@@ -3989,6 +4193,9 @@ class $$SolicitudesTableTableManager
                 estado: estado,
                 descripcion: descripcion,
                 fotoUrl: fotoUrl,
+                latitude: latitude,
+                longitude: longitude,
+                locationSource: locationSource,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 synced: synced,
@@ -4005,6 +4212,9 @@ class $$SolicitudesTableTableManager
                 required String estado,
                 Value<String?> descripcion = const Value.absent(),
                 Value<String?> fotoUrl = const Value.absent(),
+                Value<double?> latitude = const Value.absent(),
+                Value<double?> longitude = const Value.absent(),
+                Value<String?> locationSource = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<bool> synced = const Value.absent(),
@@ -4019,6 +4229,9 @@ class $$SolicitudesTableTableManager
                 estado: estado,
                 descripcion: descripcion,
                 fotoUrl: fotoUrl,
+                latitude: latitude,
+                longitude: longitude,
+                locationSource: locationSource,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 synced: synced,

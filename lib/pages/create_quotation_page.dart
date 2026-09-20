@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -44,6 +45,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   File? _selectedImage;
   bool _isSubmitting = false;
 
+  // Almacén del encargado: se carga al iniciar para mostrar la distancia real
+  // almacén → punto de entrega y reutilizarlo al enviar la cotización.
+  Map<String, dynamic>? _almacen;
+
   final SolicitudService _solicitudService = SolicitudService();
   late final AlmacenService _almacenService;
 
@@ -51,6 +56,27 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   void initState() {
     super.initState();
     _almacenService = AlmacenService(context.read<AlmacenRepository>());
+    _cargarAlmacen();
+  }
+
+  Future<void> _cargarAlmacen() async {
+    try {
+      final almacen = await _almacenService.obtenerMiAlmacen();
+      if (mounted && almacen != null) {
+        setState(() => _almacen = almacen);
+      }
+    } catch (_) {
+      // La tarjeta de logística mostrará "no disponible" y el envío volverá
+      // a intentar obtener el almacén.
+    }
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String && value.trim().isNotEmpty) {
+      return double.tryParse(value.trim());
+    }
+    return null;
   }
 
   @override
@@ -137,7 +163,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       // Obtener el almacén ANTES de subir la imagen, porque el path de
       // Storage se segmenta por dominio funcional:
       //   evidencias/cotizaciones/{almacenId}/...
-      final almacen = await _almacenService.obtenerMiAlmacen();
+      final almacen =
+          _almacen ?? await _almacenService.obtenerMiAlmacen();
       if (almacen == null) {
         throw Exception(
           'No tienes un almacén asociado. Por favor, completa tu perfil comercial.',
@@ -418,6 +445,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           _buildConditionDropdown(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildDeliveryTimeDropdown(),
+                          const SizedBox(height: AppSpacing.spacingXl),
+                          _buildLogisticaDespachoSection(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildEvidenciaVisualSection(),
                           const SizedBox(height: AppSpacing.spacingXl),
@@ -993,6 +1022,152 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                 }
               },
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Sección de logística de despacho: muestra la distancia real (km) y el
+  /// tiempo de despacho estimado entre el almacén y el punto de entrega del
+  /// cliente, calculados con las coordenadas del snapshot de la solicitud.
+  /// Es información núcleo para que el almacén valide la viabilidad operativa
+  /// antes de cotizar (radio razonable, costos y tiempos de despacho).
+  Widget _buildLogisticaDespachoSection() {
+    final Map<String, dynamic> objetoInterno =
+        widget.solicitud['solicitud'] is Map<String, dynamic>
+        ? widget.solicitud['solicitud'] as Map<String, dynamic>
+        : {};
+
+    final Map<String, dynamic>? direccion =
+        objetoInterno['direcciones_entrega'] is Map<String, dynamic>
+        ? objetoInterno['direcciones_entrega'] as Map<String, dynamic>
+        : null;
+
+    final String direccionTexto = direccion == null
+        ? 'No especificada'
+        : [
+            direccion['alias'],
+            direccion['calle_principal'],
+            direccion['calle_secundaria'],
+            direccion['referencia'],
+          ].where((p) => p != null && p.toString().trim().isNotEmpty).join(', ');
+
+    final double? latCliente =
+        _toDouble(objetoInterno['latitud_entrega']) ??
+        _toDouble(direccion?['latitude']);
+    final double? lonCliente =
+        _toDouble(objetoInterno['longitud_entrega']) ??
+        _toDouble(direccion?['longitude']);
+    final double? latAlmacen = _toDouble(_almacen?['latitude']);
+    final double? lonAlmacen = _toDouble(_almacen?['longitude']);
+
+    double? distanciaKm;
+    int? tiempoMin;
+    if (latCliente != null &&
+        lonCliente != null &&
+        latAlmacen != null &&
+        lonAlmacen != null) {
+      final metros = Geolocator.distanceBetween(
+        latAlmacen,
+        lonAlmacen,
+        latCliente,
+        lonCliente,
+      );
+      distanciaKm = double.parse((metros / 1000).toStringAsFixed(1));
+      // Misma heurística que el backend: preparación + traslado a 30 km/h.
+      tiempoMin = (20 + (distanciaKm / 30) * 60).round();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.local_shipping_outlined,
+                color: AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Text(
+                'LOGÍSTICA DE DESPACHO',
+                style: GoogleFonts.sora(
+                  textStyle: AppTextStyles.textStyleSmall,
+                  color: AppColors.primary.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const Divider(
+            color: AppColors.outlineVariant,
+            height: AppSpacing.spacingLg,
+            thickness: 1,
+          ),
+          _buildInfoRow(
+            Icons.location_on_outlined,
+            'Punto de entrega',
+            direccionTexto,
+          ),
+          const SizedBox(height: AppSpacing.spacingMd),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSpecsCell(
+                  'Distancia (km)',
+                  distanciaKm != null ? '$distanciaKm km' : 'No disponible',
+                  Icons.route_outlined,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Expanded(
+                child: _buildSpecsCell(
+                  'Despacho est.',
+                  tiempoMin != null ? '~$tiempoMin min' : 'No disponible',
+                  Icons.schedule,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppColors.onSurfaceVariant, size: 16),
+        const SizedBox(width: AppSpacing.spacingXs),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                value,
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ],

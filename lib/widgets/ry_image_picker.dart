@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'rationale.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
@@ -94,36 +95,79 @@ class RyImagePicker extends StatelessWidget {
     }
   }
 
-  /// Verifica el permiso de cámara y gestiona los 4 estados:
-  /// granted → true; denied → diálogo con reintento; permanentlyDenied →
-  /// diálogo con "Abrir Ajustes"; restricted → mensaje informativo.
+  /// Verifica el permiso de cámara y gestiona los estados:
+  /// granted → true; restricted → mensaje informativo; permanentlyDenied
+  /// (resultado de `request()`) o doble rechazo → diálogo con "Abrir
+  /// Ajustes"; un solo rechazo en Android → diálogo con reintento.
+  ///
+  /// IMPORTANTE (Android 11+): `Permission.camera.status` NO es confiable
+  /// para detectar el bloqueo permanente. Si el usuario elige "Preguntar
+  /// siempre" en Ajustes, el status reporta `permanentlyDenied` aunque el
+  /// sistema SÍ volvería a mostrar el diálogo de permiso (bug conocido de
+  /// permission_handler, issues #411/#1206; con permission_handler_android
+  /// 14.1.0+ `status` ya no devuelve nunca `permanentlyDenied` en Android).
+  /// Por eso este flujo SIEMPRE llama a `request()` y considera el permiso
+  /// bloqueado cuando:
+  /// - el RESULTADO de `request()` es `permanentlyDenied` (fuente
+  ///   autoritativa: el sistema no muestra el diálogo), o
+  /// - el usuario rechazó el diálogo dos veces (en Android 11+ el sistema
+  ///   auto-denegará las siguientes solicitudes; la única vía es Ajustes),
+  ///   o
+  /// - un solo rechazo en iOS (el sistema no vuelve a mostrar el diálogo).
   Future<bool> _ensureCameraPermission(BuildContext context) async {
     final status = await Permission.camera.status;
     if (!context.mounted) return false;
 
     if (status.isGranted) return true;
 
-    if (status.isPermanentlyDenied) {
-      await _showSettingsDialog(context);
-      return false;
-    }
-
+    // Restringido (iOS control parental / políticas): request() no ayuda.
     if (status.isRestricted) {
       await _showRestrictedMessage(context);
       return false;
     }
 
-    // denied (o primera solicitud): pedir el permiso.
+    // Rationale previo (una sola vez, persistido) ANTES del popup nativo:
+    // el usuario entiende el uso concreto. Si lo declina, no se pide el
+    // permiso y la acción se cancela sin error.
+    final rationaleOk = await mostrarRationaleSiNecesario(
+      context,
+      clave: 'rationale_camara',
+      titulo: 'Permiso de cámara',
+      mensaje:
+          'RepuestosYa usa la cámara para fotografiar la pieza que necesitas '
+          'al crear una solicitud, o el repuesto ofertado al enviar una '
+          'cotización.',
+    );
+    if (!context.mounted) return false;
+    if (!rationaleOk) return false;
+
+    // denied, o "ask every time" mal reportado como permanentlyDenied:
+    // pedir el permiso (en Android 11+ el sistema decide si muestra o no
+    // el diálogo).
     final requested = await Permission.camera.request();
     if (!context.mounted) return false;
     if (requested.isGranted) return true;
 
+    if (requested.isRestricted) {
+      await _showRestrictedMessage(context);
+      return false;
+    }
+
+    // Autoritativo: el sistema ya no puede mostrar el diálogo de permiso.
     if (requested.isPermanentlyDenied) {
       await _showSettingsDialog(context);
       return false;
     }
 
-    // Negado de nuevo: ofrecer un reintento con contexto explicativo.
+    // En iOS un rechazo es definitivo: el sistema no vuelve a mostrar el
+    // diálogo; la única vía es Ajustes.
+    if (Platform.isIOS) {
+      await _showSettingsDialog(context);
+      return false;
+    }
+
+    // Android: un rechazo puede ser accidental; ofrecer un reintento con
+    // contexto explicativo.
     if (!context.mounted) return false;
     final retry = await showDialog<bool>(
       context: context,
@@ -153,9 +197,19 @@ class RyImagePicker extends StatelessWidget {
     if (!context.mounted) return false;
     if (secondAttempt.isGranted) return true;
 
+    if (secondAttempt.isRestricted) {
+      await _showRestrictedMessage(context);
+      return false;
+    }
+
     if (secondAttempt.isPermanentlyDenied) {
       await _showSettingsDialog(context);
+      return false;
     }
+
+    // Segundo rechazo en Android 11+: el sistema auto-denegará las
+    // siguientes solicitudes; la única vía para conceder es Ajustes.
+    await _showSettingsDialog(context);
     return false;
   }
 
@@ -212,10 +266,7 @@ class RyImagePicker extends StatelessWidget {
   void _showError(BuildContext context, String message) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.error,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
@@ -228,7 +279,7 @@ class RyImagePicker extends StatelessWidget {
           top: Radius.circular(AppRadius.radiusLg),
         ),
       ),
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -240,7 +291,11 @@ class RyImagePicker extends StatelessWidget {
                 leading: const Icon(Icons.camera_alt),
                 title: const Text('Cámara'),
                 onTap: () {
-                  Navigator.pop(context);
+                  // Cerrar el sheet con su propio context, pero continuar el
+                  // flujo con el context EXTERNO (de la página): el del sheet
+                  // queda desmontado tras el pop, y los diálogos de permiso
+                  // (reintento / abrir ajustes) y snackbars no se mostrarían.
+                  Navigator.pop(sheetContext);
                   _pickImage(context, ImageSource.camera);
                 },
               ),
@@ -249,7 +304,7 @@ class RyImagePicker extends StatelessWidget {
                 leading: const Icon(Icons.photo_library),
                 title: const Text('Galería'),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(sheetContext);
                   _pickImage(context, ImageSource.gallery);
                 },
               ),

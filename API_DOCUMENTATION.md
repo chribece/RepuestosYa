@@ -432,3 +432,57 @@ Content-Type: application/json
 | 404 | Not Found | Recurso no existe |
 | 422 | Unprocessable Entity | Validación de negocio falló |
 | 500 | Internal Server Error | Error inesperado |
+
+---
+
+## Ubicación obligatoria (GPS / geocodificación)
+
+La ubicación es núcleo del flujo: toda solicitud necesita una dirección de
+entrega/recogida **verificable** y toda cotización necesita conocer la
+distancia real entre el almacén y el cliente para ser viable operativamente.
+Por eso las coordenadas son **obligatorias** para completar la creación de
+solicitudes y cotizaciones, con una sola vía de degradación controlada:
+
+> Si el GPS del dispositivo está inoperable (hardware roto, permiso
+> permanentemente denegado tras agotar el flujo de reintento/Ajustes), el
+> usuario debe introducir manualmente una dirección que el backend
+> **geocodifica server-side** antes de aceptar el registro. Nunca se guarda
+> un registro sin coordenadas de algún origen.
+
+**Alcance actual: solo Quito.** La geocodificación manual está restringida al
+viewbox del Distrito Metropolitano de Quito (`bounded=1` + doble validación en
+código de las coordenadas devueltas). Cuando se expanda a otras ciudades,
+agregar campo `ciudad` al formulario de direcciones y parametrizar el viewbox
+por ciudad.
+
+### POST /addresses (crear dirección)
+
+- `latitude`, `longitude`, `coordenadasFuente` (opcionales): coordenadas GPS
+  del dispositivo. Si no se envían, el backend geocodifica el texto de la
+  dirección (Nominatim/OpenStreetMap) y guarda `coordenadas_fuente='manual'`.
+- Si la dirección no es resoluble → `422` con `field: 'ubicacion'`.
+
+### POST /requests (crear solicitud)
+
+- `latitude`, `longitude`, `coordenadas_fuente` (opcionales): coordenadas GPS
+  del dispositivo. Si no se envían, el backend usa las coordenadas ya
+  registradas en la dirección; si la dirección no tiene, la geocodifica
+  server-side antes de insertar.
+- La solicitud guarda un **snapshot** `latitud_entrega`/`longitud_entrega`/
+  `coordenadas_fuente` (estable aunque el cliente edite la dirección después).
+- Si no se puede resolver la ubicación (incluye direcciones fuera del
+  viewbox de Quito) → `422` con `field: 'ubicacion'` y mensaje
+  `"No pudimos ubicar esa dirección dentro de Quito. Verifica el texto ingresado."`.
+- La respuesta incluye la relación `direcciones_entrega(*)`.
+
+### POST /quotations (crear cotización)
+
+- El backend calcula la **distancia real** (Haversine) entre el almacén
+  (`almacenes.latitude/longitude`) y el punto de entrega de la solicitud
+  (snapshot), y la guarda como `distancia_km` junto con
+  `tiempo_despacho_estimado_min` (preparación + traslado a 30 km/h).
+- Si la solicitud o el almacén no tienen coordenadas → `422`
+  (`field: 'ubicacion'` o `field: 'almacen_id'`).
+- `GET /quotations/request/:solicitud_id` ya expone `distancia_km` y las
+  coordenadas del almacén para que el cliente valide el radio razonable
+  (tab "Más cercanas").

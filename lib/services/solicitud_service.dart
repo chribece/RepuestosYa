@@ -127,6 +127,11 @@ class SolicitudService {
     String? repuestoNombreSnapshot,
     String? descripcionProblema,
     String? idempotencyKey,
+    // Ubicación: GPS del dispositivo. Si no se envían, el backend geocodifica
+    // la dirección server-side (degradación controlada).
+    double? latitude,
+    double? longitude,
+    String? coordenadasFuente,
   }) async {
     try {
       final Map<String, dynamic> data = {
@@ -144,6 +149,11 @@ class SolicitudService {
       }
       if (direccionEntregaId != null) {
         data['direccion_entrega_id'] = direccionEntregaId;
+      }
+      if (latitude != null && longitude != null) {
+        data['latitude'] = latitude;
+        data['longitude'] = longitude;
+        data['coordenadas_fuente'] = coordenadasFuente ?? 'gps';
       }
 
       // Nuevos campos del catálogo

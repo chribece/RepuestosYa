@@ -3,6 +3,11 @@ const { invalidatePattern, getOrSet } = require('../services/cache');
 const notificacionesQueue = require('../queues/notificaciones.queue');
 const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError } = require('../services/cotizacionService');
 const { validationError, validateImageUrl } = require('../utils/validation');
+const {
+  validarCoordenadas,
+  haversineKm,
+  estimarTiempoDespachoMin
+} = require('../utils/geocoding');
 
 // Shape de respuesta con las relaciones que necesita el cliente.
 const COTIZACION_SELECT = '*, almacenes(nombre_comercial)';
@@ -45,12 +50,13 @@ const createCotizacion = async (req, res) => {
       }
     }
 
-    // Verify solicitud is active
+    // Verify solicitud is active (incluye el snapshot de coordenadas de
+    // entrega y la dirección por si el snapshot legacy es nulo)
     const { data: solicitud, error: solicitudError } = await supabase
       .from('solicitudes_repuesto')
-      .select('estado')
+      .select('estado, latitud_entrega, longitud_entrega, direcciones_entrega(latitude, longitude)')
       .eq('id', solicitud_id)
-      .single();
+      .maybeSingle();
 
     if (solicitudError || !solicitud) {
       return res.status(404).json({ error: 'Solicitud not found' });
@@ -60,10 +66,10 @@ const createCotizacion = async (req, res) => {
       return res.status(400).json({ error: 'Solicitud is not active' });
     }
 
-    // Verify warehouse ownership and status
+    // Verify warehouse ownership and status (incluye coordenadas del almacén)
     const { data: almacen, error: almacenError } = await supabase
       .from('almacenes')
-      .select('encargado_id, verification_status')
+      .select('encargado_id, verification_status, latitude, longitude')
       .eq('id', almacen_id)
       .single();
 
@@ -83,6 +89,38 @@ const createCotizacion = async (req, res) => {
       });
     }
 
+    // ============================================================
+    // DISTANCIA REAL ALMACÉN → CLIENTE (ubicación obligatoria)
+    // Toda cotización necesita saber la distancia real entre el almacén y
+    // el punto de entrega para ser viable operativamente. Se calcula desde
+    // el snapshot de la solicitud (o la dirección en registros legacy).
+    // ============================================================
+    const direccionAnidada = solicitud.direcciones_entrega;
+    const latCliente = solicitud.latitud_entrega !== null && solicitud.latitud_entrega !== undefined
+      ? Number(solicitud.latitud_entrega)
+      : (direccionAnidada && direccionAnidada.latitude !== null ? Number(direccionAnidada.latitude) : null);
+    const lonCliente = solicitud.longitud_entrega !== null && solicitud.longitud_entrega !== undefined
+      ? Number(solicitud.longitud_entrega)
+      : (direccionAnidada && direccionAnidada.longitude !== null ? Number(direccionAnidada.longitude) : null);
+
+    const latAlmacen = almacen.latitude !== null && almacen.latitude !== undefined ? Number(almacen.latitude) : null;
+    const lonAlmacen = almacen.longitude !== null && almacen.longitude !== undefined ? Number(almacen.longitude) : null;
+
+    // Nota: no existe patrón Number(null) aquí — las coordenadas se leen con
+    // guardas explícitas `!== null` antes de Number(). Como defensa adicional,
+    // (0,0) (Golfo de Guinea) se rechaza igual que la ausencia: nunca se
+    // calcula despacho desde coordenadas basura.
+    if (!validarCoordenadas(latCliente, lonCliente) || (latCliente === 0 && lonCliente === 0)) {
+      return res.status(422).json(validationError('ubicacion', 'La solicitud no tiene una ubicación de entrega verificable. No es posible calcular el despacho; solicita al cliente actualizar su dirección.'));
+    }
+
+    if (!validarCoordenadas(latAlmacen, lonAlmacen)) {
+      return res.status(422).json(validationError('almacen_id', 'Tu almacén no tiene coordenadas registradas. Actualiza tu ubicación en el perfil del almacén para poder cotizar.'));
+    }
+
+    const distanciaKm = haversineKm(latAlmacen, lonAlmacen, latCliente, lonCliente);
+    const tiempoDespachoMin = estimarTiempoDespachoMin(distanciaKm);
+
     const insertData = {
       solicitud_id,
       almacen_id,
@@ -91,7 +129,9 @@ const createCotizacion = async (req, res) => {
       foto_evidencia_url,
       notas_adicionales,
       tiempo_entrega_estimado,
-      estado: 'pendiente'
+      estado: 'pendiente',
+      distancia_km: distanciaKm,
+      tiempo_despacho_estimado_min: tiempoDespachoMin
     };
 
     if (idempotency_key) {

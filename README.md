@@ -2,6 +2,14 @@
 
 Plataforma de marketplace de repuestos automotrices que conecta clientes que necesitan repuestos con almacenes y tiendas que ofrecen cotizaciones.
 
+## 🛠️ Requisitos de build (iOS)
+
+Desde el 28/04/2026 Apple exige compilar con **Xcode 26+ (SDK iOS 26)** para
+subir a App Store Connect. El proyecto usa `IPHONEOS_DEPLOYMENT_TARGET = 15.0`
+(todos los plugins: geolocator 11.0, image_picker 13.0, permission_handler
+12.0 — están por debajo). Confirmar el build en una máquina con Xcode 26+
+antes de publicar.
+
 ## 🏗️ Arquitectura del Proyecto
 
 RepuestosYa es una aplicación multicapa compuesta por tres componentes principales:

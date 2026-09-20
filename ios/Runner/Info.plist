@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>RepuestosYa usa tu ubicación para registrar la dirección de entrega y calcular distancias de despacho reales entre el almacén y tu punto de recogida.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>RepuestosYa usa la cámara para fotografiar la pieza que necesitas al crear una solicitud, o el repuesto ofertado al enviar una cotización.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

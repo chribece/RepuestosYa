@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Ubicación obligatoria: la dirección de entrega necesita coordenadas
+         verificables (GPS del dispositivo o geocodificación server-side).
+         Se solicita en runtime vía geolocator. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Cámara para fotografiar la pieza (solicitudes) y el repuesto ofertado
          (cotizaciones). Se solicita en runtime vía permission_handler antes

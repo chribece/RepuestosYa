@@ -14,6 +14,7 @@ import '../services/auth_service.dart';
 import '../services/vehiculo_service.dart';
 import '../services/direccion_service.dart';
 import '../services/catalog_service.dart';
+import '../services/ubicacion_service.dart';
 import '../services/solicitud_repository.dart';
 import '../services/outbox.dart';
 import '../services/upload_service.dart';
@@ -21,7 +22,9 @@ import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
+import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_image_picker.dart';
+import '../widgets/nueva_direccion_sheet.dart';
 import '../widgets/ry_section_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
@@ -69,6 +72,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   final VehiculoService _vehiculoService = VehiculoService();
   final DireccionService _direccionService = DireccionService();
   final CatalogService _catalogService = CatalogService();
+  final UbicacionService _ubicacionService = UbicacionService();
+
+  // Coordenadas GPS capturadas para la dirección seleccionada (se limpian al
+  // cambiar de dirección; viajan al payload/Outbox si la dirección no las
+  // tenía registradas).
+  double? _gpsLat;
+  double? _gpsLng;
 
   @override
   void initState() {
@@ -364,6 +374,12 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           orElse: () => principal,
         );
         _locationController.text = _formatDireccion(currentDir);
+
+        // Ubicación: la coordenada GPS capturada pertenece a otra dirección;
+        // se descarta al cambiar de selección.
+        _gpsLat = null;
+        _gpsLng = null;
+        provider.setUbicacionResuelta(_tieneCoordenadas(currentDir));
       }
     });
   }
@@ -381,6 +397,28 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     if (referencia.isNotEmpty) texto += ' ($referencia)';
     return texto.isEmpty ? 'Dirección sin nombre' : texto;
   }
+
+  // ========== UBICACIÓN / GPS (obligatoria) ==========
+
+  Map<String, dynamic>? _direccionSeleccionada(CreateRequestProvider provider) {
+    for (final d in _direcciones) {
+      if (d['id']?.toString() == provider.selectedDireccionId) return d;
+    }
+    return null;
+  }
+
+  bool _tieneCoordenadas(Map<String, dynamic>? direccion) {
+    if (direccion == null) return false;
+    final lat = direccion['latitude'];
+    final lon = direccion['longitude'];
+    return lat is num && lon is num;
+  }
+
+  /// Flujo de captura de GPS compartido (helper `flujo_ubicacion.dart`):
+  /// progreso → Reintentar / Abrir Ajustes / Usar dirección manual.
+  /// Toda la lógica de permisos vive en `UbicacionService`.
+  Future<UbicacionResultado> _flujoUbicacionGps() =>
+      flujoUbicacionGps(context, _ubicacionService);
 
   // ========== IMAGEN ==========
 
@@ -415,13 +453,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   // ========== AGREGAR NUEVA DIRECCIÓN ==========
 
   void _agregarDireccion() async {
-    final aliasController = TextEditingController();
-    final callePrincipalController = TextEditingController();
-    final calleSecundariaController = TextEditingController();
-    final referenciaController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    await showModalBottomSheet<bool>(
+    final nueva = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainerHigh,
@@ -430,126 +462,27 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           top: Radius.circular(AppRadius.radiusXl),
         ),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: AppSpacing.spacingMd,
-            right: AppSpacing.spacingMd,
-            top: AppSpacing.spacingMd,
-          ),
-          child: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Agregar nueva dirección',
-                    style: AppTextStyles.textStyleTitle.copyWith(
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  RyTextField(
-                    label: 'Alias (ej: Casa, Taller)',
-                    controller: aliasController,
-                    isRequired: true,
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Ingresa un alias'
-                        : null,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  RyTextField(
-                    label: 'Calle principal',
-                    controller: callePrincipalController,
-                    isRequired: true,
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Ingresa la calle principal'
-                        : null,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  RyTextField(
-                    label: 'Calle secundaria (opcional)',
-                    controller: calleSecundariaController,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  RyTextField(
-                    label: 'Referencia (opcional)',
-                    controller: referenciaController,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingLg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RyButton(
-                          label: 'Cancelar',
-                          variant: RyButtonVariant.text,
-                          onPressed: () => Navigator.pop(context, false),
-                        ),
-                      ),
-                      Expanded(
-                        child: RyButton(
-                          label: 'Guardar',
-                          variant: RyButtonVariant.primary,
-                          onPressed: () async {
-                            if (formKey.currentState!.validate()) {
-                              try {
-                                final nueva = await _direccionService
-                                    .createDireccion(
-                                      alias: aliasController.text.trim(),
-                                      callePrincipal: callePrincipalController
-                                          .text
-                                          .trim(),
-                                      calleSecundaria: calleSecundariaController
-                                          .text
-                                          .trim(),
-                                      referencia: referenciaController.text
-                                          .trim(),
-                                    );
-                                // Cerrar modal con éxito
-                                if (!context.mounted) return;
-                                Navigator.pop(context, true);
-                                // Recargar lista y seleccionar la nueva dirección
-                                await _cargarDirecciones();
-                                // Forzar selección de la nueva (por si no es principal)
-                                if (context.mounted) {
-                                  context
-                                      .read<CreateRequestProvider>()
-                                      .updateDireccion(nueva['id'] as String?);
-                                  setState(() {
-                                    _locationController.text = _formatDireccion(
-                                      nueva,
-                                    );
-                                  });
-                                }
-                                _showToast('Dirección agregada correctamente');
-                              } catch (e) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Error al guardar dirección: $e',
-                                    ),
-                                    backgroundColor: AppColors.error,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      // El sheet reutiliza el flujo de GPS/diálogos del formulario principal
+      // (resolverUbicacion → _flujoUbicacionGps → UbicacionService) y el
+      // selector visual de mapa (RyLocationMapPicker).
+      builder: (sheetContext) => NuevaDireccionSheet(
+        direccionService: _direccionService,
+        resolverUbicacion: _flujoUbicacionGps,
+      ),
     );
+
+    if (nueva == null || !mounted) return;
+
+    // Recargar lista y seleccionar la nueva dirección
+    await _cargarDirecciones();
+    if (!mounted) return;
+    context.read<CreateRequestProvider>().updateDireccion(
+      nueva['id'] as String?,
+    );
+    setState(() {
+      _locationController.text = _formatDireccion(nueva);
+    });
+    _showToast('Dirección agregada correctamente');
   }
 
   // ========== AGREGAR VEHÍCULO ==========
@@ -670,10 +603,32 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                                     color: AppColors.primaryContainer,
                                   )
                                 : null,
-                            onTap: () {
-                              context
-                                  .read<CreateRequestProvider>()
-                                  .updateDireccion(direccion['id'] as String?);
+                            onTap: () async {
+                              final provider = context
+                                  .read<CreateRequestProvider>();
+                              provider.updateDireccion(
+                                direccion['id'] as String?,
+                              );
+                              _gpsLat = null;
+                              _gpsLng = null;
+                              if (_tieneCoordenadas(direccion)) {
+                                provider.setUbicacionResuelta(true);
+                              } else {
+                                // Dirección legacy sin coordenadas: resolver
+                                // la ubicación AHORA (GPS o vía manual, que el
+                                // backend geocodifica al enviar) para que el
+                                // envío quede habilitado.
+                                final ubicacion = await _flujoUbicacionGps();
+                                if (!mounted) return;
+                                if (ubicacion.disponible) {
+                                  _gpsLat = ubicacion.latitude;
+                                  _gpsLng = ubicacion.longitude;
+                                }
+                                // GPS ok o manual → resuelta (el backend
+                                // geocodifica si hace falta).
+                                provider.setUbicacionResuelta(true);
+                              }
+                              if (!mounted || !context.mounted) return;
                               setState(() {
                                 _locationController.text = _formatDireccion(
                                   direccion,
@@ -806,6 +761,30 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
     if (hasManualErrors) return;
 
+    // 4. UBICACIÓN OBLIGATORIA: la dirección seleccionada debe tener
+    //    coordenadas verificables. Si aún no las tiene (registro legacy o
+    //    creada sin GPS), se capturan del dispositivo con el flujo de
+    //    reintento/Ajustes. Si el GPS está inoperable, se degrada a la
+    //    dirección manual y el backend la geocodifica server-side antes de
+    //    aceptar el registro — nunca se guarda una solicitud sin coordenadas.
+    final direccionSeleccionada = _direccionSeleccionada(provider);
+    final direccionConCoordenadas = _tieneCoordenadas(direccionSeleccionada);
+
+    if (!direccionConCoordenadas) {
+      final ubicacion = await _flujoUbicacionGps();
+      if (!mounted) return;
+      // El usuario declinó el rationale previo: la acción se cancela sin
+      // error (no se dispara el permiso nativo ni se envía).
+      if (ubicacion.estado == UbicacionEstado.cancelado) return;
+      if (ubicacion.disponible) {
+        _gpsLat = ubicacion.latitude;
+        _gpsLng = ubicacion.longitude;
+      }
+      // GPS ok o manual → la ubicación queda resuelta (el backend
+      // geocodifica la dirección si hace falta).
+      provider.setUbicacionResuelta(true);
+    }
+
     final descripcionProblema = _buildDescripcionProblema(provider);
     setState(() => _isSubmitting = true);
 
@@ -838,6 +817,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           'repuesto_nombre_snapshot': provider.partNameSnapshot!,
           'descripcion_problema': descripcionProblema,
           'local_image_path': persistentImagePath,
+          // Coordenadas GPS capturadas offline (opcionales): si no vienen,
+          // el backend geocodifica la dirección al sincronizar.
+          if (_gpsLat != null && _gpsLng != null) 'latitude': _gpsLat,
+          if (_gpsLat != null && _gpsLng != null) 'longitude': _gpsLng,
+          if (_gpsLat != null && _gpsLng != null) 'coordenadas_fuente': 'gps',
         };
 
         // Outbox y solicitud local se guardan atómicamente.
@@ -856,6 +840,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               fotoUrl: persistentImagePath == null
                   ? null
                   : 'file://$persistentImagePath',
+              // Columnas dedicadas de coordenadas (además del payload JSON).
+              latitude: _gpsLat,
+              longitude: _gpsLng,
+              locationSource: _gpsLat != null ? 'gps' : null,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               synced: false,
@@ -871,6 +859,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         }
 
         if (!mounted) return;
+        _gpsLat = null;
+        _gpsLng = null;
         provider.clear();
         setState(() => _isSubmitting = false);
 
@@ -923,7 +913,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         }
       }
 
-      // Crear solicitud
+      // Crear solicitud (con coordenadas GPS si se capturaron; si no, el
+      // backend geocodifica la dirección server-side — degradación controlada)
       await _solicitudService.crearSolicitud(
         clienteId: user.id,
         vehiculoId: provider.selectedVehiculoId!,
@@ -936,11 +927,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         repuestoId: provider.selectedPartId!,
         repuestoNombreSnapshot: provider.partNameSnapshot!,
         descripcionProblema: descripcionProblema,
+        latitude: _gpsLat,
+        longitude: _gpsLng,
+        coordenadasFuente: 'gps',
       );
 
       if (!mounted) return;
 
       // Éxito: limpiar provider y navegar
+      _gpsLat = null;
+      _gpsLng = null;
       provider.clear();
       setState(() => _isSubmitting = false);
 
@@ -1231,7 +1227,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(provider),
     );
   }
 
@@ -1713,9 +1709,18 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
+                _buildUbicacionStatus(provider),
                 if (_fieldErrors.containsKey('direccion_entrega_id'))
                   Text(
                     _fieldErrors['direccion_entrega_id']!,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                if (_fieldErrors.containsKey('ubicacion'))
+                  Text(
+                    _fieldErrors['ubicacion']!,
                     style: AppTextStyles.textStyleSmall.copyWith(
                       color: AppColors.error,
                     ),
@@ -1731,6 +1736,51 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildUbicacionStatus(CreateRequestProvider provider) {
+    final direccion = _direccionSeleccionada(provider);
+    final tieneCoordenadas = _tieneCoordenadas(direccion);
+
+    if (tieneCoordenadas) {
+      final fuente = direccion?['coordenadas_fuente']?.toString();
+      final texto = fuente == 'manual'
+          ? 'Ubicación verificada por dirección'
+          : 'Ubicación verificada por GPS';
+      return Row(
+        children: [
+          const Icon(
+            Icons.verified,
+            size: 14,
+            color: SemanticColors.colorSuccess,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            texto,
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: SemanticColors.colorSuccess,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        const Icon(
+          Icons.location_searching,
+          size: 14,
+          color: AppColors.warning,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          'Ubicación pendiente — toca "Cambiar" para verificarla',
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.warning,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1772,21 +1822,54 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(CreateRequestProvider provider) {
+    final ubicacionPendiente = !provider.ubicacionResuelta;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.8),
         border: Border(top: BorderSide(color: AppColors.outlineVariant)),
       ),
-      child: RyButton(
-        label: 'BUSCAR REPUESTO',
-        icon: Icons.search,
-        variant: RyButtonVariant.primary,
-        size: RyButtonSize.large,
-        isLoading: _isSubmitting,
-        isFullWidth: true,
-        onPressed: _handleSubmit,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Indicador de ubicación pendiente (rúbrica: el envío queda
+          // bloqueado hasta resolver coordenadas por GPS o dirección manual).
+          if (ubicacionPendiente) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.location_searching,
+                  size: 16,
+                  color: AppColors.warning,
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Flexible(
+                  child: Text(
+                    'Ubicación pendiente — toca "Cambiar" junto a la dirección para verificarla',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.spacingSm),
+          ],
+          RyButton(
+            label: 'BUSCAR REPUESTO',
+            icon: Icons.search,
+            variant: RyButtonVariant.primary,
+            size: RyButtonSize.large,
+            isLoading: _isSubmitting,
+            isFullWidth: true,
+            isDisabled: ubicacionPendiente,
+            onPressed: ubicacionPendiente ? null : _handleSubmit,
+          ),
+        ],
       ),
     );
   }

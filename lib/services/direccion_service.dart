@@ -19,21 +19,34 @@ class DireccionService {
     }
   }
 
-  // Crear una nueva dirección en el backend (Mapea camelCase a la API)
+  // Crear una nueva dirección en el backend (Mapea camelCase a la API).
+  // Las coordenadas son opcionales: si no se envían (GPS inoperable), el
+  // backend geocodifica la dirección server-side antes de aceptar el registro.
   Future<Map<String, dynamic>> createDireccion({
     required String alias,
     required String callePrincipal,
     String? calleSecundaria,
     String? referencia,
+    double? latitude,
+    double? longitude,
+    String? coordenadasFuente,
   }) async {
     try {
-      final data = {'alias': alias, 'callePrincipal': callePrincipal};
+      final data = <String, dynamic>{
+        'alias': alias,
+        'callePrincipal': callePrincipal,
+      };
 
       if (calleSecundaria != null && calleSecundaria.trim().isNotEmpty) {
         data['calleSecundaria'] = calleSecundaria;
       }
       if (referencia != null && referencia.trim().isNotEmpty) {
         data['referencia'] = referencia;
+      }
+      if (latitude != null && longitude != null) {
+        data['latitude'] = latitude;
+        data['longitude'] = longitude;
+        data['coordenadasFuente'] = coordenadasFuente ?? 'gps';
       }
 
       final response = await _apiClient.post('/addresses', body: data);
@@ -56,6 +69,9 @@ class DireccionService {
     String? callePrincipal,
     String? calleSecundaria,
     String? referencia,
+    double? latitude,
+    double? longitude,
+    String? coordenadasFuente,
   }) async {
     try {
       final data = <String, dynamic>{};
@@ -73,6 +89,11 @@ class DireccionService {
       }
       if (referencia != null) {
         data['referencia'] = referencia.trim().isEmpty ? '' : referencia.trim();
+      }
+      if (latitude != null && longitude != null) {
+        data['latitude'] = latitude;
+        data['longitude'] = longitude;
+        data['coordenadasFuente'] = coordenadasFuente ?? 'gps';
       }
 
       final response = await _apiClient.put('/addresses/$id', body: data);

@@ -25,6 +25,21 @@ class CreateRequestProvider with ChangeNotifier {
   String? selectedDireccionId;
   String selectedPrioridad = 'estándar';
 
+  /// Equivalente a `hasResolvedLocation` de la rúbrica: `true` cuando la
+  /// ubicación de entrega está resuelta (la dirección tiene coordenadas, el
+  /// GPS del dispositivo las aportó, o el usuario eligió la vía manual que el
+  /// backend geocodifica server-side). La UI deshabilita el envío mientras
+  /// sea `false`.
+  bool _ubicacionResuelta = false;
+  bool get ubicacionResuelta => _ubicacionResuelta;
+
+  void setUbicacionResuelta(bool value) {
+    if (_ubicacionResuelta != value) {
+      _ubicacionResuelta = value;
+      notifyListeners();
+    }
+  }
+
   String? selectedCategoryId;
   String? selectedPartId;
   String? partNameSnapshot;
@@ -158,6 +173,7 @@ class CreateRequestProvider with ChangeNotifier {
     selectedPartId = null;
     partNameSnapshot = null;
     _additionalParts.clear();
+    _ubicacionResuelta = false;
     notifyListeners();
   }
 }

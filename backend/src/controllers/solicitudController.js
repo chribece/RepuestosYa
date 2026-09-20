@@ -5,9 +5,113 @@ const {
   validationErrors,
   validateImageUrl
 } = require('../utils/validation');
+const {
+  GeocodingError,
+  validarCoordenadas,
+  geocodeDireccion
+} = require('../utils/geocoding');
 
 // Shape de respuesta con las relaciones que necesita el cliente.
-const SOLICITUD_SELECT = '*, vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))';
+// Incluye direcciones_entrega (texto y coordenadas) para que el almacén
+// pueda ubicar el punto de entrega al cotizar. Requiere la FK
+// solicitudes_repuesto.direccion_entrega_id -> direcciones_entrega.id
+// (recreada por la migración 20260919_fix_fk_direccion_entrega.sql; sin
+// ella PostgREST falla con 400 "Could not find a relationship...").
+const SOLICITUD_SELECT = '*, direcciones_entrega(*), vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*)))';
+
+/**
+ * Convierte un valor a número SOLO si representa una coordenada real.
+ * `null`, `undefined`, `NaN`, `''` y strings no numéricos → `null`
+ * (ausente). NUNCA convierte `null` en `0` (corrige el escape (0,0) por el
+ * que una dirección legacy sin coordenadas se insertaba como ubicación
+ * real). Exportado para pruebas.
+ */
+function coordsANumero(valor) {
+  if (valor === null || valor === undefined) return null;
+  if (typeof valor === 'string') {
+    const trim = valor.trim();
+    if (trim === '') return null;
+    const n = parseFloat(trim);
+    return Number.isNaN(n) ? null : n;
+  }
+  if (typeof valor !== 'number') return null;
+  if (Number.isNaN(valor)) return null;
+  return Number.isFinite(valor) ? valor : null;
+}
+
+/**
+ * Resuelve las coordenadas de entrega de una solicitud. Prioridad:
+ * 1. Coordenadas GPS enviadas por el cliente (fuente 'gps').
+ * 2. Coordenadas ya registradas en la dirección seleccionada.
+ * 3. Geocodificación server-side del texto de la dirección (fuente 'manual'):
+ *    única vía de degradación controlada cuando el GPS está inoperable.
+ *
+ * Si el cliente aporta coordenadas GPS frescas, la dirección se actualiza
+ * para que queden registradas (las futuras solicitudes las reutilizan).
+ *
+ * Invariante: NUNCA devuelve (0,0) ni coordenadas sin confirmar; si no hay
+ * coordenadas reales de ningún origen, lanza GeocodingError (el controlador
+ * responde 422). `coordenadasResueltas: true` marca que las coordenadas
+ * vienen de una fuente real (GPS, dirección registrada o geocodificación).
+ *
+ * @returns {Promise<{latitude: number, longitude: number, coordenadasFuente: string, coordenadasResueltas: boolean}>}
+ */
+async function resolverCoordenadasEntrega({ direccion, latitude, longitude, coordenadasFuente, supabase }) {
+  const lat = coordsANumero(latitude);
+  const lon = coordsANumero(longitude);
+
+  // (0,0) no es una ubicación real (Golfo de Guinea): se trata como ausente.
+  if (validarCoordenadas(lat, lon) && !(lat === 0 && lon === 0)) {
+    const fuente = coordenadasFuente === 'manual' ? 'manual' : 'gps';
+    // Persistir las coordenadas GPS en la dirección (mejora datos futuros).
+    if (direccion && direccion.id && (direccion.latitude === null || direccion.longitude === null)) {
+      await supabase
+        .from('direcciones_entrega')
+        .update({ latitude: lat, longitude: lon, coordenadas_fuente: fuente })
+        .eq('id', direccion.id);
+    }
+    return { latitude: lat, longitude: lon, coordenadasFuente: fuente, coordenadasResueltas: true };
+  }
+
+  // Coordenadas ya registradas en la dirección: validar ausencia real
+  // (null/undefined/NaN/'' → ausente, NUNCA cero).
+  const dirLat = coordsANumero(direccion && direccion.latitude);
+  const dirLon = coordsANumero(direccion && direccion.longitude);
+  if (direccion && validarCoordenadas(dirLat, dirLon) && !(dirLat === 0 && dirLon === 0)) {
+    return {
+      latitude: dirLat,
+      longitude: dirLon,
+      coordenadasFuente: direccion.coordenadas_fuente || 'manual',
+      coordenadasResueltas: true
+    };
+  }
+
+  // Degradación controlada: geocodificar el texto de la dirección.
+  const geocodificada = await geocodeDireccion({
+    callePrincipal: direccion.calle_principal,
+    calleSecundaria: direccion.calle_secundaria,
+    referencia: direccion.referencia
+  });
+
+  // Persistir las coordenadas en la dirección para no geocodificar de nuevo.
+  if (direccion && direccion.id) {
+    await supabase
+      .from('direcciones_entrega')
+      .update({
+        latitude: geocodificada.latitude,
+        longitude: geocodificada.longitude,
+        coordenadas_fuente: 'manual'
+      })
+      .eq('id', direccion.id);
+  }
+
+  return {
+    latitude: geocodificada.latitude,
+    longitude: geocodificada.longitude,
+    coordenadasFuente: 'manual',
+    coordenadasResueltas: true
+  };
+}
 
 /**
  * ESTRATEGIA DE CARGA DE DATOS
@@ -89,6 +193,7 @@ const getSolicitudesActivas = async (req, res) => {
           .from('solicitudes_repuesto')
           .select(`*, profiles(nombre_completo, email),
             categorias_repuestos(nombre),
+            direcciones_entrega(*),
             vehiculos_cliente(*, modelos_vehiculo(*, marcas_vehiculo(*))),
             cotizaciones(count)`)
           .eq('estado', 'en_proceso')
@@ -145,7 +250,10 @@ const createSolicitud = async (req, res) => {
       repuesto_id,
       repuesto_nombre_snapshot,
       descripcion_problema,
-      idempotency_key
+      idempotency_key,
+      latitude,
+      longitude,
+      coordenadas_fuente
     } = req.body;
 
     const errors = [];
@@ -240,6 +348,57 @@ const createSolicitud = async (req, res) => {
       return res.status(422).json(validationError('categoria_id', 'El repuesto seleccionado no pertenece a la categoría indicada.'));
     }
 
+    // 2b. UBICACIÓN OBLIGATORIA: toda solicitud necesita coordenadas de
+    // entrega verificables (GPS del dispositivo o geocodificación server-side
+    // de la dirección). Sin coordenadas confiables el almacén no puede
+    // calcular tiempos/costos de despacho ni el cliente validar el radio del
+    // almacén sugerido; nunca se guarda una solicitud sin ellas.
+    const { data: direccion, error: direccionError } = await supabase
+      .from('direcciones_entrega')
+      .select('id, cliente_id, calle_principal, calle_secundaria, referencia, latitude, longitude, coordenadas_fuente')
+      .eq('id', direccion_entrega_id)
+      .maybeSingle();
+
+    if (direccionError || !direccion) {
+      return res.status(422).json(validationError('direccion_entrega_id', 'La dirección seleccionada no es válida. Selecciona una dirección registrada.'));
+    }
+
+    if (direccion.cliente_id !== req.user.id) {
+      return res.status(422).json(validationError('direccion_entrega_id', 'La dirección seleccionada no te pertenece. Selecciona una de tus direcciones.'));
+    }
+
+    let latitudEntrega;
+    let longitudEntrega;
+    let fuenteCoordenadas;
+    let coordenadasResueltas = false;
+    try {
+      const coords = await resolverCoordenadasEntrega({
+        direccion,
+        latitude,
+        longitude,
+        coordenadasFuente: coordenadas_fuente,
+        supabase
+      });
+      latitudEntrega = coords.latitude;
+      longitudEntrega = coords.longitude;
+      fuenteCoordenadas = coords.coordenadasFuente;
+      coordenadasResueltas = coords.coordenadasResueltas === true;
+    } catch (ubicacionError) {
+      if (ubicacionError instanceof GeocodingError) {
+        // Contracto 422: field 'ubicacion' (fuera de Quito / no resuelta)
+        return res.status(422).json(validationError('ubicacion', ubicacionError.message));
+      }
+      throw ubicacionError;
+    }
+
+    // Guardia de defensa en profundidad (justo antes del INSERT): nunca
+    // persistir (0,0) ni coordenadas no confirmadas por una fuente real.
+    // El resolver ya no produce (0,0), pero esta validación impide que el
+    // bug se reintroduzca silenciosamente en el futuro.
+    if (!coordenadasResueltas || (latitudEntrega === 0 && longitudEntrega === 0)) {
+      return res.status(422).json(validationError('ubicacion', 'No pudimos verificar la ubicación de entrega. Activa el GPS o corrige la dirección para continuar.'));
+    }
+
     // 3. Preparar datos para inserción
     let finalPiezaNombre = pieza_nombre || repuesto.nombre;
     let finalSnapshot = repuesto_nombre_snapshot || repuesto.nombre;
@@ -257,7 +416,11 @@ const createSolicitud = async (req, res) => {
       categoria_id,
       repuesto_id,
       repuesto_nombre_snapshot: finalSnapshot,
-      descripcion_problema
+      descripcion_problema,
+      // Snapshot de coordenadas de entrega (estable ante ediciones futuras)
+      latitud_entrega: latitudEntrega,
+      longitud_entrega: longitudEntrega,
+      coordenadas_fuente: fuenteCoordenadas
     };
 
     if (idempotency_key) {
@@ -461,5 +624,8 @@ module.exports = {
   createSolicitud, 
   getSolicitudPorId,
   getEstadisticasCliente,
-  getMisOrdenes
+  getMisOrdenes,
+  // Exportados para pruebas unitarias (scripts/test_resolver.js)
+  resolverCoordenadasEntrega,
+  coordsANumero
 };

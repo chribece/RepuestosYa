@@ -129,6 +129,15 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     return 0.0;
   }
 
+  /// Parsea `distancia_km` (numeric de Postgres serializado como string o
+  /// como num). Devuelve null si no está disponible.
+  double? _parseDistancia(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   List<Map<String, dynamic>> _ordenarCotizaciones(
     List<Map<String, dynamic>> cotizaciones,
     int tabIndex,
@@ -148,8 +157,20 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         return cotizaciones
             .where((c) => _parsePrecio(c['precio_venta']) == minPrecio)
             .toList();
-      case 2: // Más cercanas (Próximamente - tab deshabilitado)
-        return cotizaciones;
+      case 2: // Más cercanas: ordena por distancia real (Haversine) que el
+        // backend calcula al crear la cotización (distancia_km).
+        final conDistancia = cotizaciones
+            .where((c) => _parseDistancia(c['distancia_km']) != null)
+            .toList()
+          ..sort(
+            (a, b) => _parseDistancia(
+              a['distancia_km'],
+            )!.compareTo(_parseDistancia(b['distancia_km'])!),
+          );
+        final sinDistancia = cotizaciones
+            .where((c) => _parseDistancia(c['distancia_km']) == null)
+            .toList();
+        return [...conDistancia, ...sinDistancia];
       default:
         return cotizaciones;
     }
@@ -396,11 +417,6 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     );
   }
 
-  /// Índice del tab marcado como "Próximamente". Toca deshabilitado y
-  /// muestra un badge. Se habilitará cuando `direcciones` tenga lat/lng y
-  /// el backend exponga distancia Haversine entre almacén y entrega.
-  static const int _kProximamenteTabIndex = 2;
-
   Widget _buildTabsBar() {
     final tabs = ['Todas', 'Más baratas', 'Más cercanas'];
 
@@ -417,11 +433,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           final index = entry.key;
           final label = entry.value;
           final isSelected = _selectedTabIndex == index;
-          final isDisabled = index == _kProximamenteTabIndex;
 
           return Expanded(
             child: InkWell(
-              onTap: isDisabled ? null : () => _onTabChanged(index),
+              onTap: () => _onTabChanged(index),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   vertical: AppSpacing.spacingMd,
@@ -444,39 +459,14 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                       label,
                       textAlign: TextAlign.center,
                       style: AppTextStyles.textStyleCaption.copyWith(
-                        color: isDisabled
-                            ? AppColors.onSurfaceVariant.withValues(alpha: 0.5)
-                            : (isSelected
-                                  ? AppColors.primaryContainer
-                                  : AppColors.onSurfaceVariant),
+                        color: isSelected
+                            ? AppColors.primaryContainer
+                            : AppColors.onSurfaceVariant,
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.w400,
                       ),
                     ),
-                    if (isDisabled) ...[
-                      const SizedBox(width: AppSpacing.spacingXxs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.spacingXxs,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.radiusFull,
-                          ),
-                        ),
-                        child: Text(
-                          'Próximamente',
-                          style: AppTextStyles.textStyleSmall.copyWith(
-                            fontSize: 9,
-                            color: AppColors.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -533,12 +523,20 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         }
         final cotizacion =
             _cotizaciones[_selectedTabIndex == 1 ? index - 1 : index];
-        return _buildQuotationCard(cotizacion);
+        return _buildQuotationCard(
+          cotizacion,
+          // En el tab "Más cercanas" la lista viene ordenada por distancia:
+          // solo la primera es la más cercana.
+          destacarCercana: _selectedTabIndex == 2 && index == 0,
+        );
       },
     );
   }
 
-  Widget _buildQuotationCard(Map<String, dynamic> cotizacion) {
+  Widget _buildQuotationCard(
+    Map<String, dynamic> cotizacion, {
+    bool destacarCercana = false,
+  }) {
     final almacenes = cotizacion['almacenes'] as Map<String, dynamic>?;
     final almacenNombre =
         almacenes?['nombre_comercial'] ?? 'Almacén desconocido';
@@ -636,6 +634,43 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                       ),
                     ),
                   ],
+                  if (destacarCercana) ...[
+                    const SizedBox(width: AppSpacing.spacingXs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.spacingXs,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(
+                          AppRadius.radiusFull,
+                        ),
+                        border: Border.all(
+                          color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.near_me_outlined,
+                            color: AppColors.primaryContainer,
+                            size: 12,
+                          ),
+                          const SizedBox(width: AppSpacing.spacingXxs),
+                          Text(
+                            'Más cercana',
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.primaryContainer,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -679,6 +714,34 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                 ],
               ),
             ),
+
+            // ===== DISTANCIA AL CLIENTE (radio razonable) =====
+            if (_parseDistancia(cotizacion['distancia_km']) != null) ...[
+              const SizedBox(height: AppSpacing.spacingXs),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingMd,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.route_outlined,
+                      color: AppColors.onSurfaceVariant,
+                      size: 14,
+                    ),
+                    const SizedBox(width: AppSpacing.spacingXxs),
+                    Expanded(
+                      child: Text(
+                        'A ${_parseDistancia(cotizacion['distancia_km'])!.toStringAsFixed(1)} km de ti',
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // ===== NOTAS =====
             if (notas != null && notas.toString().isNotEmpty) ...[

@@ -128,7 +128,8 @@ class SyncEngine {
 
       if (item.entityType == 'solicitud' && item.operation == 'CREATE') {
         await _processSolicitud(item);
-      } else if (item.entityType == 'cotizacion' && item.operation == 'CREATE') {
+      } else if (item.entityType == 'cotizacion' &&
+          item.operation == 'CREATE') {
         await _processCotizacion(item);
       } else {
         await _outbox.updateStatus(
@@ -251,8 +252,7 @@ class SyncEngine {
       idempotencyKey: idempotencyKey,
       latitude: latitude,
       longitude: longitude,
-      coordenadasFuente:
-          payload['coordenadas_fuente']?.toString() ?? 'gps',
+      coordenadasFuente: payload['coordenadas_fuente']?.toString() ?? 'gps',
     );
 
     final serverSolicitud = Solicitud(response);

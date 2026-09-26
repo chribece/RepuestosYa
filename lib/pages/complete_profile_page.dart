@@ -149,8 +149,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Future<void> _autocompletarDireccion(double lat, double lng) async {
     final seq = ++_autocompletarSeq;
     if (mounted) setState(() => _autocompletando = true);
-    final resultado =
-        await _geocodingService.reverseGeocode(lat: lat, lng: lng);
+    final resultado = await _geocodingService.reverseGeocode(
+      lat: lat,
+      lng: lng,
+    );
     if (!mounted || seq != _autocompletarSeq) return;
 
     setState(() {
@@ -481,9 +483,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   /// Las coordenadas se guardan internamente al mover el pin; sin inputs de
   /// latitud/longitud visibles.
   Widget _buildUbicacionAlmacen() {
-    final pin = _ubicacionFijada
-        ? LatLng(_lat!, _lng!)
-        : _centroInicialQuito;
+    final pin = _ubicacionFijada ? LatLng(_lat!, _lng!) : _centroInicialQuito;
 
     return Container(
       width: double.infinity,

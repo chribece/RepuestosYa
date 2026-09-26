@@ -57,8 +57,9 @@ void main() {
     return movimientos;
   }
 
-  testWidgets('tap-to-move: tocar el mapa mueve el pin y notifica',
-      (tester) async {
+  testWidgets('tap-to-move: tocar el mapa mueve el pin y notifica', (
+    tester,
+  ) async {
     final movimientos = await pumpPicker(tester);
 
     // El mapa está centrado en el GPS inicial. Tocar la esquina superior
@@ -75,33 +76,32 @@ void main() {
   });
 
   testWidgets(
-      'cambio externo de posición (GPS resuelto): recentra el mapa en el '
-      'punto sin notificar onChanged', (tester) async {
-    final movimientos = await pumpPicker(tester);
+    'cambio externo de posición (GPS resuelto): recentra el mapa en el '
+    'punto sin notificar onChanged',
+    (tester) async {
+      final movimientos = await pumpPicker(tester);
 
-    // El padre fija una nueva posición (simula GPS resuelto en otro punto).
-    const nuevaPosicion = LatLng(-0.2401, -78.5100);
-    await tester.pumpWidget(
-      pickerApp(
-        position: nuevaPosicion,
-        onChanged: movimientos.add,
-      ),
-    );
-    await tester.pump();
+      // El padre fija una nueva posición (simula GPS resuelto en otro punto).
+      const nuevaPosicion = LatLng(-0.2401, -78.5100);
+      await tester.pumpWidget(
+        pickerApp(position: nuevaPosicion, onChanged: movimientos.add),
+      );
+      await tester.pump();
 
-    // El movimiento fue programático: no se notificó onChanged.
-    expect(movimientos, isEmpty);
+      // El movimiento fue programático: no se notificó onChanged.
+      expect(movimientos, isEmpty);
 
-    // La cámara se recentró en la NUEVA posición: tocar el centro del mapa
-    // (que es donde queda el pin) debe devolver ≈ nuevaPosicion, no la vieja.
-    await tester.tapAt(tester.getCenter(find.byType(FlutterMap)));
-    await tester.pump();
+      // La cámara se recentró en la NUEVA posición: tocar el centro del mapa
+      // (que es donde queda el pin) debe devolver ≈ nuevaPosicion, no la vieja.
+      await tester.tapAt(tester.getCenter(find.byType(FlutterMap)));
+      await tester.pump();
 
-    expect(movimientos, isNotEmpty);
-    final punto = movimientos.last;
-    expect(punto.latitude, closeTo(nuevaPosicion.latitude, 0.0002));
-    expect(punto.longitude, closeTo(nuevaPosicion.longitude, 0.0002));
-  });
+      expect(movimientos, isNotEmpty);
+      final punto = movimientos.last;
+      expect(punto.latitude, closeTo(nuevaPosicion.latitude, 0.0002));
+      expect(punto.longitude, closeTo(nuevaPosicion.longitude, 0.0002));
+    },
+  );
 
   testWidgets('showPin=false no muestra pin fantasma; aparece al fijar '
       'la ubicación', (tester) async {
@@ -125,10 +125,13 @@ void main() {
     expect(movimientos, isEmpty);
   });
 
-  testWidgets('el mapa se desplaza con un dedo (pan) sin mover el pin',
-      (tester) async {
+  testWidgets('el mapa se desplaza con un dedo (pan) sin mover el pin', (
+    tester,
+  ) async {
     final movimientos = await pumpPicker(tester);
-    final posicionInicialPin = tester.getCenter(find.byIcon(Icons.location_pin));
+    final posicionInicialPin = tester.getCenter(
+      find.byIcon(Icons.location_pin),
+    );
 
     // Arrastrar el mapa desde un punto lejos del marcador (esquina inferior
     // derecha, vacía) hacia arriba-izquierda: el mapa se desplaza y el pin
@@ -148,28 +151,30 @@ void main() {
   });
 
   testWidgets(
-      'arrastre del pin: las coordenadas finales son las del pin movido, '
-      'no las del GPS original', (tester) async {
-    final movimientos = await pumpPicker(tester);
+    'arrastre del pin: las coordenadas finales son las del pin movido, '
+    'no las del GPS original',
+    (tester) async {
+      final movimientos = await pumpPicker(tester);
 
-    // Arrastrar el marcador con LONG-PRESS (mantener ~500ms y deslizar, el
-    // patrón que funciona dentro de scroll views): 60px abajo y 80px a la
-    // derecha → el pin se mueve al SURESTE (latitud menor, longitud mayor)
-    // y se notifica en vivo.
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.byIcon(Icons.location_pin)),
-    );
-    await tester.pump(const Duration(milliseconds: 600)); // umbral long-press
-    await gesture.moveBy(const Offset(20, 30));
-    await tester.pump();
-    await gesture.moveBy(const Offset(40, 50));
-    await tester.pump();
-    await gesture.up();
-    await tester.pump();
+      // Arrastrar el marcador con LONG-PRESS (mantener ~500ms y deslizar, el
+      // patrón que funciona dentro de scroll views): 60px abajo y 80px a la
+      // derecha → el pin se mueve al SURESTE (latitud menor, longitud mayor)
+      // y se notifica en vivo.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byIcon(Icons.location_pin)),
+      );
+      await tester.pump(const Duration(milliseconds: 600)); // umbral long-press
+      await gesture.moveBy(const Offset(20, 30));
+      await tester.pump();
+      await gesture.moveBy(const Offset(40, 50));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
 
-    expect(movimientos, isNotEmpty);
-    final ultimo = movimientos.last;
-    expect(ultimo.latitude, lessThan(gpsInicial.latitude));
-    expect(ultimo.longitude, greaterThan(gpsInicial.longitude));
-  });
+      expect(movimientos, isNotEmpty);
+      final ultimo = movimientos.last;
+      expect(ultimo.latitude, lessThan(gpsInicial.latitude));
+      expect(ultimo.longitude, greaterThan(gpsInicial.longitude));
+    },
+  );
 }

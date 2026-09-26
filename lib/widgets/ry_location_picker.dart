@@ -211,7 +211,8 @@ class _RyLocationMapPickerState extends State<RyLocationMapPicker> {
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTapUp: (details) => _moverPinDesdeGesto(details.globalPosition),
+                onTapUp: (details) =>
+                    _moverPinDesdeGesto(details.globalPosition),
               ),
             ),
           ],

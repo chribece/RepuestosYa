@@ -159,14 +159,15 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             .toList();
       case 2: // Más cercanas: ordena por distancia real (Haversine) que el
         // backend calcula al crear la cotización (distancia_km).
-        final conDistancia = cotizaciones
-            .where((c) => _parseDistancia(c['distancia_km']) != null)
-            .toList()
-          ..sort(
-            (a, b) => _parseDistancia(
-              a['distancia_km'],
-            )!.compareTo(_parseDistancia(b['distancia_km'])!),
-          );
+        final conDistancia =
+            cotizaciones
+                .where((c) => _parseDistancia(c['distancia_km']) != null)
+                .toList()
+              ..sort(
+                (a, b) => _parseDistancia(
+                  a['distancia_km'],
+                )!.compareTo(_parseDistancia(b['distancia_km'])!),
+              );
         final sinDistancia = cotizaciones
             .where((c) => _parseDistancia(c['distancia_km']) == null)
             .toList();
@@ -642,12 +643,16 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryContainer.withValues(alpha: 0.15),
+                        color: AppColors.primaryContainer.withValues(
+                          alpha: 0.15,
+                        ),
                         borderRadius: BorderRadius.circular(
                           AppRadius.radiusFull,
                         ),
                         border: Border.all(
-                          color: AppColors.primaryContainer.withValues(alpha: 0.5),
+                          color: AppColors.primaryContainer.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                       child: Row(

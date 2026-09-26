@@ -30,7 +30,8 @@ class DireccionAutocompletada {
 class GeocodingService {
   static const String _reverseUrl =
       'https://nominatim.openstreetmap.org/reverse';
-  static const String _userAgent = 'RepuestosYaApp/1.0 (soporte@repuestosya.com)';
+  static const String _userAgent =
+      'RepuestosYaApp/1.0 (soporte@repuestosya.com)';
   static const Duration _timeout = Duration(seconds: 8);
 
   /// Geocodifica inversamente un punto (lat/lng) y devuelve los campos de
@@ -41,13 +42,15 @@ class GeocodingService {
     required double lat,
     required double lng,
   }) async {
-    final uri = Uri.parse(_reverseUrl).replace(queryParameters: {
-      'format': 'json',
-      'lat': lat.toStringAsFixed(6),
-      'lon': lng.toStringAsFixed(6),
-      'zoom': '18', // nivel de calle
-      'accept-language': 'es',
-    });
+    final uri = Uri.parse(_reverseUrl).replace(
+      queryParameters: {
+        'format': 'json',
+        'lat': lat.toStringAsFixed(6),
+        'lon': lng.toStringAsFixed(6),
+        'zoom': '18', // nivel de calle
+        'accept-language': 'es',
+      },
+    );
 
     try {
       final res = await http
@@ -70,8 +73,10 @@ class GeocodingService {
   /// `road` → calle principal; `suburb`/`neighbourhood` → referencia.
   @visibleForTesting
   static DireccionAutocompletada? parse(Map<String, dynamic> address) {
-    final countryCode =
-        address['country_code']?.toString().toLowerCase().trim();
+    final countryCode = address['country_code']
+        ?.toString()
+        .toLowerCase()
+        .trim();
     if (countryCode != 'ec') return null;
 
     final road = address['road']?.toString().trim();
@@ -80,8 +85,8 @@ class GeocodingService {
     final area = (suburb != null && suburb.isNotEmpty)
         ? suburb
         : (neighbourhood != null && neighbourhood.isNotEmpty)
-              ? neighbourhood
-              : null;
+        ? neighbourhood
+        : null;
 
     return DireccionAutocompletada(
       callePrincipal: (road != null && road.isNotEmpty) ? road : null,

@@ -163,8 +163,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       // Obtener el almacén ANTES de subir la imagen, porque el path de
       // Storage se segmenta por dominio funcional:
       //   evidencias/cotizaciones/{almacenId}/...
-      final almacen =
-          _almacen ?? await _almacenService.obtenerMiAlmacen();
+      final almacen = _almacen ?? await _almacenService.obtenerMiAlmacen();
       if (almacen == null) {
         throw Exception(
           'No tienes un almacén asociado. Por favor, completa tu perfil comercial.',
@@ -537,7 +536,8 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         objetoInterno['image_url'] ??
         widget.solicitud['foto_url'] ??
         widget.solicitud['image_url'];
-    final bool hasImage = urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty;
+    final bool hasImage =
+        urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -580,22 +580,24 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                                 ? Image.file(
                                     File(urlDeLaImagen.trim()),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(
-                                          Icons.precision_manufacturing,
-                                          color: AppColors.primaryContainer,
-                                          size: 32,
-                                        ),
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
+                                              Icons.precision_manufacturing,
+                                              color: AppColors.primaryContainer,
+                                              size: 32,
+                                            ),
                                   )
                                 : Image.network(
                                     urlDeLaImagen.trim(),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(
-                                          Icons.precision_manufacturing,
-                                          color: AppColors.primaryContainer,
-                                          size: 32,
-                                        ),
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
+                                              Icons.precision_manufacturing,
+                                              color: AppColors.primaryContainer,
+                                              size: 32,
+                                            ),
                                     loadingBuilder:
                                         (context, child, loadingProgress) {
                                           if (loadingProgress == null) {
@@ -1047,11 +1049,13 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     final String direccionTexto = direccion == null
         ? 'No especificada'
         : [
-            direccion['alias'],
-            direccion['calle_principal'],
-            direccion['calle_secundaria'],
-            direccion['referencia'],
-          ].where((p) => p != null && p.toString().trim().isNotEmpty).join(', ');
+                direccion['alias'],
+                direccion['calle_principal'],
+                direccion['calle_secundaria'],
+                direccion['referencia'],
+              ]
+              .where((p) => p != null && p.toString().trim().isNotEmpty)
+              .join(', ');
 
     final double? latCliente =
         _toDouble(objetoInterno['latitud_entrega']) ??

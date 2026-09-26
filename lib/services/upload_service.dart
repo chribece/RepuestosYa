@@ -87,7 +87,8 @@ class UploadService {
       // extensión real del archivo y el contentType correspondiente en vez de
       // forzar siempre .jpg/image/jpeg.
       final ext = _extensionFor(imageFile);
-      final namePart = idempotencyKey ?? '${DateTime.now().millisecondsSinceEpoch}';
+      final namePart =
+          idempotencyKey ?? '${DateTime.now().millisecondsSinceEpoch}';
       final fileName = '${prefix}_$namePart.$ext';
       final filePath = 'evidencias/$folder/$ownerId/$fileName';
 

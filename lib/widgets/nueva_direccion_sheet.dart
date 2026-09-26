@@ -171,8 +171,10 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   Future<void> _autocompletar(double lat, double lng) async {
     final seq = ++_autocompletarSeq;
     if (mounted) setState(() => _autocompletando = true);
-    final resultado =
-        await _geocodingService.reverseGeocode(lat: lat, lng: lng);
+    final resultado = await _geocodingService.reverseGeocode(
+      lat: lat,
+      lng: lng,
+    );
     if (!mounted || seq != _autocompletarSeq) return;
 
     setState(() {
@@ -311,9 +313,8 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
           label: 'Alias (ej: Casa, Taller)',
           controller: _aliasController,
           isRequired: true,
-          validator: (value) => (value == null || value.isEmpty)
-              ? 'Ingresa un alias'
-              : null,
+          validator: (value) =>
+              (value == null || value.isEmpty) ? 'Ingresa un alias' : null,
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         RyTextField(
@@ -498,9 +499,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       decoration: BoxDecoration(
         color: AppColors.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-        border: Border.all(
-          color: AppColors.success.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -530,10 +529,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
               ],
             ),
           ),
-          TextButton(
-            onPressed: _editarUbicacion,
-            child: const Text('Cambiar'),
-          ),
+          TextButton(onPressed: _editarUbicacion, child: const Text('Cambiar')),
         ],
       ),
     );

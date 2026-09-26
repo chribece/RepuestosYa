@@ -13,6 +13,7 @@ import '../services/realtime_notification_service.dart';
 import '../services/sync_engine.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
+import '../widgets/flujo_notificaciones.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../theme/app_spacing.dart';
@@ -95,6 +96,24 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _validateAndLoad();
     _initConnectivityWatcher();
+
+    // Permiso de notificaciones dentro del flujo autenticado (el router solo
+    // permite entrar con rol almacén), tras el primer frame y DESACOPLADO de
+    // la carga de red: fire-and-forget para que el diálogo aparezca siempre,
+    // sin bloquear el dashboard y sin romperlo si el flujo falla.
+    // Mensaje específico del rol almacén: nuevas solicitudes y órdenes ganadas.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        solicitarPermisoNotificaciones(
+          context,
+          mensaje:
+              'RepuestosYa te avisa al instante cuando un cliente publica una '
+              'nueva solicitud de repuesto o acepta tu cotización. '
+              '¿Permites las notificaciones?',
+        ),
+      );
+    });
   }
 
   /// Escucha los cambios de conectividad. Al volver la conexión (offline →

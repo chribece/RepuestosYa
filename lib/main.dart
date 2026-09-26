@@ -52,10 +52,12 @@ void main() async {
   // Inicializar validación de sesión en background (Llamada a red lenta)
   AuthService().init();
 
-  // Inicializar notificaciones en background después de que la app cargue
+  // Inicializar el plugin de notificaciones en background después de que la
+  // app cargue. NO se pide ningún permiso runtime aquí: la solicitud de
+  // POST_NOTIFICATIONS se hace dentro del flujo autenticado (home del cliente
+  // / dashboard del almacén), justo antes de iniciar los canales realtime.
   Future.delayed(const Duration(milliseconds: 500), () async {
     await RealtimeNotificationService().init();
-    await RealtimeNotificationService().requestPermissions();
   });
 
   runApp(MyApp());

@@ -52,9 +52,27 @@ class RyImagePicker extends StatelessWidget {
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
     // La galería no requiere permiso explícito (Photo Picker en Android 13+ /
-    // iOS 14+). La cámara sí: gestionamos los 4 estados posibles.
+    // iOS 14+). La cámara sí: gestionamos los 4 estados posibles. El flujo
+    // de permisos tiene su PROPIO try/catch: un fallo de plataforma ahí no
+    // debe caer en el catch genérico de selección (mensaje confuso) ni
+    // propagar una excepción no capturada.
     if (source == ImageSource.camera) {
-      final canUseCamera = await _ensureCameraPermission(context);
+      final bool canUseCamera;
+      try {
+        canUseCamera = await _ensureCameraPermission(context);
+      } catch (e) {
+        AppLogger.error(
+          'Error al verificar permiso de cámara',
+          name: 'RyImagePicker',
+          error: e,
+        );
+        if (!context.mounted) return;
+        _showError(
+          context,
+          'No se pudo acceder a la cámara en este dispositivo.',
+        );
+        return;
+      }
       if (!canUseCamera) return;
     }
 

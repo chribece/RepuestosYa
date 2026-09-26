@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET es obligatorio en release: todo el tráfico HTTP/Supabase
+         pasa por dart:io. Los manifiestos debug/profile lo agregan solo para
+         desarrollo; sin esta declaración el APK de release quedaría sin red. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Ubicación obligatoria: la dirección de entrega necesita coordenadas
@@ -6,11 +10,12 @@
          Se solicita en runtime vía geolocator. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Cámara para fotografiar la pieza (solicitudes) y el repuesto ofertado
          (cotizaciones). Se solicita en runtime vía permission_handler antes
-         de invocar image_picker. -->
+         de invocar image_picker. required="false" para que Google Play NO
+         filtre dispositivos sin cámara (el permiso CAMERA implica el feature). -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <!-- Sin android:name: no hay Application custom (MainActivity : FlutterActivity).
          Se omite a proposito: el placeholder  del template no se
          sustituye con AGP 9.0.1 (el merger emite android:name="" y AAPT falla).

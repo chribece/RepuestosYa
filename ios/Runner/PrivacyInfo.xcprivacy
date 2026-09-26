@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Privacy manifest de la APP RepuestosYa (requerido por Apple para la
+  declaración de "required reason APIs" usadas directamente por el código de
+  la app).
+
+  - NSPrivacyAccessedAPICategoryFileTimestamp (razón C617.1): la app gestiona
+    archivos de imagen dentro de su sandbox (persistir, copiar y borrar fotos
+    pendientes del Outbox vía dart:io en lib/pages/create_request_page.dart y
+    lib/pages/create_quotation_page.dart), lo que accede a metadatos de
+    archivos del contenedor de la app.
+
+  Las cadenas NS*UsageDescription (cámara, ubicación, fotos) NO viven en este
+  archivo: van en Info.plist (ya presentes). Los manifests de los plugins
+  (image_picker, geolocator, permission_handler, connectivity_plus, etc.)
+  los aporta cada pod.
+
+  NOTA: este archivo debe estar referenciado en el target Runner en Xcode
+  (arrastrarlo a "Runner" con "Copy Bundle Resources" / "Target Membership")
+  para que se incluya en el .app final.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

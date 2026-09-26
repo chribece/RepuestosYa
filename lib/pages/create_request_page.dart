@@ -696,6 +696,98 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     return persistedImage.path;
   }
 
+  /// Encola la solicitud en el Outbox (registro atómico Drift + Outbox) con
+  /// la imagen persistida a disco, si la hay. Compartido por el modo sin
+  /// conexión y por el fallo de subida online de la imagen: en ambos casos la
+  /// solicitud NUNCA se bloquea por la imagen — queda pendiente y el
+  /// SyncEngine la sube al reconectar.
+  Future<void> _encolarSolicitudOffline({
+    required String userId,
+    required String? persistentImagePath,
+    required String descripcionProblema,
+  }) async {
+    final provider = context.read<CreateRequestProvider>();
+    final outboxService = context.read<OutboxService>();
+
+    final payload = {
+      'cliente_id': userId,
+      'vehiculo_id': provider.selectedVehiculoId!,
+      'pieza_nombre': provider.piezaNombre,
+      'descripcion': provider.descripcion,
+      'direccion_entrega_id': provider.selectedDireccionId!,
+      'es_urgente': provider.selectedPrioridad == 'urgente',
+      'categoria_id': provider.selectedCategoryId!,
+      'repuesto_id': provider.selectedPartId!,
+      'repuesto_nombre_snapshot': provider.partNameSnapshot!,
+      'descripcion_problema': descripcionProblema,
+      'local_image_path': persistentImagePath,
+      // Coordenadas GPS capturadas offline (opcionales): si no vienen,
+      // el backend geocodifica la dirección al sincronizar.
+      if (_gpsLat != null && _gpsLng != null) 'latitude': _gpsLat,
+      if (_gpsLat != null && _gpsLng != null) 'longitude': _gpsLng,
+      if (_gpsLat != null && _gpsLng != null) 'coordenadas_fuente': 'gps',
+    };
+
+    // Outbox y solicitud local se guardan atómicamente.
+    try {
+      await outboxService.enqueueSolicitud(
+        payload: payload,
+        localRequest: (clientId) => SolicitudLocal(
+          id: clientId,
+          clientId: clientId,
+          vehiculoId: provider.selectedVehiculoId!,
+          piezaNombre: provider.piezaNombre,
+          categoriaId: provider.selectedCategoryId,
+          repuestoId: provider.selectedPartId,
+          estado: 'pendiente',
+          descripcion: provider.descripcion,
+          fotoUrl: persistentImagePath == null
+              ? null
+              : 'file://$persistentImagePath',
+          // Columnas dedicadas de coordenadas (además del payload JSON).
+          latitude: _gpsLat,
+          longitude: _gpsLng,
+          locationSource: _gpsLat != null ? 'gps' : null,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          synced: false,
+        ),
+      );
+    } catch (_) {
+      if (persistentImagePath != null) {
+        try {
+          await File(persistentImagePath).delete();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
+  /// Diálogo de confirmación de guardado local, compartido por el modo sin
+  /// conexión y por el fallo de subida online de la imagen.
+  void _mostrarDialogoGuardadoLocal() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('Guardado localmente'),
+        content: const Text(
+          'Tu solicitud se ha guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              context.pop();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleSubmit() async {
     // 1. Limpiar errores previos
     setState(() => _fieldErrors = {});
@@ -800,63 +892,14 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       if (isOffline) {
         // MODO SIN CONEXIÓN
         if (!mounted) return;
-        final outboxService = context.read<OutboxService>();
         final persistentImagePath = await _persistOfflineImage(
           provider.selectedImage,
         );
-
-        final payload = {
-          'cliente_id': user.id,
-          'vehiculo_id': provider.selectedVehiculoId!,
-          'pieza_nombre': provider.piezaNombre,
-          'descripcion': provider.descripcion,
-          'direccion_entrega_id': provider.selectedDireccionId!,
-          'es_urgente': provider.selectedPrioridad == 'urgente',
-          'categoria_id': provider.selectedCategoryId!,
-          'repuesto_id': provider.selectedPartId!,
-          'repuesto_nombre_snapshot': provider.partNameSnapshot!,
-          'descripcion_problema': descripcionProblema,
-          'local_image_path': persistentImagePath,
-          // Coordenadas GPS capturadas offline (opcionales): si no vienen,
-          // el backend geocodifica la dirección al sincronizar.
-          if (_gpsLat != null && _gpsLng != null) 'latitude': _gpsLat,
-          if (_gpsLat != null && _gpsLng != null) 'longitude': _gpsLng,
-          if (_gpsLat != null && _gpsLng != null) 'coordenadas_fuente': 'gps',
-        };
-
-        // Outbox y solicitud local se guardan atómicamente.
-        try {
-          await outboxService.enqueueSolicitud(
-            payload: payload,
-            localRequest: (clientId) => SolicitudLocal(
-              id: clientId,
-              clientId: clientId,
-              vehiculoId: provider.selectedVehiculoId!,
-              piezaNombre: provider.piezaNombre,
-              categoriaId: provider.selectedCategoryId,
-              repuestoId: provider.selectedPartId,
-              estado: 'pendiente',
-              descripcion: provider.descripcion,
-              fotoUrl: persistentImagePath == null
-                  ? null
-                  : 'file://$persistentImagePath',
-              // Columnas dedicadas de coordenadas (además del payload JSON).
-              latitude: _gpsLat,
-              longitude: _gpsLng,
-              locationSource: _gpsLat != null ? 'gps' : null,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-              synced: false,
-            ),
-          );
-        } catch (_) {
-          if (persistentImagePath != null) {
-            try {
-              await File(persistentImagePath).delete();
-            } catch (_) {}
-          }
-          rethrow;
-        }
+        await _encolarSolicitudOffline(
+          userId: user.id,
+          persistentImagePath: persistentImagePath,
+          descripcionProblema: descripcionProblema,
+        );
 
         if (!mounted) return;
         _gpsLat = null;
@@ -865,26 +908,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         setState(() => _isSubmitting = false);
 
         if (mounted) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              backgroundColor: AppColors.surfaceContainerHigh,
-              title: const Text('Guardado localmente'),
-              content: const Text(
-                'Tu solicitud se ha guardado en el dispositivo. Se enviará automáticamente al recuperar la conexión.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.pop();
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
+          _mostrarDialogoGuardadoLocal();
         }
         return;
       }
@@ -898,16 +922,27 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           user.id,
         );
         if (fotoUrl == null || fotoUrl.isEmpty) {
+          // La subida online falló: NO se aborta la solicitud (hallazgo [10]).
+          // Se persiste la imagen y se difiere a Outbox — mismo camino que el
+          // modo sin conexión — y el SyncEngine reintenta al reconectar.
+          if (!mounted) return;
+          final persistentImagePath = await _persistOfflineImage(
+            provider.selectedImage,
+          );
+          await _encolarSolicitudOffline(
+            userId: user.id,
+            persistentImagePath: persistentImagePath,
+            descripcionProblema: descripcionProblema,
+          );
+
+          if (!mounted) return;
+          _gpsLat = null;
+          _gpsLng = null;
+          provider.clear();
           setState(() => _isSubmitting = false);
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'No se pudo subir la imagen. Verifica tu conexión.',
-                ),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            _mostrarDialogoGuardadoLocal();
           }
           return;
         }

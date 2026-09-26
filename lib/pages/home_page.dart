@@ -10,6 +10,7 @@ import '../services/realtime_notification_service.dart';
 import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
+import '../widgets/flujo_notificaciones.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -105,11 +106,28 @@ class _HomePageState extends State<HomePage> {
     try {
       final user = _authService.currentUser;
       if (user != null) {
+        // Leer el provider ANTES de cualquier await (el uso del contexto a
+        // través de un async gap está prohibido por el linter).
+        final solicitudesProvider = context.read<SolicitudesProvider>();
+
+        // Permiso de notificaciones dentro del flujo autenticado:
+        // fire-and-forget (no bloquea las suscripciones y nunca lanza).
+        // Mensaje específico del rol cliente: cotizaciones y estado de orden.
+        unawaited(
+          solicitarPermisoNotificaciones(
+            context,
+            mensaje:
+                'RepuestosYa te avisa al instante cuando un almacén responde '
+                'tu solicitud con una cotización o cuando cambia el estado de '
+                'tu orden de compra. ¿Permites las notificaciones?',
+          ),
+        );
+
         final clienteId = user.id;
         RealtimeNotificationService().subscribeToEstadoOrden(clienteId);
 
         // Usamos el provider para las notificaciones en lugar de llamar a red
-        final solicitudes = context.read<SolicitudesProvider>().solicitudes;
+        final solicitudes = solicitudesProvider.solicitudes;
         if (solicitudes.isNotEmpty) {
           final solicitudIds = solicitudes
               .map((s) => s.id)

@@ -26,103 +26,227 @@ class RealtimeNotificationService {
       'Notificaciones de RepuestosYa en tiempo real';
 
   Future<void> init() async {
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    try {
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-          requestAlertPermission: false,
-          requestBadgePermission: false,
-          requestSoundPermission: false,
+      final DarwinInitializationSettings initializationSettingsIOS =
+          DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          );
+
+      final InitializationSettings initializationSettings =
+          InitializationSettings(
+            android: initializationSettingsAndroid,
+            iOS: initializationSettingsIOS,
+          );
+
+      await _notificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          AppLogger.debug(
+            'Notification clicked: ${response.payload}',
+            name: 'RealtimeNotificationService',
+          );
+        },
+      );
+
+      // Canal Android creado EXPLÍCITAMENTE aquí, antes de que cualquier
+      // showNotification() pueda ejecutarse (hasta ahora se creaba de forma
+      // implícita en el primer show vía AndroidNotificationDetails).
+      final AndroidFlutterLocalNotificationsPlugin? androidImpl =
+          _notificationsPlugin
+              .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin
+              >();
+      if (androidImpl != null) {
+        await androidImpl.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _channelId,
+            _channelName,
+            description: _channelDescription,
+            importance: Importance.high,
+          ),
         );
+      }
 
-    final InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsIOS,
-        );
-
-    await _notificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        AppLogger.debug(
-          'Notification clicked: ${response.payload}',
-          name: 'RealtimeNotificationService',
-        );
-      },
-    );
-
-    AppLogger.info(
-      'RealtimeNotificationService initialized',
-      name: 'RealtimeNotificationService',
-    );
+      AppLogger.info(
+        'RealtimeNotificationService initialized',
+        name: 'RealtimeNotificationService',
+      );
+    } catch (e, st) {
+      // Nunca propagar: un fallo del plugin no debe romper el arranque.
+      AppLogger.error(
+        'Error al inicializar RealtimeNotificationService',
+        name: 'RealtimeNotificationService',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
-  Future<void> requestPermissions() async {
-    if (Platform.isAndroid) {
-      final AndroidDeviceInfo androidInfo =
-          await DeviceInfoPlugin().androidInfo;
-      if (androidInfo.version.sdkInt >= 33) {
+  /// Solicita el permiso nativo de notificaciones y devuelve el estado
+  /// resultante para que el caller decida la UI (reintento / Ajustes).
+  ///
+  /// Manejo explícito de estados: concedido, denegado, denegado
+  /// permanentemente y restringido, con log para cada rama. En Android < 13
+  /// (sin `POST_NOTIFICATIONS`) y en plataformas no soportadas devuelve
+  /// `granted` porque el permiso no aplica. NUNCA lanza: cualquier fallo de
+  /// plataforma se registra y se degrada a `denied`.
+  Future<PermissionStatus> requestPermissions() async {
+    try {
+      if (Platform.isAndroid) {
+        final AndroidDeviceInfo androidInfo =
+            await DeviceInfoPlugin().androidInfo;
+        if (androidInfo.version.sdkInt < 33) {
+          // Android < 13: no existe el permiso runtime de notificaciones.
+          return PermissionStatus.granted;
+        }
         final PermissionStatus status = await Permission.notification.request();
         AppLogger.debug(
           'Notification permission status: $status',
           name: 'RealtimeNotificationService',
         );
-        if (status.isDenied) {
+        if (status.isGranted) {
+          AppLogger.info(
+            'Notification permission granted',
+            name: 'RealtimeNotificationService',
+          );
+        } else if (status.isPermanentlyDenied) {
+          AppLogger.warning(
+            'Notification permission permanently denied (solo Ajustes)',
+            name: 'RealtimeNotificationService',
+          );
+        } else if (status.isRestricted) {
+          AppLogger.warning(
+            'Notification permission restricted',
+            name: 'RealtimeNotificationService',
+          );
+        } else {
           AppLogger.warning(
             'Notification permission denied',
             name: 'RealtimeNotificationService',
           );
         }
+        return status;
       }
-    } else if (Platform.isIOS) {
-      final bool? result = await _notificationsPlugin
-          .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >()
-          ?.requestPermissions(alert: true, badge: true, sound: true);
-      AppLogger.debug(
-        'iOS notification permissions: $result',
+
+      if (Platform.isIOS) {
+        final bool? result = await _notificationsPlugin
+            .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin
+            >()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+        AppLogger.debug(
+          'iOS notification permissions: $result',
+          name: 'RealtimeNotificationService',
+        );
+        // En iOS un rechazo es definitivo: el sistema no vuelve a mostrar el
+        // diálogo; la única vía es Ajustes (lo decide el caller según estado).
+        return (result ?? false)
+            ? PermissionStatus.granted
+            : PermissionStatus.denied;
+      }
+
+      // Plataforma sin soporte (p. ej. tests en host): el permiso no aplica.
+      return PermissionStatus.granted;
+    } catch (e, st) {
+      AppLogger.error(
+        'Error al solicitar permiso de notificaciones',
         name: 'RealtimeNotificationService',
+        error: e,
+        stackTrace: st,
       );
+      return PermissionStatus.denied;
+    }
+  }
+
+  /// Verifica el permiso JUSTO ANTES de cada uso (revocado durante el uso):
+  /// cubre el caso de que el usuario lo apague en Ajustes mientras la app
+  /// corre. Nunca lanza.
+  Future<bool> _tienePermisoNotificaciones() async {
+    try {
+      if (Platform.isAndroid) {
+        final AndroidDeviceInfo androidInfo =
+            await DeviceInfoPlugin().androidInfo;
+        if (androidInfo.version.sdkInt < 33) return true;
+        final status = await Permission.notification.status;
+        return status.isGranted || status.isProvisional;
+      }
+      if (Platform.isIOS) {
+        final status = await Permission.notification.status;
+        return status.isGranted || status.isProvisional;
+      }
+      return false;
+    } catch (e) {
+      AppLogger.error(
+        'Error al verificar permiso de notificaciones',
+        name: 'RealtimeNotificationService',
+        error: e,
+      );
+      return false;
     }
   }
 
   Future<void> showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidNotificationDetails =
-        AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: _channelDescription,
-          importance: Importance.high,
-          priority: Priority.high,
-          showWhen: true,
-          icon: '@mipmap/ic_launcher',
+    try {
+      // Re-chequeo del permiso justo antes de cada uso: si el usuario lo
+      // revocó en Ajustes mientras la app corría, no se muestra ni se pierde
+      // tiempo en el canal nativo.
+      if (!await _tienePermisoNotificaciones()) {
+        AppLogger.debug(
+          'Notificación omitida (permiso no concedido o revocado): $title',
+          name: 'RealtimeNotificationService',
         );
+        return;
+      }
 
-    const DarwinNotificationDetails iosNotificationDetails =
-        DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        );
+      const AndroidNotificationDetails androidNotificationDetails =
+          AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: _channelDescription,
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            icon: '@mipmap/ic_launcher',
+          );
 
-    const NotificationDetails notificationDetails = NotificationDetails(
-      android: androidNotificationDetails,
-      iOS: iosNotificationDetails,
-    );
+      const DarwinNotificationDetails iosNotificationDetails =
+          DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          );
 
-    await _notificationsPlugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      notificationDetails,
-    );
+      const NotificationDetails notificationDetails = NotificationDetails(
+        android: androidNotificationDetails,
+        iOS: iosNotificationDetails,
+      );
 
-    AppLogger.debug(
-      'Notification shown: $title - $body',
-      name: 'RealtimeNotificationService',
-    );
+      await _notificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        notificationDetails,
+      );
+
+      AppLogger.debug(
+        'Notification shown: $title - $body',
+        name: 'RealtimeNotificationService',
+      );
+    } catch (e, st) {
+      // Los callbacks realtime llaman a showNotification sin await: un error
+      // aquí no debe convertirse en una excepción no capturada.
+      AppLogger.error(
+        'Error al mostrar notificación: $title',
+        name: 'RealtimeNotificationService',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> subscribeToCotizaciones(String solicitudId) async {

@@ -172,7 +172,11 @@ class OutboxService {
     if (status == 'FAILED') {
       final item = await (_db.select(
         _db.outbox,
-      )..where((t) => t.clientId.equals(clientId))).getSingle();
+      )..where((t) => t.clientId.equals(clientId))).getSingleOrNull();
+      // R10: si el item ya no existe (logout con clearAll() o descarte en
+      // vuelo del SyncEngine), el incremento es un no-op — nunca un
+      // StateError que se escape como excepción sin capturar.
+      if (item == null) return;
       await (_db.update(
         _db.outbox,
       )..where((t) => t.clientId.equals(clientId))).write(

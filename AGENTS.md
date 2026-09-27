@@ -16,6 +16,17 @@
   `cd /mnt/c/RepuestosYa/backend && "/mnt/d/Program Files/nodejs/node.exe" --check src/...`
 - Flutter:
   `cmd.exe /c "cd /d C:\RepuestosYa && flutter analyze"`
+  `cmd.exe /c "cd /d C:\RepuestosYa && flutter test"`
+- **Memoria del entorno:** la suite completa puede morir con OOM del
+  compilador (`Exhausted heap space`) bajo presión de RAM. Si pasa, cerrar
+  procesos pesados (backend de node, gradle daemons) y correr con
+  `flutter test --concurrency=1`.
+- E2E (solo dispositivo físico `T10MPROPLUS00342411`, requiere backend local
+  en `192.168.100.2:3000` + fixture):
+  `cmd.exe /c "cd /d C:\RepuestosYa && flutter test integration_test/ -d T10MPROPLUS00342411"`
+  Fixture de almacén: `"/mnt/d/Program Files/nodejs/node.exe" backend/scripts/e2e_fixture.js`.
+- CI: `.github/workflows/ci.yml` (analyze + test + formato + sintaxis backend;
+  el E2E NO corre en CI por requerir hardware — ver docs/TESTING.md §5).
 - Migraciones: aplicar a Supabase vía MCP (`apply_migration` usa `query`,
   no `statement`). PostgreSQL no soporta `ADD CONSTRAINT IF NOT EXISTS`:
   usar bloques `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint ...)`.

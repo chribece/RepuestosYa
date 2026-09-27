@@ -32,11 +32,27 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import '../router/route_names.dart';
 import '../providers/create_request_provider.dart';
 
 class CreateRequestPage extends StatefulWidget {
-  const CreateRequestPage({super.key});
+  const CreateRequestPage({
+    super.key,
+    this.solicitudService,
+    this.vehiculoService,
+    this.direccionService,
+    this.catalogService,
+    this.ubicacionService,
+  });
+
+  /// Servicios inyectables para widget tests (Fase 2 de docs/TESTING.md):
+  /// en producción se usan las instancias reales.
+  final SolicitudService? solicitudService;
+  final VehiculoService? vehiculoService;
+  final DireccionService? direccionService;
+  final CatalogService? catalogService;
+  final UbicacionService? ubicacionService;
 
   @override
   State<CreateRequestPage> createState() => _CreateRequestPageState();
@@ -67,12 +83,17 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   bool _isLoadingVehiculos = false;
   bool _isLoadingDirecciones = false;
 
-  final SolicitudService _solicitudService = SolicitudService();
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
   final AuthService _authService = AuthService();
-  final VehiculoService _vehiculoService = VehiculoService();
-  final DireccionService _direccionService = DireccionService();
-  final CatalogService _catalogService = CatalogService();
-  final UbicacionService _ubicacionService = UbicacionService();
+  late final VehiculoService _vehiculoService =
+      widget.vehiculoService ?? VehiculoService();
+  late final DireccionService _direccionService =
+      widget.direccionService ?? DireccionService();
+  late final CatalogService _catalogService =
+      widget.catalogService ?? CatalogService();
+  late final UbicacionService _ubicacionService =
+      widget.ubicacionService ?? UbicacionService();
 
   // Coordenadas GPS capturadas para la dirección seleccionada (se limpian al
   // cambiar de dirección; viajan al payload/Outbox si la dirección no las
@@ -408,10 +429,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   }
 
   bool _tieneCoordenadas(Map<String, dynamic>? direccion) {
-    if (direccion == null) return false;
-    final lat = direccion['latitude'];
-    final lon = direccion['longitude'];
-    return lat is num && lon is num;
+    return direccionTieneCoordenadas(direccion);
   }
 
   /// Flujo de captura de GPS compartido (helper `flujo_ubicacion.dart`):
@@ -1017,26 +1035,17 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   }
 
   String _buildDescripcionProblema(CreateRequestProvider provider) {
-    if (provider.additionalParts.isEmpty) return provider.descripcion;
-
-    final lines = <String>['Repuestos adicionales:'];
-    for (var index = 0; index < provider.additionalParts.length; index++) {
-      final additionalPart = provider.additionalParts[index];
-      lines.add(
-        '${index + 1}. Categoría: ${additionalPart.categoriaNombre ?? additionalPart.categoriaId} | '
-        'Repuesto: ${additionalPart.repuestoNombreSnapshot ?? additionalPart.repuestoId} | '
-        'Cantidad: ${additionalPart.cantidad}',
-      );
-      final detail = additionalPart.descripcionProblema?.trim();
-      if (detail != null && detail.isNotEmpty) {
-        lines.add('Detalle: $detail');
-      }
-    }
-
-    final summary = lines.join('\n');
-    final mainDescription = provider.descripcion.trim();
-    if (mainDescription.isEmpty) return summary;
-    return '$mainDescription\n\n$summary';
+    final partes = provider.additionalParts
+        .map(
+          (p) => (
+            categoria: p.categoriaNombre ?? p.categoriaId,
+            repuesto: p.repuestoNombreSnapshot ?? p.repuestoId,
+            cantidad: p.cantidad,
+            detalle: p.descripcionProblema,
+          ),
+        )
+        .toList();
+    return buildDescripcionProblema(provider.descripcion, partes);
   }
 
   // ========== COMPONENTES UI ==========
@@ -1791,10 +1800,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             color: SemanticColors.colorSuccess,
           ),
           const SizedBox(width: 4),
-          Text(
-            texto,
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: SemanticColors.colorSuccess,
+          // Flexible: el mensaje se recorta antes de desbordar el Row en
+          // anchos reducidos (hallazgo de widget tests, Fase 2).
+          Flexible(
+            child: Text(
+              texto,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: SemanticColors.colorSuccess,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1809,10 +1824,14 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           color: AppColors.warning,
         ),
         const SizedBox(width: 4),
-        Text(
-          'Ubicación pendiente — toca "Cambiar" para verificarla',
-          style: AppTextStyles.textStyleSmall.copyWith(
-            color: AppColors.warning,
+        Flexible(
+          child: Text(
+            'Ubicación pendiente — toca "Cambiar" para verificarla',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.warning,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

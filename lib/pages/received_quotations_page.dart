@@ -11,6 +11,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import '../router/route_names.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
@@ -122,81 +123,21 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   /// Parsea `precio_venta` que viene como String (numeric de Postgres se
   /// serializa como string en JSON) o como num. Devuelve 0.0 si no se puede
   /// interpretar. Evita el `TypeError` de `as num` cuando el valor es String.
-  double _parsePrecio(dynamic value) {
-    if (value == null) return 0.0;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0.0;
-    return 0.0;
-  }
+  double _parsePrecio(dynamic value) => parsePrecioVenta(value);
 
   /// Parsea `distancia_km` (numeric de Postgres serializado como string o
   /// como num). Devuelve null si no está disponible.
-  double? _parseDistancia(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    if (value is String) return double.tryParse(value);
-    return null;
-  }
+  double? _parseDistancia(dynamic value) => parseDistanciaKm(value);
 
   List<Map<String, dynamic>> _ordenarCotizaciones(
     List<Map<String, dynamic>> cotizaciones,
     int tabIndex,
   ) {
-    switch (tabIndex) {
-      case 0: // Todas
-        return cotizaciones;
-      case 1: // Más baratas
-        // Filtra a la(s) cotización(es) con el precio mínimo. Si hay
-        // empate en el mínimo, se muestran todas las empatadas (no tiene
-        // sentido ocultar una oferta igualmente barata).
-        if (cotizaciones.isEmpty) return cotizaciones;
-        final precios = cotizaciones
-            .map((c) => _parsePrecio(c['precio_venta']))
-            .toList();
-        final minPrecio = precios.reduce((a, b) => a < b ? a : b);
-        return cotizaciones
-            .where((c) => _parsePrecio(c['precio_venta']) == minPrecio)
-            .toList();
-      case 2: // Más cercanas: ordena por distancia real (Haversine) que el
-        // backend calcula al crear la cotización (distancia_km).
-        final conDistancia =
-            cotizaciones
-                .where((c) => _parseDistancia(c['distancia_km']) != null)
-                .toList()
-              ..sort(
-                (a, b) => _parseDistancia(
-                  a['distancia_km'],
-                )!.compareTo(_parseDistancia(b['distancia_km'])!),
-              );
-        final sinDistancia = cotizaciones
-            .where((c) => _parseDistancia(c['distancia_km']) == null)
-            .toList();
-        return [...conDistancia, ...sinDistancia];
-      default:
-        return cotizaciones;
-    }
+    return ordenarCotizaciones(cotizaciones, tabIndex);
   }
 
   String _formatTiempoEnvio(String? createdAt) {
-    if (createdAt == null) return 'Hace un momento';
-
-    try {
-      final dateTime = DateTime.parse(createdAt);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-
-      if (difference.inMinutes < 1) {
-        return 'Hace un momento';
-      } else if (difference.inMinutes < 60) {
-        return 'Hace ${difference.inMinutes} min';
-      } else if (difference.inHours < 24) {
-        return 'Hace ${difference.inHours} h';
-      } else {
-        return 'Hace ${difference.inDays} días';
-      }
-    } catch (e) {
-      return 'Hace un momento';
-    }
+    return formatTiempoEnvio(createdAt);
   }
 
   void _onTabChanged(int index) {

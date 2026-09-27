@@ -23,9 +23,26 @@ class ApiClient {
 
   /// Duración máxima de cada request HTTP antes de declarar timeout.
   /// Centralizado para que todos los verbos compartan el mismo umbral.
-  static const Duration _requestTimeout = Duration(seconds: 10);
+  Duration _requestTimeout = const Duration(seconds: 10);
+
+  /// Transporte HTTP. En producción es un [http.Client] real; los tests lo
+  /// reemplazan por un doble (`http.MockClient`, Fase 3 de docs/TESTING.md)
+  /// vía [clientForTesting] — la suite corre sin red real.
+  http.Client _client = http.Client();
 
   String? _token;
+
+  /// Inyecta un doble HTTP (sin red). Restaurar en tearDown si es necesario.
+  @visibleForTesting
+  set clientForTesting(http.Client client) => _client = client;
+
+  /// Fija el token directamente sin pasar por SecureStorage (tests).
+  @visibleForTesting
+  set tokenForTesting(String? token) => _token = token;
+
+  /// Acorta el timeout en tests para no esperar los 10 s reales.
+  @visibleForTesting
+  set requestTimeoutForTesting(Duration value) => _requestTimeout = value;
 
   // Constructor privado para singleton
   ApiClient._privateConstructor();
@@ -315,7 +332,7 @@ class ApiClient {
     ).replace(queryParameters: queryParams);
 
     return _execute(
-      () => http.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      () => _client.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (response) {
         if (response.body.isEmpty) return {};
         return json.decode(response.body) as Map<String, dynamic>;
@@ -338,7 +355,7 @@ class ApiClient {
     ).replace(queryParameters: queryParams);
 
     return _execute(
-      () => http.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      () => _client.get(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (response) {
         if (response.body.isEmpty) return [];
         final data = json.decode(response.body);
@@ -363,7 +380,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$endpoint');
 
     return _execute(
-      () => http.post(
+      () => _client.post(
         uri,
         headers: _getHeaders(requireAuth: requireAuth),
         body: body != null ? json.encode(body) : null,
@@ -389,7 +406,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$endpoint');
 
     return _execute(
-      () => http.put(
+      () => _client.put(
         uri,
         headers: _getHeaders(requireAuth: requireAuth),
         body: body != null ? json.encode(body) : null,
@@ -415,7 +432,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$endpoint');
 
     return _execute(
-      () => http.patch(
+      () => _client.patch(
         uri,
         headers: _getHeaders(requireAuth: requireAuth),
         body: body != null ? json.encode(body) : null,
@@ -437,7 +454,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl$endpoint');
 
     await _execute(
-      () => http.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
+      () => _client.delete(uri, headers: _getHeaders(requireAuth: requireAuth)),
       (_) => null,
       // Un 401 puede reintentarse una vez tras renovar el token. Los retries
       // de transporte siguen deshabilitados porque podrían duplicar datos.

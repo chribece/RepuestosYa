@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 part 'app_database.g.dart';
 
@@ -140,6 +141,11 @@ class AppDatabase extends _$AppDatabase {
   static final AppDatabase _instance = AppDatabase._internal();
   factory AppDatabase() => _instance;
   AppDatabase._internal() : super(_openConnection());
+
+  /// Conexión inyectable para tests (Fase 4 de docs/TESTING.md): permite
+  /// usar `NativeDatabase.memory()` sin plugins ni archivos reales.
+  @visibleForTesting
+  AppDatabase.forTesting(super.executor);
 
   @override
   int get schemaVersion => 10; // v10: columnas de coordenadas en Solicitudes

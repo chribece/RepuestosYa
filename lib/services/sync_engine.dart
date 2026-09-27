@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import 'outbox.dart';
 import 'solicitud_repository.dart';
 import 'solicitud_service.dart';
@@ -37,7 +38,7 @@ import 'upload_service.dart';
 class SyncEngine {
   final OutboxService _outbox;
   final SolicitudRepository _repository;
-  final SolicitudService _solicitudService = SolicitudService();
+  late final SolicitudService _solicitudService;
 
   /// Intervalo del reintento periódico de la cola (respaldo del evento de
   /// conectividad, que falla en algunos dispositivos al salir del modo avión).
@@ -46,8 +47,17 @@ class SyncEngine {
   bool _isProcessing = false;
   final Set<String> _syncingItems = {};
 
-  SyncEngine(this._outbox, this._repository) {
-    _init();
+  /// [solicitudService] y [autoStart] son inyectables para tests (Fase 4 de
+  /// docs/TESTING.md): con `autoStart: false` el constructor no agenda
+  /// timers ni escucha conectividad, y la cola se dispara manualmente con
+  /// [procesarCola]. En producción se usa el constructor por defecto.
+  SyncEngine(
+    this._outbox,
+    this._repository, {
+    SolicitudService? solicitudService,
+    bool autoStart = true,
+  }) : _solicitudService = solicitudService ?? SolicitudService() {
+    if (autoStart) _init();
   }
 
   void _init() {
@@ -184,13 +194,25 @@ class SyncEngine {
     }
   }
 
-  /// Distingue errores de red (transitorios) de errores de negocio (permanentes).
-  bool _isNetworkError(Object e) {
+  /// `true` mientras hay procesamiento en curso (la cola corriendo o un item
+  /// en vuelo). Expuesto para tests: `procesarCola` dispara items sin
+  /// esperarlos, y los tests necesitan esperar a que terminen.
+  @visibleForTesting
+  bool get procesando => _isProcessing || _syncingItems.isNotEmpty;
+
+  /// Distingue errores de red (transitorios) de errores de negocio
+  /// (permanentes). Expuesta para tests (Fase 1 de docs/TESTING.md): esta
+  /// clasificación decide si un item de Outbox se reintenta (FAILED) o se
+  /// agota hasta DEAD.
+  @visibleForTesting
+  static bool esErrorDeRed(Object e) {
     if (e is ApiException) {
       return e.statusCode == null || e.statusCode == 0 || e.statusCode == 504;
     }
     return e is SocketException || e is TimeoutException;
   }
+
+  bool _isNetworkError(Object e) => esErrorDeRed(e);
 
   Future<void> _processSolicitud(OutboxData item) async {
     final payload = json.decode(item.payload) as Map<String, dynamic>;
@@ -306,7 +328,9 @@ class SyncEngine {
     await _solicitudService.crearCotizacion(
       solicitudId: payload['solicitud_id'],
       almacenId: payload['almacen_id'],
-      precio: (payload['precio'] as num?)?.toDouble() ?? 0.0,
+      // numeric de Postgres llega como string o num (riesgo R06): el cast
+      // estricto `as num?` condenaba la cotización a FAILED/DEAD en silencio.
+      precio: parsePrecioVenta(payload['precio']),
       notas: payload['notas'],
       fotoUrl: fotoUrl,
       tiempoEntrega: payload['tiempo_entrega_estimado'],

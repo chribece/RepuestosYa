@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/sentry_config.dart';
 import 'api_client.dart';
 import 'secure_storage_service.dart';
 
@@ -72,6 +74,7 @@ class AuthService {
         if (response['success'] == true) {
           final userData = response['data'] as Map<String, dynamic>;
           _currentUser = User.fromJson(userData);
+          _syncSentryUser();
           _authStateController.add(AuthState(user: _currentUser));
           AppLogger.info(
             'Sesión restaurada correctamente',
@@ -132,6 +135,7 @@ class AuthService {
 
       final userData = response['user'] as Map<String, dynamic>;
       _currentUser = User.fromJson(userData);
+      _syncSentryUser();
 
       // Persistir token y datos de usuario en almacenamiento cifrado
       await _apiClient.setToken(token);
@@ -172,6 +176,7 @@ class AuthService {
 
       final userData = response['user'] as Map<String, dynamic>;
       _currentUser = User.fromJson(userData);
+      _syncSentryUser();
 
       // Persistir token y datos de usuario en almacenamiento cifrado
       await _apiClient.setToken(token);
@@ -280,6 +285,7 @@ class AuthService {
   // Limpiar sesión local (usado por ApiClient ante 401)
   Future<void> clearLocalSession() async {
     _currentUser = null;
+    _syncSentryUser();
     await _apiClient.clearToken();
     await _secureStorage.clearAll();
 
@@ -306,6 +312,7 @@ class AuthService {
 
       // 2. Limpiar memoria y almacenamiento seguro INMEDIATAMENTE
       _currentUser = null;
+      _syncSentryUser();
       await _secureStorage.clearAll();
       await _apiClient.clearToken();
 
@@ -333,12 +340,19 @@ class AuthService {
       );
       // Pase lo que pase, forzamos el estado nulo para que el usuario pueda volver a loguearse
       _currentUser = null;
+      _syncSentryUser();
       _authStateController.add(AuthState(user: null));
     }
   }
 
   // Obtener el usuario actual
   User? get currentUser => _currentUser;
+
+  /// Hook de tests (Fase 2 de docs/TESTING.md): AuthService es singleton y no
+  /// es subclaseable (constructor privado), así que los widget tests fijan el
+  /// usuario actual directamente y lo restauran en el tearDown.
+  @visibleForTesting
+  set currentUserForTesting(User? user) => _currentUser = user;
 
   // Verificar si hay un usuario autenticado
   bool get isAuthenticated => _currentUser != null;
@@ -363,5 +377,11 @@ class AuthService {
   // Dispose
   void dispose() {
     _authStateController.close();
+  }
+
+  /// Sincroniza el usuario de Sentry (identificador interno UUID, nunca
+  /// correo/cédula). Se invoca en cada cambio de sesión.
+  void _syncSentryUser() {
+    SentryConfig.setUsuario(_currentUser?.id);
   }
 }

@@ -24,7 +24,16 @@ import '../utils/app_logger.dart';
 import '../router/route_names.dart';
 
 class WarehouseDashboard extends StatefulWidget {
-  const WarehouseDashboard({super.key});
+  const WarehouseDashboard({
+    super.key,
+    this.almacenService,
+    this.solicitudService,
+  });
+
+  /// Servicios inyectables para widget tests (Fase 2 de docs/TESTING.md):
+  /// en producción se usan las instancias reales.
+  final AlmacenService? almacenService;
+  final SolicitudService? solicitudService;
 
   @override
   State<WarehouseDashboard> createState() => _WarehouseDashboardState();
@@ -35,7 +44,8 @@ enum _ProfileCheckState { validating, needsProfile, error, ready }
 
 class _WarehouseDashboardState extends State<WarehouseDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final SolicitudService _solicitudService = SolicitudService();
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
   final AuthService _authService = AuthService();
   late final AlmacenService _almacenService;
 
@@ -93,7 +103,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   @override
   void initState() {
     super.initState();
-    _almacenService = AlmacenService(context.read<AlmacenRepository>());
+    _almacenService =
+        widget.almacenService ??
+        AlmacenService(context.read<AlmacenRepository>());
     _validateAndLoad();
     _initConnectivityWatcher();
 
@@ -293,7 +305,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       AppLogger.error('Error al cargar almacén', name: _logName, error: e);
       if (mounted) {
         setState(() {
-          _nombreAlmacen = 'Mi Almacén';
+          // Solo degrada el nombre si aún no se cargó: un fallo posterior de
+          // una suscripción realtime no debe borrar el nombre ya obtenido
+          // (hallazgo de widget tests, Fase 2).
+          _nombreAlmacen ??= 'Mi Almacén';
         });
       }
     }
@@ -322,6 +337,53 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         _scheduleNetworkReload();
       }
     }
+  }
+
+  /// Feed de solicitudes como sliver LAZY (Fase 7): solo las tarjetas
+  /// visibles se construyen. Antes (SingleChildScrollView + ListView
+  /// shrinkWrap) se construían TODAS en cada frame — el timeline en modo
+  /// profile mostró el jank en el hilo de UI (build avg 10.2 ms, 5 frames
+  /// sobre el presupuesto de 16 ms) con el raster inactivo.
+  Widget _buildFeedSliver() {
+    if (!_isApproved) {
+      return SliverToBoxAdapter(
+        child: RyStateContainer(
+          title: _isPending ? 'En Verificación' : 'Almacén Rechazado',
+          subtitle: _isPending
+              ? 'Tu cuenta está en proceso de revisión. Podrás ver solicitudes una vez seas aprobado.'
+              : 'Tu registro ha sido rechazado. ${_rejectionReason ?? "Contacta a soporte para más información."}',
+          type: _isPending ? RyStateType.loading : RyStateType.error,
+        ),
+      );
+    }
+    if (_isLoadingSolicitudes) {
+      return const SliverToBoxAdapter(
+        child: RyStateContainer(
+          title: 'Cargando solicitudes...',
+          type: RyStateType.loading,
+        ),
+      );
+    }
+    if (_solicitudes.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: RyStateContainer(
+          title: 'Sin solicitudes',
+          subtitle:
+              'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
+          type: RyStateType.empty,
+        ),
+      );
+    }
+    return SliverList.builder(
+      itemCount: _solicitudes.length,
+      itemBuilder: (context, index) {
+        final solicitud = _solicitudes[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+          child: _buildRequestBentoCard(solicitud: solicitud),
+        );
+      },
+    );
   }
 
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
@@ -590,95 +652,79 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                           },
                           color: AppColors.primaryContainer,
                           backgroundColor: AppColors.surfaceContainerHigh,
-                          child: SingleChildScrollView(
+                          child: CustomScrollView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.spacingMd,
-                              vertical: AppSpacing.spacingLg,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _nombreAlmacen ?? 'Cargando...',
-                                  style: AppTextStyles.textStyleHeading,
+                            slivers: [
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.spacingMd,
+                                  AppSpacing.spacingLg,
+                                  AppSpacing.spacingMd,
+                                  0,
                                 ),
-                                const SizedBox(height: AppSpacing.spacingXxs),
-                                Text(
-                                  'Gestión de inventario y pedidos en tiempo real.',
-                                  style: AppTextStyles.textStyleCaption
-                                      .copyWith(
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
-                                ),
-                                const SizedBox(height: AppSpacing.spacingLg),
-                                if (_isPending) _buildVerificationBanner(),
-                                if (_isRejected) _buildRejectedBanner(),
-                                const SizedBox(height: AppSpacing.spacingXl),
-                                _buildBentoStatsGrid(),
-                                const SizedBox(height: AppSpacing.spacingXl),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                sliver: SliverList.list(
                                   children: [
                                     Text(
-                                      'Solicitudes Disponibles',
-                                      style: AppTextStyles.textStyleTitle,
+                                      _nombreAlmacen ?? 'Cargando...',
+                                      style: AppTextStyles.textStyleHeading,
                                     ),
-                                    RyButton(
-                                      label: 'Ver todas',
-                                      variant: RyButtonVariant.text,
-                                      size: RyButtonSize.small,
-                                      onPressed: _isApproved
-                                          ? _cargarSolicitudes
-                                          : null,
+                                    const SizedBox(
+                                      height: AppSpacing.spacingXxs,
+                                    ),
+                                    Text(
+                                      'Gestión de inventario y pedidos en tiempo real.',
+                                      style: AppTextStyles.textStyleCaption
+                                          .copyWith(
+                                            color: AppColors.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    const SizedBox(
+                                      height: AppSpacing.spacingLg,
+                                    ),
+                                    if (_isPending) _buildVerificationBanner(),
+                                    if (_isRejected) _buildRejectedBanner(),
+                                    const SizedBox(
+                                      height: AppSpacing.spacingXl,
+                                    ),
+                                    _buildBentoStatsGrid(),
+                                    const SizedBox(
+                                      height: AppSpacing.spacingXl,
+                                    ),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Solicitudes Disponibles',
+                                          style: AppTextStyles.textStyleTitle,
+                                        ),
+                                        RyButton(
+                                          label: 'Ver todas',
+                                          variant: RyButtonVariant.text,
+                                          size: RyButtonSize.small,
+                                          onPressed: _isApproved
+                                              ? _cargarSolicitudes
+                                              : null,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(
+                                      height: AppSpacing.spacingMd,
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: AppSpacing.spacingMd),
-                                !_isApproved
-                                    ? RyStateContainer(
-                                        title: _isPending
-                                            ? 'En Verificación'
-                                            : 'Almacén Rechazado',
-                                        subtitle: _isPending
-                                            ? 'Tu cuenta está en proceso de revisión. Podrás ver solicitudes una vez seas aprobado.'
-                                            : 'Tu registro ha sido rechazado. ${_rejectionReason ?? "Contacta a soporte para más información."}',
-                                        type: _isPending
-                                            ? RyStateType.loading
-                                            : RyStateType.error,
-                                      )
-                                    : _isLoadingSolicitudes
-                                    ? const RyStateContainer(
-                                        title: 'Cargando solicitudes...',
-                                        type: RyStateType.loading,
-                                      )
-                                    : _solicitudes.isEmpty
-                                    ? const RyStateContainer(
-                                        title: 'Sin solicitudes',
-                                        subtitle:
-                                            'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
-                                        type: RyStateType.empty,
-                                      )
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        itemCount: _solicitudes.length,
-                                        itemBuilder: (context, index) {
-                                          final solicitud = _solicitudes[index];
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: AppSpacing.spacingMd,
-                                            ),
-                                            child: _buildRequestBentoCard(
-                                              solicitud: solicitud,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                              ],
-                            ),
+                              ),
+                              SliverPadding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.spacingMd,
+                                ),
+                                sliver: _buildFeedSliver(),
+                              ),
+                              // Respiro inferior para el scroll.
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: AppSpacing.spacingLg),
+                              ),
+                            ],
                           ),
                         )
                       : RefreshIndicator(

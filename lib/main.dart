@@ -24,11 +24,15 @@ import 'database/app_database.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 import 'utils/app_logger.dart';
+import 'utils/sentry_config.dart';
 import 'config/app_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.assertValidConfiguration();
+
+  // Sentry (Fase 8): DSN vía --dart-define=SENTRY_DSN; sin DSN es no-op.
+  await SentryConfig.init();
 
   // Inicializar Supabase (necesario al inicio)
   try {

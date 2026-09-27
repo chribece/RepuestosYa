@@ -871,20 +871,27 @@ class _HomePageState extends State<HomePage> {
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         border: Border.all(color: AppColors.outlineVariant),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: AppColors.primary, size: 28),
-          const SizedBox(height: AppSpacing.spacingXs),
-          Text(
-            label,
-            style: AppTextStyles.textStyleCaption.copyWith(
-              color: AppColors.onSurface,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
+      // FittedBox: escala el contenido si el texto crece (accesibilidad /
+      // fuentes grandes) en lugar de desbordar el contenedor.
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: AppColors.primary, size: 28),
+              const SizedBox(height: AppSpacing.spacingXs),
+              Text(
+                label,
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -949,28 +956,35 @@ class _HomePageState extends State<HomePage> {
       width: 64,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? AppColors.primaryContainer
-                  : AppColors.onSurfaceVariant,
-              size: 22,
+        // FittedBox: si el label crece (accesibilidad/fuentes grandes) se
+        // escala en vez de desbordar el área táctil de 48 dp.
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected
+                      ? AppColors.primaryContainer
+                      : AppColors.onSurfaceVariant,
+                  size: 22,
+                ),
+                // ajuste fino intencional: separación mínima icono/label en la barra inferior
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: isSelected
+                        ? AppColors.primaryContainer
+                        : AppColors.onSurfaceVariant,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
-            // ajuste fino intencional: separación mínima icono/label en la barra inferior
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: isSelected
-                    ? AppColors.primaryContainer
-                    : AppColors.onSurfaceVariant,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

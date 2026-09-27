@@ -244,9 +244,21 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(double width, double height, {double? borderRadius}) {
+  Widget _buildImage(
+    double width,
+    double height, {
+    double? borderRadius,
+    required double devicePixelRatio,
+  }) {
     final bool isLocal = imageUrl?.startsWith('file://') ?? false;
     final radius = borderRadius ?? AppRadius.radiusMd;
+
+    // Fase 7: decodificar el thumbnail al tamaño real en pantalla
+    // (cacheWidth/cacheHeight) en lugar de la resolución completa de la
+    // foto — evita el pico del raster thread al subir imágenes gigantes a
+    // la GPU solo para mostrarlas en 60-80 dp.
+    final cacheWidth = (width * devicePixelRatio).round();
+    final cacheHeight = (height * devicePixelRatio).round();
 
     Widget imageWidget;
     if (isLocal) {
@@ -255,6 +267,8 @@ class RyPartCard extends StatelessWidget {
         File(path),
         width: width,
         height: height,
+        cacheWidth: cacheWidth,
+        cacheHeight: cacheHeight,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
             _buildPlaceholder(width, height),
@@ -264,6 +278,10 @@ class RyPartCard extends StatelessWidget {
         imageUrl: imageUrl!,
         width: width,
         height: height,
+        // cached_network_image usa memCacheWidth/Height (decodificación a
+        // thumbnail) en lugar de cacheWidth/Height de Image.
+        memCacheWidth: cacheWidth,
+        memCacheHeight: cacheHeight,
         fit: BoxFit.cover,
         placeholder: (context, url) => _buildPlaceholder(width, height),
         errorWidget: (context, url, error) =>
@@ -296,6 +314,9 @@ class RyPartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveVariant = isCompact ? RyPartCardVariant.compact : variant;
+    // DPR del dispositivo para decodificar thumbnails al tamaño real de
+    // pantalla (cacheWidth/cacheHeight) en lugar de la resolución completa.
+    final double dpr = MediaQuery.devicePixelRatioOf(context);
 
     return Semantics(
       button: onTap != null,
@@ -316,25 +337,25 @@ class RyPartCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.spacingMd),
-            child: _buildContent(effectiveVariant),
+            child: _buildContent(effectiveVariant, dpr),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(RyPartCardVariant variant) {
+  Widget _buildContent(RyPartCardVariant variant, double dpr) {
     switch (variant) {
       case RyPartCardVariant.compact:
-        return _buildCompactContent();
+        return _buildCompactContent(dpr);
       case RyPartCardVariant.client:
-        return _buildClientContent();
+        return _buildClientContent(dpr);
       case RyPartCardVariant.warehouse:
-        return _buildWarehouseContent();
+        return _buildWarehouseContent(dpr);
     }
   }
 
-  Widget _buildCompactContent() {
+  Widget _buildCompactContent(double dpr) {
     return Row(
       children: [
         if (showImage && _hasImage) ...[
@@ -342,7 +363,12 @@ class RyPartCard extends StatelessWidget {
             image: true,
             label: 'Imagen del repuesto $partName',
             excludeSemantics: true,
-            child: _buildImage(60, 60, borderRadius: AppRadius.radiusSm),
+            child: _buildImage(
+              60,
+              60,
+              borderRadius: AppRadius.radiusSm,
+              devicePixelRatio: dpr,
+            ),
           ),
           const SizedBox(width: AppSpacing.spacingMd),
         ],
@@ -412,7 +438,7 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
-  Widget _buildClientContent() {
+  Widget _buildClientContent(double dpr) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -423,7 +449,7 @@ class RyPartCard extends StatelessWidget {
                 image: true,
                 label: 'Imagen del repuesto $partName',
                 excludeSemantics: true,
-                child: _buildImage(80, 80),
+                child: _buildImage(80, 80, devicePixelRatio: dpr),
               ),
               const SizedBox(width: AppSpacing.spacingMd),
             ],
@@ -498,7 +524,7 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
-  Widget _buildWarehouseContent() {
+  Widget _buildWarehouseContent(double dpr) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -509,7 +535,7 @@ class RyPartCard extends StatelessWidget {
                 image: true,
                 label: 'Imagen del repuesto $partName',
                 excludeSemantics: true,
-                child: _buildImage(80, 80),
+                child: _buildImage(80, 80, devicePixelRatio: dpr),
               ),
               const SizedBox(width: AppSpacing.spacingMd),
             ],

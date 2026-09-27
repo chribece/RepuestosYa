@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  flutter:
+    name: Flutter (analyze + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Versión anclada por reproducibilidad. Nota KGP resuelta:
+      # sentry_flutter 10.0.0-rc.0 ya no aplica el Kotlin Gradle Plugin
+      # (PR getsentry/sentry-dart#3970); al salir 10.0.0 estable se puede
+      # des-anclar/subir la versión de Flutter junto con el plugin.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.1'
+          cache: true
+
+      # sqlite3 nativo para los tests de Drift in-memory
+      # (test/unit/solicitud_repository_db_test.dart y sync_engine_test.dart).
+      - name: Dependencias sqlite3
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Dependencias Flutter
+        run: flutter pub get
+
+      - name: Formato
+        run: dart format --output=none --set-exit-if-changed lib test integration_test
+
+      - name: Análisis estático
+        run: flutter analyze
+
+      - name: Tests (unit + widget + doble HTTP) — sin red ni dispositivo
+        run: flutter test
+
+      # El E2E (integration_test/) NO corre en CI: requiere dispositivo
+      # físico (docs/TESTING.md §5) — se ejecuta manualmente antes de cada
+      # release con: flutter test integration_test/ -d <dispositivo>.
+
+  backend:
+    name: Backend (sintaxis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Dependencias backend
+        run: cd backend && npm ci
+
+      - name: Sintaxis (node --check)
+        run: |
+          cd backend
+          find . -name '*.js' -not -path './node_modules/*' -exec node --check {} \;

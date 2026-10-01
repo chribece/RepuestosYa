@@ -486,3 +486,72 @@ por ciudad.
 - `GET /quotations/request/:solicitud_id` ya expone `distancia_km` y las
   coordenadas del almacén para que el cliente valide el radio razonable
   (tab "Más cercanas").
+
+---
+
+## Cancelación de solicitudes (Parte 4)
+
+> Nota de alineación: las secciones previas de este documento (marcas,
+> modelos, vehículos, `{exito, datos}`) quedaron desalineadas con el
+> backend real. Este endpoint se documenta con la ruta REAL que expone el
+> servidor (`/api` montado en `backend/server.js`) y con el envoltorio real
+> de los endpoints de `/requests`: fila cruda en éxito, `{ error: "..." }`
+> en fallo (el proyecto tiene 3 envoltorios distintos; aquí NO se suma uno
+> nuevo).
+
+### PATCH /api/requests/:id/status (cancelar solicitud propia)
+
+**Descripción:** Cancela lógicamente una solicitud (estado `'cancelada'`).
+Solo el dueño de la solicitud puede cancelarla; un tercero recibe `403`.
+
+**Autenticación:** Requerida (Bearer JWT). Ruta real: `PATCH /api/requests/:id/status`
+(registrada en `backend/src/routes/index.js`).
+
+**Body:**
+- `estado` (requerido): `"cancelada"` (único valor aceptado por ahora).
+
+**Ejemplo:**
+```http
+PATCH http://192.168.100.2:3000/api/requests/6dfca6fd-5405-4865-88d2-0927a49ffd7d/status
+Authorization: Bearer <token_cliente>
+Content-Type: application/json
+
+{ "estado": "cancelada" }
+```
+
+**Respuesta (200 OK):** fila cruda de la solicitud actualizada (mismo
+envoltorio que `POST /requests`):
+
+```json
+{
+  "id": "6dfca6fd-5405-4865-88d2-0927a49ffd7d",
+  "cliente_id": "4e4b620a-e3ce-49a6-b1cc-e28c08ebb930",
+  "pieza_nombre": "Batería",
+  "estado": "cancelada",
+  "created_at": "2026-09-30T03:16:28.727257+00:00"
+}
+```
+
+**Idempotencia:** cancelar una solicitud ya cancelada responde `200` con la
+fila actual, sin efectos secundarios (nunca rompe).
+
+**Errores (todos con `{ "error": "mensaje legible" }`, mostrado tal cual
+por la app):**
+
+| Código | Caso |
+|--------|------|
+| 400 | `estado` distinto de `"cancelada"` o `id` no es UUID válido |
+| 401 | Token ausente o inválido |
+| 403 | Un tercero intenta cancelar (no es el dueño) |
+| 404 | La solicitud no existe |
+| 409 | Ya fue respondida por un almacén (existe al menos una cotización), tiene una orden generada, o está en un estado no cancelable (p. ej. `asignada`/`completado`/`cerrada`) |
+
+**Reglas de negocio (implementadas en `backend/src/services/cancelacionSolicitudService.js`):**
+
+1. Solo se cancela desde estados activos/pendientes (`en_proceso`).
+2. Regla dura: se rechaza si existe **alguna** cotización de un almacén (la
+   solicitud ya fue respondida).
+3. Defensivo: se rechaza si ya existe una orden de compra generada.
+4. La cancelación es un cambio de estado validado por el servidor: la app
+   NO lo encola en el Outbox sin conexión (oculta la acción y avisa que se
+   necesita conexión).

@@ -61,6 +61,10 @@ router.get('/requests/active', auth, requireRole('almacen'), solicitudController
 router.get('/requests/stats', auth, solicitudController.getEstadisticasCliente);
 router.post('/requests', auth, solicitudController.createSolicitud);
 router.get('/requests/:id', auth, solicitudController.getSolicitudPorId);
+// Cancelación lógica de solicitudes (Parte 4): PATCH /api/requests/:id/status
+// con body { estado: 'cancelada' }. Solo el dueño; rechaza si ya fue
+// respondida por algún almacén (409) o no es cancelable.
+router.patch('/requests/:id/status', auth, solicitudController.updateSolicitudEstado);
 
 // Cotizacion routes (protected)
 router.post('/quotations', auth, requireRole('almacen'), cotizacionController.createCotizacion);

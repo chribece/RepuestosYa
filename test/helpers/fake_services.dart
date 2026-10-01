@@ -18,13 +18,19 @@ class FakeSolicitudService extends SolicitudService {
   int estadisticasCalls = 0;
   int solicitudesActivasCalls = 0;
   int misCotizacionesCalls = 0;
+  int misOrdenesCalls = 0;
+  int cancelarSolicitudCalls = 0;
+  String? ultimaSolicitudCancelada;
 
   Map<String, dynamic>? respuestaCrear;
   Object? falloAlCrear;
   Object? falloAlCrearCotizacion;
+  Object? falloAlCancelar;
   Map<String, dynamic> respuestaEstadisticas = {};
   List<Map<String, dynamic>> respuestaActivas = [];
   List<Map<String, dynamic>> respuestaMisCotizaciones = [];
+  List<Map<String, dynamic>> respuestaMisOrdenes = [];
+  Map<String, dynamic> respuestaCancelar = {'estado': 'cancelada'};
 
   /// Parámetros de la última llamada a [crearSolicitud].
   Map<String, dynamic>? ultimaLlamadaCrear;
@@ -110,6 +116,23 @@ class FakeSolicitudService extends SolicitudService {
   Future<List<Map<String, dynamic>>> obtenerMisCotizaciones() async {
     misCotizacionesCalls++;
     return respuestaMisCotizaciones;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> obtenerMisOrdenes({
+    required int page,
+    required int limit,
+  }) async {
+    misOrdenesCalls++;
+    return respuestaMisOrdenes;
+  }
+
+  @override
+  Future<Map<String, dynamic>> cancelarSolicitud(String solicitudId) async {
+    cancelarSolicitudCalls++;
+    ultimaSolicitudCancelada = solicitudId;
+    if (falloAlCancelar != null) throw falloAlCancelar!;
+    return respuestaCancelar;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -7,17 +8,24 @@ import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
 import '../services/outbox.dart';
 import '../services/sync_engine.dart';
+import '../services/solicitud_repository.dart';
+import '../services/solicitud_service.dart';
 import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../router/route_names.dart';
 
 class TodasSolicitudesPage extends StatefulWidget {
-  const TodasSolicitudesPage({super.key});
+  const TodasSolicitudesPage({super.key, this.solicitudService});
+
+  /// Servicio inyectable para widget tests (mismo patrón que el
+  /// WarehouseDashboard): en producción se usa la instancia real.
+  final SolicitudService? solicitudService;
 
   @override
   State<TodasSolicitudesPage> createState() => _TodasSolicitudesPageState();
@@ -26,6 +34,8 @@ class TodasSolicitudesPage extends StatefulWidget {
 class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
   final ScrollController _scrollController = ScrollController();
   final AuthService _authService = AuthService();
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
   Timer? _refreshTimer;
   Future<List<OutboxData>>? _errorItemsFuture;
 
@@ -247,6 +257,190 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     );
   }
 
+  /// Navegación compartida entre el tap de la tarjeta y la acción de swipe
+  /// "Ver detalle" (misma ruta que el tap actual). No navega si la solicitud
+  /// aún no se sincronizó con el servidor.
+  void _abrirDetalleSolicitud(
+    BuildContext context,
+    SolicitudLocal solicitudLocal,
+  ) {
+    if (!solicitudLocal.synced) return;
+    context.pushNamed(
+      RouteNames.receivedQuotations,
+      pathParameters: {'id': solicitudLocal.id},
+      extra: {'piezaNombre': solicitudLocal.piezaNombre},
+    );
+  }
+
+  /// Acción de swipe "Ver detalle" con los tokens del Design System
+  /// (fondo `secondaryContainer`, texto `onSurface`, `textStyleSmall`).
+  Widget _buildVerDetalleAction(VoidCallback onPressed) {
+    return CustomSlidableAction(
+      onPressed: (_) => onPressed(),
+      backgroundColor: AppColors.secondaryContainer,
+      foregroundColor: AppColors.onSurface,
+      borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.visibility_outlined, size: 22),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(
+            'Detalle',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Acción de swipe "Cancelar" con los tokens del Design System (fondo
+  /// `error`, texto blanco `onErrorText`, `textStyleSmall`). Se revela en el
+  /// panel IZQUIERDO (deslizar el contenido hacia la DERECHA), es decir el
+  /// `startActionPane` del Slidable.
+  Widget _buildCancelarAction(VoidCallback onPressed) {
+    return CustomSlidableAction(
+      onPressed: (_) => onPressed(),
+      backgroundColor: AppColors.error,
+      foregroundColor: SemanticColors.colorOnErrorText,
+      borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.close, size: 22),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(
+            'Cancelar',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: SemanticColors.colorOnErrorText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Regla de UI para ofrecer "Cancelar": la lista local no trae el conteo
+  /// de cotizaciones, así que la condición usa el estado de la solicitud
+  /// (pendiente/activa = aún no respondida por ningún almacén). La regla
+  /// dura la valida el backend al cancelar (rechaza si ya existen
+  /// cotizaciones); la app muestra el mensaje del servidor y refresca.
+  bool _puedeCancelar(SolicitudLocal solicitudLocal) {
+    if (!solicitudLocal.synced) return false;
+    return solicitudLocal.estado == 'en_proceso' ||
+        solicitudLocal.estado == 'pendiente';
+  }
+
+  /// Control visible alternativo al gesto de cancelar (accesibilidad:
+  /// ninguna acción queda solo detrás del swipe). Es un menú "⋮" en la
+  /// esquina de la tarjeta con el ítem "Cancelar solicitud". Sin conexión
+  /// el ítem sigue presente pero al tocarlo avisa que se necesita conexión
+  /// (la cancelación no se encola en el Outbox: es un cambio de estado que
+  /// el servidor debe validar).
+  Widget _buildCardMenu(SolicitudLocal solicitudLocal) {
+    return PopupMenuButton<String>(
+      tooltip: 'Opciones de la solicitud',
+      icon: const Icon(Icons.more_vert, color: AppColors.onSurfaceVariant),
+      onSelected: (value) {
+        if (value == 'cancelar') {
+          _cancelarSolicitud(solicitudLocal);
+        }
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'cancelar', child: Text('Cancelar solicitud')),
+      ],
+    );
+  }
+
+  /// Confirmación obligatoria antes de cancelar (mismo patrón Material que
+  /// "Eliminar vehículo" / "Eliminar dirección").
+  Future<bool> _confirmarCancelacion(SolicitudLocal solicitudLocal) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: Text('Confirmar', style: AppTextStyles.textStyleTitle),
+        content: Text(
+          '¿Estás seguro de cancelar la solicitud "${solicitudLocal.piezaNombre}"?',
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              'No',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              'Sí, cancelar',
+              style: AppTextStyles.textStyleButton.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmado ?? false;
+  }
+
+  /// Flujo de cancelación: confirmación → PATCH al servidor → refresco.
+  /// Sin conexión NO se encola en el Outbox (decisión de la fase): se avisa
+  /// que se necesita conexión. Si el servidor rechaza (p. ej. 409 porque la
+  /// solicitud ya fue respondida), se muestra su mensaje tal cual y se
+  /// refresca la lista para reflejar el estado real.
+  Future<void> _cancelarSolicitud(SolicitudLocal solicitudLocal) async {
+    final provider = context.read<SolicitudesProvider>();
+
+    if (provider.isOffline) {
+      _mostrarMensaje('Necesitas conexión para cancelar la solicitud.');
+      return;
+    }
+
+    final confirmado = await _confirmarCancelacion(solicitudLocal);
+    if (!confirmado || !mounted) return;
+
+    try {
+      await _solicitudService.cancelarSolicitud(solicitudLocal.id);
+      if (!mounted) return;
+      _mostrarMensaje('Solicitud cancelada');
+      // Refrescar para reflejar el nuevo estado (la fila local se
+      // re-sincroniza desde el servidor).
+      unawaited(provider.refreshFromServer());
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      // Regla dura del backend (p. ej. ya respondida): mostrar el mensaje
+      // del servidor y refrescar en lugar de un error genérico.
+      _mostrarMensaje(e.message);
+      unawaited(provider.refreshFromServer());
+    } catch (e) {
+      if (!mounted) return;
+      _mostrarMensaje(ApiErrorHandler.userMessage(e));
+    }
+  }
+
+  void _mostrarMensaje(String mensaje) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   String _getTimeAgo(DateTime? dateTime) {
     if (dateTime == null) return 'nunca';
     final diff = DateTime.now().difference(dateTime);
@@ -374,33 +568,91 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
                             // Mapeo a objeto Solicitud para compatibilidad si es necesario
                             // Pero aquí usamos directamente los campos de SolicitudLocal
 
+                            final tarjeta = RyPartCard(
+                              partName: solicitudLocal.piezaNombre,
+                              imageUrl: solicitudLocal.fotoUrl,
+                              vehicleInfo: null,
+                              description: solicitudLocal.descripcion,
+                              status: estado,
+                              createdAt: solicitudLocal
+                                  .updatedAt, // Marca temporal del SERVIDOR
+                              isSynced: solicitudLocal.synced,
+                              variant: RyPartCardVariant.client,
+                              onTap: () => _abrirDetalleSolicitud(
+                                context,
+                                solicitudLocal,
+                              ),
+                            );
+
+                            // Mapeo de gestos del Slidable (regla de la fase):
+                            // - deslizar a la IZQUIERDA (contenido se corre a la
+                            //   izquierda → se revela el panel DERECHO) =
+                            //   endActionPane = "Detalle".
+                            // - deslizar a la DERECHA (contenido se corre a la
+                            //   derecha → se revela el panel IZQUIERDO) =
+                            //   startActionPane = "Cancelar".
+                            // El swipe "Ver detalle" replica la navegación del
+                            // tap. Los items sin sincronizar (Outbox pendiente)
+                            // no llevan swipe, igual que su tap deshabilitado:
+                            // no se puede navegar a un detalle que no existe en
+                            // el servidor todavía.
+                            // "Cancelar" solo se ofrece si la solicitud está
+                            // activa y hay conexión (sin conexión no se encola
+                            // en el Outbox; el aviso llega por el menú "⋮").
+                            final puedeCancelar = _puedeCancelar(
+                              solicitudLocal,
+                            );
+                            final tarjetaConMenu = puedeCancelar
+                                ? Stack(
+                                    children: [
+                                      tarjeta,
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: _buildCardMenu(solicitudLocal),
+                                      ),
+                                    ],
+                                  )
+                                : tarjeta;
+
                             return Padding(
                               padding: const EdgeInsets.only(
                                 bottom: AppSpacing.spacingMd,
                               ),
-                              child: RyPartCard(
-                                partName: solicitudLocal.piezaNombre,
-                                imageUrl: solicitudLocal.fotoUrl,
-                                vehicleInfo: null,
-                                description: solicitudLocal.descripcion,
-                                status: estado,
-                                createdAt: solicitudLocal
-                                    .updatedAt, // Marca temporal del SERVIDOR
-                                isSynced: solicitudLocal.synced,
-                                variant: RyPartCardVariant.client,
-                                onTap: () {
-                                  if (solicitudLocal.synced) {
-                                    context.pushNamed(
-                                      RouteNames.receivedQuotations,
-                                      pathParameters: {'id': solicitudLocal.id},
-                                      extra: {
-                                        'piezaNombre':
-                                            solicitudLocal.piezaNombre,
-                                      },
-                                    );
-                                  }
-                                },
-                              ),
+                              child: solicitudLocal.synced
+                                  ? Slidable(
+                                      key: ValueKey(
+                                        'solicitud-${solicitudLocal.id}',
+                                      ),
+                                      endActionPane: ActionPane(
+                                        motion: const DrawerMotion(),
+                                        extentRatio: 0.34,
+                                        children: [
+                                          _buildVerDetalleAction(
+                                            () => _abrirDetalleSolicitud(
+                                              context,
+                                              solicitudLocal,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      startActionPane:
+                                          puedeCancelar && !isOffline
+                                          ? ActionPane(
+                                              motion: const DrawerMotion(),
+                                              extentRatio: 0.34,
+                                              children: [
+                                                _buildCancelarAction(
+                                                  () => _cancelarSolicitud(
+                                                    solicitudLocal,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : null,
+                                      child: tarjetaConMenu,
+                                    )
+                                  : tarjeta,
                             );
                           },
                         ),

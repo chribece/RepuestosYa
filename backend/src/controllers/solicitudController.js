@@ -1,6 +1,13 @@
 const supabase = require('../services/supabase');
 const { getOrSet, invalidatePattern } = require('../services/cache');
 const {
+  cancelarSolicitud,
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  BadRequestError
+} = require('../services/cancelacionSolicitudService');
+const {
   validationError,
   validationErrors,
   validateImageUrl
@@ -586,6 +593,63 @@ const getEstadisticasCliente = async (req, res) => {
   }
 };
 
+// PATCH /requests/:id/status (Parte 4 — cancelación lógica de solicitudes).
+// Contrato: body { estado: 'cancelada' }. Autenticado; solo el dueño. Se
+// rechaza si la solicitud ya fue respondida (alguna cotización) o no es
+// cancelable. Envoltorio de respuesta del resto de /requests: fila cruda en
+// éxito, { error: '...' } en fallo (no se suma un cuarto formato).
+const updateSolicitudEstado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    // Por ahora la única transición habilitada es la cancelación.
+    if (estado !== 'cancelada') {
+      return res.status(400).json({
+        error: 'Estado no soportado. Solo se permite "cancelada".'
+      });
+    }
+
+    // Validar UUID con regex estricto (mismo patrón que aceptarCotizacion).
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ error: 'ID de solicitud inválido' });
+    }
+
+    const resultado = await cancelarSolicitud({
+      supabase,
+      solicitudId: id,
+      clienteAutenticadoId: req.user.id
+    });
+
+    // Idempotencia: ya estaba cancelada → 200 sin efectos.
+    if (resultado.yaCancelada) {
+      return res.status(200).json(resultado.solicitud);
+    }
+
+    // Invalidar caché del feed de solicitudes activas (el almacén ya no la ve).
+    await invalidatePattern('solicitudes:activas:*');
+
+    res.status(200).json(resultado.solicitud);
+  } catch (error) {
+    // Mapeo explícito de errores de negocio a códigos HTTP.
+    if (error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof ForbiddenError) {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+    if (error instanceof BadRequestError) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Update solicitud estado error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // GET /orders (mis órdenes - clientes)
 const getMisOrdenes = async (req, res) => {
   try {
@@ -625,6 +689,7 @@ module.exports = {
   getSolicitudPorId,
   getEstadisticasCliente,
   getMisOrdenes,
+  updateSolicitudEstado,
   // Exportados para pruebas unitarias (scripts/test_resolver.js)
   resolverCoordenadasEntrega,
   coordsANumero

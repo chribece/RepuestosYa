@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import 'api_client.dart';
@@ -201,6 +203,60 @@ class SolicitudService {
         ApiErrorHandler.defaultMessage,
         technicalMessage: 'obtenerSolicitudPorId: $e',
       );
+    }
+  }
+
+  // Cancelar una solicitud propia (Rol Cliente). Contrato: PATCH
+  // /requests/:id/status con estado 'cancelada'. El backend valida la regla
+  // dura (rechaza si la solicitud ya fue respondida por algún almacén o si
+  // no es cancelable); los errores de negocio (409/422) se propagan con el
+  // mensaje legible del servidor para que la UI lo muestre tal cual.
+  Future<Map<String, dynamic>> cancelarSolicitud(String solicitudId) async {
+    try {
+      return await _apiClient.patch(
+        '/requests/$solicitudId/status',
+        body: {'estado': 'cancelada'},
+        requireAuth: true,
+      );
+    } on ApiException catch (e) {
+      // Errores de negocio: el `error`/`message` del body es el texto
+      // legible que el backend diseñó para mostrar al usuario. Para 422 el
+      // ApiErrorHandler conserva el body JSON completo en technicalMessage,
+      // así que se extrae el campo `error`/`message` antes de propagarlo.
+      if (e.statusCode == 409 || e.statusCode == 422) {
+        throw ApiException(
+          _mensajeDelServidor(e.technicalMessage) ?? e.message,
+          statusCode: e.statusCode,
+          technicalMessage: e.technicalMessage,
+          type: e.type,
+        );
+      }
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        ApiErrorHandler.defaultMessage,
+        technicalMessage: 'cancelarSolicitud: $e',
+      );
+    }
+  }
+
+  /// Extrae el mensaje legible de un error de negocio del backend. El
+  /// `technicalMessage` puede ser `{ "error": "..." }` (422, body completo)
+  /// o el texto plano ya extraído (409). Si no hay nada legible devuelve
+  /// `null` y el caller conserva el mensaje genérico.
+  static String? _mensajeDelServidor(String? body) {
+    if (body == null || body.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final msg = decoded['error'] ?? decoded['message'];
+        if (msg is String && msg.trim().isNotEmpty) return msg;
+      }
+      return null;
+    } catch (_) {
+      // No era JSON: texto plano legible del backend (no un objeto JSON).
+      if (!body.contains('{') && !body.contains('"')) return body;
+      return null;
     }
   }
 

@@ -94,6 +94,51 @@ void main() {
     expect(solicitud.solicitudesActivasCalls, 1);
   });
 
+  testWidgets(
+    'estado CON DATOS: el feed pagina de 5 en 5 con "Cargar más" y muestra '
+    'fin de lista sin tocar la métrica del Bento',
+    (tester) async {
+      solicitud.respuestaActivas = [
+        for (var i = 1; i <= 6; i++)
+          {
+            'id': 's$i',
+            'pieza_nombre': 'Pieza $i',
+            'created_at': '2026-09-2${i}T10:00:00.000Z',
+          },
+      ];
+      await pumpDashboard(tester);
+
+      // Primera página: solo 5 tarjetas, la 6 no está construida.
+      expect(find.byType(RyPartCard), findsNWidgets(5));
+      expect(find.text('Pieza 6'), findsNothing);
+
+      // La métrica "Pendientes" del Bento usa la lista COMPLETA (6), no la
+      // ventana visible (5).
+      expect(find.text('6'), findsOneWidget);
+
+      // El pie de paginación queda debajo del pliegue: desplazar el feed.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
+      await tester.pump();
+      expect(find.text('Cargar más'), findsOneWidget);
+
+      // Cargar la siguiente página: indicador breve y luego la 6 + fin.
+      await tester.tap(find.text('Cargar más'));
+      await tester.pump();
+      // Indicador de carga mientras avanza la ventana.
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.byType(RyPartCard), findsNWidgets(6));
+      expect(find.text('Pieza 6'), findsOneWidget);
+      expect(find.text('Cargar más'), findsNothing);
+
+      // El fin de lista queda bajo la sexta tarjeta: desplazar para verlo.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+      await tester.pump();
+      expect(find.text('No hay más solicitudes'), findsOneWidget);
+    },
+  );
+
   testWidgets('estado VACÍA: mensaje real de estado vacío del feed', (
     tester,
   ) async {

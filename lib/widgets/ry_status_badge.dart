@@ -40,8 +40,9 @@ class RyStatusBadge extends StatelessWidget {
       case 'completed':
         return 'Completado';
       case 'cancelado':
+      case 'cancelada':
       case 'cancelled':
-        return 'Cancelado';
+        return 'Cancelada';
       case 'rechazado':
       case 'rejected':
         return 'Rechazado';
@@ -98,6 +99,7 @@ class RyStatusBadge extends StatelessWidget {
       case 'accepted':
         return SemanticColors.colorSuccess;
       case 'cancelado':
+      case 'cancelada':
       case 'cancelled':
       case 'rechazado':
       case 'rejected':
@@ -149,6 +151,7 @@ class RyStatusBadge extends StatelessWidget {
     final lowerStatus = status.toLowerCase();
     switch (lowerStatus) {
       case 'cancelado':
+      case 'cancelada':
       case 'cancelled':
       case 'rechazado':
       case 'rejected':

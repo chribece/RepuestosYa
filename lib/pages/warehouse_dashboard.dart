@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -82,6 +83,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   String? _nombreAlmacen;
   Map<String, dynamic>? _almacenData;
   String _filtroActual = 'todas';
+
+  /// Paginación del feed de solicitudes activas (Parte 3): el endpoint
+  /// `GET /requests/active` NO soporta limit/offset reales (el parámetro
+  /// `page` solo varía la cache key y devuelve la lista completa ya
+  /// filtrada), así que se replica el patrón del home del cliente —fetch
+  /// completo + mostrar un subconjunto— con "cargar más" local de 5 en 5.
+  /// La métrica "Pendientes" del Bento sigue usando [_solicitudes] (la lista
+  /// completa), no la ventana visible.
+  static const int _paginaSolicitudesActivas = 5;
+  int _solicitudesMostradas = _paginaSolicitudesActivas;
+  bool _cargandoMasSolicitudes = false;
 
   /// Estado de la validación del perfil comercial al entrar al dashboard.
   /// Evita llamar a /requests/active y /quotations/my-quotations hasta
@@ -374,9 +386,22 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         ),
       );
     }
+
+    // Ventana visible (máximo 5 por página) + pie de paginación opcional:
+    // botón "Cargar más" mientras haya más, indicador mientras avanza y
+    // "No hay más solicitudes" al llegar al final (solo si hubo paginación).
+    final int visibles = _solicitudesMostradas.clamp(0, _solicitudes.length);
+    final bool hayMas = visibles < _solicitudes.length;
+    final bool finDeLista =
+        _solicitudes.length > _paginaSolicitudesActivas && !hayMas;
+    final int footerItems = (hayMas || finDeLista) ? 1 : 0;
+
     return SliverList.builder(
-      itemCount: _solicitudes.length,
+      itemCount: visibles + footerItems,
       itemBuilder: (context, index) {
+        if (index >= visibles) {
+          return _buildFeedFooter(hayMas: hayMas);
+        }
         final solicitud = _solicitudes[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
@@ -384,6 +409,70 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         );
       },
     );
+  }
+
+  /// Pie del feed de solicitudes activas: indicador de carga al pedir la
+  /// página siguiente, botón "Cargar más" y estado explícito de fin de
+  /// lista. El avance es local (sin red): el indicador se muestra un breve
+  /// frame y nunca queda infinito.
+  Widget _buildFeedFooter({required bool hayMas}) {
+    if (_cargandoMasSolicitudes) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.secondaryContainer,
+            ),
+          ),
+        ),
+      );
+    }
+    if (hayMas) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
+        child: Center(
+          child: RyButton(
+            label: 'Cargar más',
+            variant: RyButtonVariant.outline,
+            size: RyButtonSize.small,
+            onPressed: _cargarMasSolicitudes,
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
+      child: Center(
+        child: Text(
+          'No hay más solicitudes',
+          style: AppTextStyles.textStyleCaption.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Avanza la ventana de paginación una página (5 solicitudes). Es local:
+  /// no hay petición de red, pero se muestra el indicador para dar feedback
+  /// y evitar dobles toques en el botón.
+  Future<void> _cargarMasSolicitudes() async {
+    if (_cargandoMasSolicitudes) return;
+    setState(() => _cargandoMasSolicitudes = true);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    setState(() {
+      _solicitudesMostradas =
+          (_solicitudesMostradas + _paginaSolicitudesActivas).clamp(
+            0,
+            _solicitudes.length,
+          );
+      _cargandoMasSolicitudes = false;
+    });
   }
 
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
@@ -414,6 +503,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       setState(() {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
         _solicitudes = List<Map<String, dynamic>>.from(solicitudes);
+        // Con datos nuevos la ventana de paginación vuelve al inicio.
+        _solicitudesMostradas = _paginaSolicitudesActivas;
         _isLoadingSolicitudes = false;
         _hadNetworkError = false;
       });
@@ -1318,9 +1409,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         );
         return const SizedBox.shrink();
       }
-      // Verificar que el estado de la orden sea uno de los permitidos
+      // Verificar que el estado de la orden sea uno de los permitidos.
+      // Incluye 'pendiente': el RPC `aceptar_cotizacion` crea la orden en
+      // ese estado (verificado en la DB), y el badge de la tarjeta ya lo
+      // muestra como "GANADA". Sin este estado, la cotización recién ganada
+      // desaparecía de la pestaña y con ella su swipe "Detalle".
       if (ordenEstado == null ||
           ![
+            'pendiente',
             'confirmada',
             'pendiente_pago',
             'entregada',
@@ -1498,7 +1594,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
     // Wrap in InkWell if accepted and has ordenId
     if (estado == 'aceptada' && ordenId != null) {
-      return InkWell(
+      final tarjeta = InkWell(
         onTap: () {
           context.pushNamed(
             RouteNames.ordenDetalleAlmacen,
@@ -1508,27 +1604,83 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
         child: cardContent,
       );
+
+      // Swipe "Ver detalle": replica la navegación del tap. Solo se ofrece
+      // en cotizaciones aceptadas con orden generada (único destino de
+      // detalle existente); pendientes/rechazadas no llevan swipe.
+      return Slidable(
+        key: ValueKey('cotizacion-${cotizacion['id']}'),
+        endActionPane: ActionPane(
+          motion: const DrawerMotion(),
+          extentRatio: 0.34,
+          children: [
+            _buildVerDetalleAction(() {
+              context.pushNamed(
+                RouteNames.ordenDetalleAlmacen,
+                pathParameters: {'id': ordenId},
+              );
+            }),
+          ],
+        ),
+        child: tarjeta,
+      );
     }
 
     return cardContent;
   }
 
+  /// Acción de swipe "Ver detalle" con los tokens del Design System
+  /// (fondo `secondaryContainer`, texto `onSurface`, `textStyleSmall`).
+  Widget _buildVerDetalleAction(VoidCallback onPressed) {
+    return CustomSlidableAction(
+      onPressed: (_) => onPressed(),
+      backgroundColor: AppColors.secondaryContainer,
+      foregroundColor: AppColors.onSurface,
+      borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.visibility_outlined, size: 22),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(
+            'Detalle',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomNavBar() {
     return Container(
-      height: 64,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: AppColors.outlineVariant, width: 1),
+      // Mismo patrón que el bottom nav del Home: el fondo cubre el área de
+      // gestos del sistema y SafeArea(bottom) eleva los ítems por encima de
+      // la barra de gestos/notch en teléfonos; en tablet el padding es 0. El
+      // borde superior va dentro de los 64 de la barra (total 64 + inset).
+      color: AppColors.surfaceContainerHigh,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AppColors.outlineVariant, width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildBottomNavItem(Icons.home, 'Home', 0),
+                _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
+                _buildBottomNavItem(Icons.store, 'Mi Almacén', 3),
+              ],
+            ),
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildBottomNavItem(Icons.home, 'Home', 0),
-          _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
-          _buildBottomNavItem(Icons.store, 'Mi Almacén', 3),
-        ],
       ),
     );
   }

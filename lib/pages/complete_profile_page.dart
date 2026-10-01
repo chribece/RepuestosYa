@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -283,8 +284,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             ),
           ),
           actions: [
-            TextButton(
+            GFButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
+              type: GFButtonType.transparent,
+              color: Colors.transparent,
+              textColor: AppColors.primary,
+              size: 48,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingMd,
+                vertical: AppSpacing.spacingSm,
+              ),
               child: Text(
                 'Cancelar',
                 style: AppTextStyles.textStyleButton.copyWith(
@@ -292,8 +301,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                 ),
               ),
             ),
-            TextButton(
+            GFButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
+              type: GFButtonType.transparent,
+              color: Colors.transparent,
+              textColor: AppColors.error,
+              size: 48,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingMd,
+                vertical: AppSpacing.spacingSm,
+              ),
               child: Text(
                 'Cerrar sesión',
                 style: AppTextStyles.textStyleButton.copyWith(
@@ -627,20 +644,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Widget _buildCompleteButton() {
     // No se usa RyButton porque su estado `isLoading` sustituye la etiqueta por
     // un spinner y aquí debe conservarse el texto visible 'PROCESANDO...'.
+    // GFButton mantiene el patrón con un `child` custom (spinner + label).
     return SizedBox(
       width: double.infinity,
       height: 56,
-      child: ElevatedButton(
+      child: GFButton(
         onPressed: _isSubmitting ? null : _completarPerfil,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryContainer,
-          disabledBackgroundColor: AppColors.primaryContainer.withValues(
-            alpha: 0.4,
-          ),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          ),
+        type: GFButtonType.solid,
+        color: AppColors.primaryContainer,
+        textColor: AppColors.onPrimaryContainer,
+        disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
+        disabledTextColor: AppColors.onPrimaryContainer,
+        elevation: 0,
+        size: 56,
+        borderShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         ),
         child: _isSubmitting
             ? Row(

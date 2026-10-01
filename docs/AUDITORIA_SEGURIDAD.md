@@ -95,7 +95,7 @@ app.use(cors({
 ```
 
 - En producción la allowlist se lee de `ALLOWED_ORIGINS` (lista separada por comas).
-- Se creó `backend/.env.example` documentando `ALLOWED_ORIGINS` y el resto de variables.
+- Se creó `backend/.env.example` documentando `ALLOWED_ORIGINS` y el resto de variables.  
 
 **Verificación:** matriz dev/prod con `curl` — orígenes permitidos → `204 + Access-Control-Allow-Origin`;
 no permitidos → bloqueados (sin header ACAO); peticiones sin origin (apps nativas) → permitidas.

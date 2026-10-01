@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
@@ -183,9 +184,17 @@ class _AddressesPageState extends State<AddressesPage> {
                                             ),
                                       ),
                                       actions: [
-                                        TextButton(
+                                        GFButton(
                                           onPressed: () =>
                                               Navigator.pop(context),
+                                          type: GFButtonType.transparent,
+                                          color: Colors.transparent,
+                                          textColor: AppColors.onSurfaceVariant,
+                                          size: 48,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: AppSpacing.spacingMd,
+                                            vertical: AppSpacing.spacingSm,
+                                          ),
                                           child: Text(
                                             'Cancelar',
                                             style: AppTextStyles.textStyleButton
@@ -195,11 +204,19 @@ class _AddressesPageState extends State<AddressesPage> {
                                                 ),
                                           ),
                                         ),
-                                        TextButton(
+                                        GFButton(
                                           onPressed: () {
                                             Navigator.pop(context);
                                             _eliminarDireccion(id);
                                           },
+                                          type: GFButtonType.transparent,
+                                          color: Colors.transparent,
+                                          textColor: AppColors.error,
+                                          size: 48,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: AppSpacing.spacingMd,
+                                            vertical: AppSpacing.spacingSm,
+                                          ),
                                           child: Text(
                                             'Eliminar',
                                             style: AppTextStyles.textStyleButton
@@ -408,8 +425,16 @@ class _AddressDialogState extends State<AddressDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        GFButton(
           onPressed: () => Navigator.pop(context),
+          type: GFButtonType.transparent,
+          color: Colors.transparent,
+          textColor: AppColors.onSurfaceVariant,
+          size: 48,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingMd,
+            vertical: AppSpacing.spacingSm,
+          ),
           child: Text(
             'Cancelar',
             style: AppTextStyles.textStyleButton.copyWith(
@@ -417,11 +442,23 @@ class _AddressDialogState extends State<AddressDialog> {
             ),
           ),
         ),
-        ElevatedButton(
+        GFButton(
           onPressed: _isSaving ? null : _guardar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryContainer,
-            foregroundColor: AppColors.onPrimaryContainer,
+          type: GFButtonType.solid,
+          color: AppColors.primaryContainer,
+          textColor: AppColors.onPrimaryContainer,
+          textStyle: AppTextStyles.textStyleButton.copyWith(
+            color: AppColors.onPrimaryContainer,
+          ),
+          disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
+          disabledTextColor: AppColors.onPrimaryContainer,
+          size: 48,
+          borderShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingLg,
+            vertical: AppSpacing.spacingSm,
           ),
           child: _isSaving
               ? const SizedBox(

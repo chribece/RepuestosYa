@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/vehiculo_service.dart';
@@ -70,8 +71,16 @@ class _VehiclesPageState extends State<VehiclesPage> {
           ),
         ),
         actions: [
-          TextButton(
+          GFButton(
             onPressed: () => Navigator.pop(context, false),
+            type: GFButtonType.transparent,
+            color: Colors.transparent,
+            textColor: AppColors.onSurfaceVariant,
+            size: 48,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.spacingMd,
+              vertical: AppSpacing.spacingSm,
+            ),
             child: Text(
               'Cancelar',
               style: AppTextStyles.textStyleButton.copyWith(
@@ -79,8 +88,16 @@ class _VehiclesPageState extends State<VehiclesPage> {
               ),
             ),
           ),
-          TextButton(
+          GFButton(
             onPressed: () => Navigator.pop(context, true),
+            type: GFButtonType.transparent,
+            color: Colors.transparent,
+            textColor: AppColors.error,
+            size: 48,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.spacingMd,
+              vertical: AppSpacing.spacingSm,
+            ),
             child: Text(
               'Eliminar',
               style: AppTextStyles.textStyleButton.copyWith(
@@ -543,67 +560,73 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                 ),
                               ),
                             )
-                          : DropdownButtonHideUnderline(
-                              child: DropdownButton<int>(
-                                value:
-                                    _marcas.any(
+                          : GFDropdown<int>(
+                              items: _marcas
+                                  .where((marca) {
+                                    final id = marca['id'];
+                                    return id != null &&
+                                        int.tryParse(id.toString()) != null;
+                                  })
+                                  .map(
+                                    (marca) =>
+                                        int.parse(marca['id'].toString()),
+                                  )
+                                  .toSet() // Deduplicar
+                                  .map((id) {
+                                    final marca = _marcas.firstWhere(
                                       (m) =>
-                                          int.tryParse(
-                                            m['id']?.toString() ?? '',
-                                          ) ==
-                                          _selectedMarcaId,
-                                    )
-                                    ? _selectedMarcaId
-                                    : null,
-                                isExpanded: true,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.spacingSm,
-                                ),
-                                dropdownColor: AppColors.surfaceContainerHigh,
-                                style: AppTextStyles.textStyleBody,
-                                icon: const Icon(
-                                  Icons.expand_more,
+                                          int.parse(m['id'].toString()) == id,
+                                    );
+                                    return DropdownMenuItem<int>(
+                                      value: id,
+                                      child: Text(
+                                        marca['nombre']?.toString() ?? '',
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                              value:
+                                  _marcas.any(
+                                    (m) =>
+                                        int.tryParse(
+                                          m['id']?.toString() ?? '',
+                                        ) ==
+                                        _selectedMarcaId,
+                                  )
+                                  ? _selectedMarcaId
+                                  : null,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedMarcaId = value;
+                                  });
+                                  _cargarModelos(value);
+                                }
+                              },
+                              dropdownButtonColor: Colors.transparent,
+                              dropdownColor: AppColors.surfaceContainerHigh,
+                              border: BorderSide(color: Colors.transparent),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.radiusSm,
+                              ),
+                              icon: const Icon(
+                                Icons.expand_more,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                              iconEnabledColor: AppColors.onSurfaceVariant,
+                              iconDisabledColor: AppColors.onSurfaceVariant,
+                              isExpanded: true,
+                              style: AppTextStyles.textStyleBody,
+                              hint: Text(
+                                'Selecciona una marca',
+                                style: AppTextStyles.textStyleCaption.copyWith(
                                   color: AppColors.onSurfaceVariant,
                                 ),
-                                hint: Text(
-                                  'Selecciona una marca',
-                                  style: AppTextStyles.textStyleCaption
-                                      .copyWith(
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
-                                ),
-                                items: _marcas
-                                    .where((marca) {
-                                      final id = marca['id'];
-                                      return id != null &&
-                                          int.tryParse(id.toString()) != null;
-                                    })
-                                    .map(
-                                      (marca) =>
-                                          int.parse(marca['id'].toString()),
-                                    )
-                                    .toSet() // Deduplicar
-                                    .map((id) {
-                                      final marca = _marcas.firstWhere(
-                                        (m) =>
-                                            int.parse(m['id'].toString()) == id,
-                                      );
-                                      return DropdownMenuItem<int>(
-                                        value: id,
-                                        child: Text(
-                                          marca['nombre']?.toString() ?? '',
-                                        ),
-                                      );
-                                    })
-                                    .toList(),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      _selectedMarcaId = value;
-                                    });
-                                    _cargarModelos(value);
-                                  }
-                                },
+                              ),
+                              underline: const SizedBox.shrink(),
+                              itemHeight: 48,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.spacingSm,
                               ),
                             ),
                     ),
@@ -657,68 +680,74 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                                 ),
                               ),
                             )
-                          : DropdownButtonHideUnderline(
-                              child: DropdownButton<int>(
-                                value:
-                                    _modelos.any(
+                          : GFDropdown<int>(
+                              items: _modelos
+                                  .where((modelo) {
+                                    final id = modelo['id'];
+                                    return id != null &&
+                                        int.tryParse(id.toString()) != null;
+                                  })
+                                  .map(
+                                    (modelo) =>
+                                        int.parse(modelo['id'].toString()),
+                                  )
+                                  .toSet() // Deduplicar
+                                  .map((id) {
+                                    final modelo = _modelos.firstWhere(
                                       (m) =>
-                                          int.tryParse(
-                                            m['id']?.toString() ?? '',
-                                          ) ==
-                                          _selectedModeloId,
-                                    )
-                                    ? _selectedModeloId
-                                    : null,
-                                isExpanded: true,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.spacingSm,
-                                ),
-                                dropdownColor: AppColors.surfaceContainerHigh,
-                                style: AppTextStyles.textStyleBody,
-                                icon: const Icon(
-                                  Icons.expand_more,
+                                          int.parse(m['id'].toString()) == id,
+                                    );
+                                    return DropdownMenuItem<int>(
+                                      value: id,
+                                      child: Text(
+                                        modelo['nombre']?.toString() ?? '',
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                              value:
+                                  _modelos.any(
+                                    (m) =>
+                                        int.tryParse(
+                                          m['id']?.toString() ?? '',
+                                        ) ==
+                                        _selectedModeloId,
+                                  )
+                                  ? _selectedModeloId
+                                  : null,
+                              onChanged: _selectedMarcaId == null
+                                  ? null
+                                  : (value) {
+                                      setState(() {
+                                        _selectedModeloId = value;
+                                      });
+                                    },
+                              dropdownButtonColor: Colors.transparent,
+                              dropdownColor: AppColors.surfaceContainerHigh,
+                              border: BorderSide(color: Colors.transparent),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.radiusSm,
+                              ),
+                              icon: const Icon(
+                                Icons.expand_more,
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                              iconEnabledColor: AppColors.onSurfaceVariant,
+                              iconDisabledColor: AppColors.onSurfaceVariant,
+                              isExpanded: true,
+                              style: AppTextStyles.textStyleBody,
+                              hint: Text(
+                                _selectedMarcaId == null
+                                    ? 'Selecciona primero una marca'
+                                    : 'Selecciona un modelo',
+                                style: AppTextStyles.textStyleCaption.copyWith(
                                   color: AppColors.onSurfaceVariant,
                                 ),
-                                hint: Text(
-                                  _selectedMarcaId == null
-                                      ? 'Selecciona primero una marca'
-                                      : 'Selecciona un modelo',
-                                  style: AppTextStyles.textStyleCaption
-                                      .copyWith(
-                                        color: AppColors.onSurfaceVariant,
-                                      ),
-                                ),
-                                items: _modelos
-                                    .where((modelo) {
-                                      final id = modelo['id'];
-                                      return id != null &&
-                                          int.tryParse(id.toString()) != null;
-                                    })
-                                    .map(
-                                      (modelo) =>
-                                          int.parse(modelo['id'].toString()),
-                                    )
-                                    .toSet() // Deduplicar
-                                    .map((id) {
-                                      final modelo = _modelos.firstWhere(
-                                        (m) =>
-                                            int.parse(m['id'].toString()) == id,
-                                      );
-                                      return DropdownMenuItem<int>(
-                                        value: id,
-                                        child: Text(
-                                          modelo['nombre']?.toString() ?? '',
-                                        ),
-                                      );
-                                    })
-                                    .toList(),
-                                onChanged: _selectedMarcaId == null
-                                    ? null
-                                    : (value) {
-                                        setState(() {
-                                          _selectedModeloId = value;
-                                        });
-                                      },
+                              ),
+                              underline: const SizedBox.shrink(),
+                              itemHeight: 48,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.spacingSm,
                               ),
                             ),
                     ),
@@ -750,8 +779,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        GFButton(
           onPressed: () => Navigator.pop(context),
+          type: GFButtonType.transparent,
+          color: Colors.transparent,
+          textColor: AppColors.onSurfaceVariant,
+          size: 48,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingMd,
+            vertical: AppSpacing.spacingSm,
+          ),
           child: Text(
             'Cancelar',
             style: AppTextStyles.textStyleButton.copyWith(
@@ -759,11 +796,21 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             ),
           ),
         ),
-        ElevatedButton(
+        GFButton(
           onPressed: _guardar,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryContainer,
-            foregroundColor: AppColors.onPrimaryContainer,
+          type: GFButtonType.solid,
+          color: AppColors.primaryContainer,
+          textColor: AppColors.onPrimaryContainer,
+          textStyle: AppTextStyles.textStyleButton.copyWith(
+            color: AppColors.onPrimaryContainer,
+          ),
+          size: 48,
+          borderShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingLg,
+            vertical: AppSpacing.spacingSm,
           ),
           child: const Text('Guardar'),
         ),

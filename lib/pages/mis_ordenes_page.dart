@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
@@ -13,7 +14,10 @@ import '../utils/app_logger.dart';
 import '../router/route_names.dart';
 
 class MisOrdenesPage extends StatefulWidget {
-  const MisOrdenesPage({super.key});
+  const MisOrdenesPage({super.key, this.solicitudService});
+
+  /// Servicio inyectable para widget tests; en producción se usa el real.
+  final SolicitudService? solicitudService;
 
   @override
   State<MisOrdenesPage> createState() => _MisOrdenesPageState();
@@ -21,7 +25,8 @@ class MisOrdenesPage extends StatefulWidget {
 
 class _MisOrdenesPageState extends State<MisOrdenesPage> {
   final ScrollController _scrollController = ScrollController();
-  final SolicitudService _solicitudService = SolicitudService();
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
   final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _ordenes = [];
@@ -201,84 +206,129 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
     required String status,
     DateTime? createdAt,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    // El swipe "Ver detalle" replica la navegación del botón "Ver Detalles"
+    // (que se mantiene como control visible alternativo, regla de
+    // accesibilidad: ninguna acción queda solo detrás del gesto).
+    return Slidable(
+      key: ValueKey('orden-$ordenId'),
+      endActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        extentRatio: 0.34,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(child: Text(title, style: AppTextStyles.textStyleBody)),
-              RyStatusBadge(
-                status: status,
-                style: RyStatusBadgeStyle.filled,
-                size: RyStatusBadgeSize.small,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingSm),
-          Row(
-            children: [
-              const Icon(
-                Icons.store,
-                color: AppColors.onSurfaceVariant,
-                size: 16,
-              ),
-              const SizedBox(width: AppSpacing.spacingXxs),
-              Text(
-                almacen,
-                style: AppTextStyles.textStyleCaption.copyWith(
+          _buildVerDetalleAction(() {
+            context.pushNamed(
+              RouteNames.ordenDetalle,
+              pathParameters: {'id': ordenId},
+            );
+          }),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.spacingMd),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          border: Border.all(color: AppColors.outlineVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(title, style: AppTextStyles.textStyleBody),
+                ),
+                RyStatusBadge(
+                  status: status,
+                  style: RyStatusBadgeStyle.filled,
+                  size: RyStatusBadgeSize.small,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.spacingSm),
+            Row(
+              children: [
+                const Icon(
+                  Icons.store,
                   color: AppColors.onSurfaceVariant,
+                  size: 16,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingXxs),
-          Row(
-            children: [
-              const Icon(
-                Icons.attach_money,
-                color: AppColors.onSurfaceVariant,
-                size: 16,
-              ),
-              const SizedBox(width: AppSpacing.spacingXxs),
-              Text(
-                '\$$precio',
-                style: AppTextStyles.textStyleBody.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingMd),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (createdAt != null)
+                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
-                  _formatTime(createdAt),
-                  style: AppTextStyles.textStyleSmall.copyWith(
+                  almacen,
+                  style: AppTextStyles.textStyleCaption.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
                 ),
-              RyButton(
-                label: 'Ver Detalles',
-                variant: RyButtonVariant.primary,
-                size: RyButtonSize.small,
-                onPressed: () {
-                  context.pushNamed(
-                    RouteNames.ordenDetalle,
-                    pathParameters: {'id': ordenId},
-                  );
-                },
-              ),
-            ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.spacingXxs),
+            Row(
+              children: [
+                const Icon(
+                  Icons.attach_money,
+                  color: AppColors.onSurfaceVariant,
+                  size: 16,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
+                  '\$$precio',
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (createdAt != null)
+                  Text(
+                    _formatTime(createdAt),
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                RyButton(
+                  label: 'Ver Detalles',
+                  variant: RyButtonVariant.primary,
+                  size: RyButtonSize.small,
+                  onPressed: () {
+                    context.pushNamed(
+                      RouteNames.ordenDetalle,
+                      pathParameters: {'id': ordenId},
+                    );
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Acción de swipe "Ver detalle" con los tokens del Design System
+  /// (fondo `secondaryContainer`, texto `onSurface`, `textStyleSmall`).
+  Widget _buildVerDetalleAction(VoidCallback onPressed) {
+    return CustomSlidableAction(
+      onPressed: (_) => onPressed(),
+      backgroundColor: AppColors.secondaryContainer,
+      foregroundColor: AppColors.onSurface,
+      borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.visibility_outlined, size: 22),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(
+            'Detalle',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurface,
+            ),
           ),
         ],
       ),

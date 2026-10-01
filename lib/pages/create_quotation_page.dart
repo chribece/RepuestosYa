@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -229,12 +230,16 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       // Errores de negocio (422/403/400/404): no se encola, se informa.
       if (e.statusCode != null && e.statusCode != 0 && e.statusCode != 504) {
         setState(() => _isSubmitting = false);
+        // 422: el body trae `errors: [{ field, message }]`; mostrar el mensaje
+        // específico del campo en lugar del genérico ("Algunos datos no
+        // cumplen...") para que el usuario sepa exactamente qué falla.
+        final fieldErrors = ApiErrorHandler.mapValidationErrors(e);
+        final mensaje = fieldErrors.isNotEmpty
+            ? fieldErrors.values.first
+            : ApiErrorHandler.userMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Error al procesar la cotización: '
-              '${ApiErrorHandler.userMessage(e)}',
-            ),
+            content: Text('Error al procesar la cotización: $mensaje'),
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),
@@ -932,44 +937,42 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           ),
         ),
         const SizedBox(height: AppSpacing.spacingXs),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-            border: Border.all(color: AppColors.outlineVariant),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedCondition,
-              dropdownColor: AppColors.surfaceContainerHigh,
-              icon: const Icon(
-                Icons.expand_more,
-                color: AppColors.onSurfaceVariant,
-              ),
-              isExpanded: true,
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Nuevo (En caja original)',
-                  child: Text('Nuevo (En caja original)'),
-                ),
-                DropdownMenuItem(
-                  value: 'Nuevo (Abierto)',
-                  child: Text('Nuevo (Abierto)'),
-                ),
-                DropdownMenuItem(
-                  value: 'Usado (Buen estado)',
-                  child: Text('Usado (Buen estado)'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _selectedCondition = value);
-              },
+        GFDropdown<String>(
+          items: const [
+            DropdownMenuItem(
+              value: 'Nuevo (En caja original)',
+              child: Text('Nuevo (En caja original)'),
             ),
+            DropdownMenuItem(
+              value: 'Nuevo (Abierto)',
+              child: Text('Nuevo (Abierto)'),
+            ),
+            DropdownMenuItem(
+              value: 'Usado (Buen estado)',
+              child: Text('Usado (Buen estado)'),
+            ),
+          ],
+          value: _selectedCondition,
+          onChanged: (value) {
+            if (value != null) setState(() => _selectedCondition = value);
+          },
+          dropdownButtonColor: AppColors.surfaceContainerHigh,
+          dropdownColor: AppColors.surfaceContainerHigh,
+          icon: const Icon(
+            Icons.expand_more,
+            color: AppColors.onSurfaceVariant,
           ),
+          iconEnabledColor: AppColors.onSurfaceVariant,
+          iconDisabledColor: AppColors.onSurfaceVariant,
+          isExpanded: true,
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurface,
+          ),
+          underline: const SizedBox.shrink(),
+          border: const BorderSide(color: AppColors.outlineVariant),
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          itemHeight: 48,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
         ),
       ],
     );
@@ -987,44 +990,36 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
           ),
         ),
         const SizedBox(height: AppSpacing.spacingXs),
-        Container(
+        GFDropdown<String>(
+          items: const [
+            DropdownMenuItem(value: 'Inmediata', child: Text('Inmediata')),
+            DropdownMenuItem(value: '24-48 horas', child: Text('24-48 horas')),
+            DropdownMenuItem(value: '3-5 días', child: Text('3-5 días')),
+            DropdownMenuItem(value: '1-2 semanas', child: Text('1-2 semanas')),
+          ],
+          value: _selectedDeliveryTime,
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _selectedDeliveryTime = value);
+            }
+          },
+          dropdownButtonColor: AppColors.surfaceContainerHigh,
+          dropdownColor: AppColors.surfaceContainerHigh,
+          icon: const Icon(
+            Icons.expand_more,
+            color: AppColors.onSurfaceVariant,
+          ),
+          iconEnabledColor: AppColors.onSurfaceVariant,
+          iconDisabledColor: AppColors.onSurfaceVariant,
+          isExpanded: true,
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurface,
+          ),
+          underline: const SizedBox.shrink(),
+          border: const BorderSide(color: AppColors.outlineVariant),
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          itemHeight: 48,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-            border: Border.all(color: AppColors.outlineVariant),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _selectedDeliveryTime,
-              dropdownColor: AppColors.surfaceContainerHigh,
-              icon: const Icon(
-                Icons.expand_more,
-                color: AppColors.onSurfaceVariant,
-              ),
-              isExpanded: true,
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-              items: const [
-                DropdownMenuItem(value: 'Inmediata', child: Text('Inmediata')),
-                DropdownMenuItem(
-                  value: '24-48 horas',
-                  child: Text('24-48 horas'),
-                ),
-                DropdownMenuItem(value: '3-5 días', child: Text('3-5 días')),
-                DropdownMenuItem(
-                  value: '1-2 semanas',
-                  child: Text('1-2 semanas'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedDeliveryTime = value);
-                }
-              },
-            ),
-          ),
         ),
       ],
     );
@@ -1337,17 +1332,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         child: SizedBox(
           width: double.infinity,
           height: 56,
-          child: ElevatedButton(
+          child: GFButton(
             onPressed: _isSubmitting ? null : _enviarCotizacion,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryContainer,
-              disabledBackgroundColor: AppColors.primaryContainer.withValues(
-                alpha: 0.4,
-              ),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-              ),
+            type: GFButtonType.solid,
+            color: AppColors.primaryContainer,
+            textColor: AppColors.onPrimaryContainer,
+            disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
+            disabledTextColor: AppColors.onPrimaryContainer,
+            elevation: 0,
+            size: 56,
+            borderShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
             ),
             child: _isSubmitting
                 ? Row(

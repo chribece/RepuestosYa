@@ -452,6 +452,7 @@ class _HomePageState extends State<HomePage> {
   // --- BOTÓN PRINCIPAL DE BÚSQUEDA (HERO ELEMENT) ---
   Widget _buildNewSearchButton() {
     return Container(
+      key: const ValueKey('hero-search-card'),
       width: double.infinity,
       height: 180,
       decoration: BoxDecoration(
@@ -515,6 +516,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: AppSpacing.spacingMd),
                 Text(
                   'NUEVA BÚSQUEDA',
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.textStyleBody.copyWith(
                     color: AppColors.onSurface,
                     fontWeight: FontWeight.w700,
@@ -522,10 +524,21 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.spacingXxs),
-                Text(
-                  'Sube una foto y encuentra tu repuesto al instante',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
+                Padding(
+                  // Cuando el subtítulo hace wrap (móvil angosto), el Text
+                  // ocupa todo el ancho disponible y, sin padding propio, sus
+                  // líneas quedan alineadas al borde izquierdo de la tarjeta.
+                  // Este padding + textAlign.center mantienen el texto
+                  // centrado y separado de los bordes en cualquier ancho.
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingLg,
+                  ),
+                  child: Text(
+                    'Sube una foto y encuentra tu repuesto al instante',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],
@@ -563,54 +576,65 @@ class _HomePageState extends State<HomePage> {
         final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
         final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
 
+        // Cada fila va en IntrinsicHeight con CrossAxisAlignment.stretch para
+        // que las dos tarjetas compartan SIEMPRE la misma altura real, aunque
+        // el contenido (títulos que hacen wrap en pantallas angostas) difiera
+        // entre celdas. Además _buildStatCard reserva un alto fijo para el
+        // título (2 líneas), así número e ícono quedan alineados entre las 4.
         return Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Solicitudes Activas',
-                    value: buscandoTxt,
-                    icon: Icons.history_rounded,
-                    color: AppColors.primaryContainer,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Solicitudes Activas',
+                      value: buscandoTxt,
+                      icon: Icons.history_rounded,
+                      color: AppColors.primaryContainer,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.spacingSm),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Cotizaciones Recibidas',
-                    value: cotizadasTxt,
-                    icon: Icons.request_quote_rounded,
-                    color: AppColors.secondaryContainer,
+                  const SizedBox(width: AppSpacing.spacingSm),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Cotizaciones Recibidas',
+                      value: cotizadasTxt,
+                      icon: Icons.request_quote_rounded,
+                      color: AppColors.secondaryContainer,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.spacingSm),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'En Proceso',
-                    value: enProcesoTxt,
-                    icon: Icons.pending_rounded,
-                    color: AppColors.tertiaryContainer,
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'En Proceso',
+                      value: enProcesoTxt,
+                      icon: Icons.pending_rounded,
+                      color: AppColors.tertiaryContainer,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.spacingSm),
-                Expanded(
-                  child: _buildStatCard(
-                    title: 'Órdenes Realizadas',
-                    value:
-                        (_estadisticas['ordenes_realizadas']
-                            ?.toString()
-                            .padLeft(2, '0') ??
-                        '00'),
-                    icon: Icons.shopping_cart_rounded,
-                    color: AppColors.success,
+                  const SizedBox(width: AppSpacing.spacingSm),
+                  Expanded(
+                    child: _buildStatCard(
+                      title: 'Órdenes Realizadas',
+                      value:
+                          (_estadisticas['ordenes_realizadas']
+                              ?.toString()
+                              .padLeft(2, '0') ??
+                          '00'),
+                      icon: Icons.shopping_cart_rounded,
+                      color: AppColors.success,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         );
@@ -624,7 +648,17 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required Color color,
   }) {
+    // El título reserva SIEMPRE el alto de dos líneas del token
+    // textStyleCaption: la fila número+ícono queda a la misma altura en las
+    // 4 tarjetas sin importar si el título ocupa 1 o 2 líneas (móvil angosto).
+    // Los títulos que no caben se recortan con ellipsis, no desbordan.
+    final double tituloAlto =
+        AppTextStyles.textStyleCaption.fontSize! *
+        AppTextStyles.textStyleCaption.height! *
+        2;
+
     return Container(
+      key: ValueKey('stat-card-$title'),
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerHigh,
@@ -634,11 +668,16 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: AppTextStyles.textStyleCaption.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+          SizedBox(
+            height: tituloAlto,
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: AppColors.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.spacingSm),
@@ -899,46 +938,59 @@ class _HomePageState extends State<HomePage> {
   // --- BARRA DE NAVEGACIÓN INFERIOR ---
   Widget _buildBottomNavBar() {
     return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        border: Border(
-          top: BorderSide(color: AppColors.outlineVariant, width: 1),
+      key: const ValueKey('bottom-nav-bar'),
+      // El fondo (surfaceContainerHigh) cubre también el área de gestos del
+      // sistema; SafeArea(bottom) eleva los ítems por encima de la barra de
+      // gestos/notch inferior del teléfono. El borde superior va DENTRO de
+      // los 64 de la barra (como antes), así el total sigue siendo 64 (+ inset
+      // en teléfono; 0 en tablet).
+      color: AppColors.surfaceContainerHigh,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AppColors.outlineVariant, width: 1),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  isSelected: _selectedIndex == 0,
+                  onTap: () => setState(() => _selectedIndex = 0),
+                ),
+                _buildNavItem(
+                  icon: Icons.search_rounded,
+                  label: 'Search',
+                  isSelected: _selectedIndex == 1,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
+                _buildNavItem(
+                  icon: Icons.shopping_cart_rounded,
+                  label: 'Orders',
+                  isSelected: _selectedIndex == 2,
+                  onTap: () {
+                    setState(() => _selectedIndex = 2);
+                    context.pushNamed(RouteNames.misOrdenes);
+                  },
+                ),
+                _buildNavItem(
+                  icon: Icons.person_rounded,
+                  label: 'Profile',
+                  isSelected: _selectedIndex == 3,
+                  onTap: () {
+                    context.pushNamed(RouteNames.profile);
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(
-            icon: Icons.home_rounded,
-            label: 'Home',
-            isSelected: _selectedIndex == 0,
-            onTap: () => setState(() => _selectedIndex = 0),
-          ),
-          _buildNavItem(
-            icon: Icons.search_rounded,
-            label: 'Search',
-            isSelected: _selectedIndex == 1,
-            onTap: () => setState(() => _selectedIndex = 1),
-          ),
-          _buildNavItem(
-            icon: Icons.shopping_cart_rounded,
-            label: 'Orders',
-            isSelected: _selectedIndex == 2,
-            onTap: () {
-              setState(() => _selectedIndex = 2);
-              context.pushNamed(RouteNames.misOrdenes);
-            },
-          ),
-          _buildNavItem(
-            icon: Icons.person_rounded,
-            label: 'Profile',
-            isSelected: _selectedIndex == 3,
-            onTap: () {
-              context.pushNamed(RouteNames.profile);
-            },
-          ),
-        ],
       ),
     );
   }

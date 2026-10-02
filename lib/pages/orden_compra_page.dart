@@ -9,6 +9,7 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/formato_fecha.dart';
 import '../router/route_names.dart';
 
 class OrdenCompraPage extends StatefulWidget {
@@ -115,11 +116,16 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                           size: 32,
                         ),
                         const SizedBox(width: AppSpacing.spacingMd),
-                        Text(
-                          '¡Orden Generada con Éxito!',
-                          style: AppTextStyles.textStyleTitle.copyWith(
-                            color: AppColors.onSurface,
-                            fontWeight: FontWeight.bold,
+                        // Flexible: en móvil angosto el texto sin wrap
+                        // desbordaba el header (RenderFlex overflow).
+                        Flexible(
+                          child: Text(
+                            '¡Orden Generada con Éxito!',
+                            style: AppTextStyles.textStyleTitle.copyWith(
+                              color: AppColors.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ],
@@ -140,7 +146,13 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                       children: [
                         Text(
                           'Estado Actual',
-                          style: AppTextStyles.textStyleTitle,
+                          // Jerarquía de cabecera de bloque de detalle
+                          // (Parte 5): el token Title (20) sobredimensionaba
+                          // las cabeceras de tarjeta en móvil; se baja a
+                          // Body (16) seminegrita.
+                          style: AppTextStyles.textStyleBody.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.spacingSm),
                         RyStatusBadge(
@@ -166,7 +178,10 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                       children: [
                         Text(
                           'Detalles del Repuesto',
-                          style: AppTextStyles.textStyleTitle,
+                          // Jerarquía de cabecera de bloque (Parte 5).
+                          style: AppTextStyles.textStyleBody.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.spacingMd),
                         _buildDetailRow(
@@ -190,7 +205,11 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                           _buildDetailRow(
                             Icons.calendar_today,
                             'Fecha de Aceptación',
-                            orden.fechaAceptacion!,
+                            // El backend manda ISO crudo (con zona horaria):
+                            // el helper lo convierte a hora local en formato
+                            // corto ("01 oct 2026, 03:47") en vez de mostrar
+                            // el timestamp completo que se partía en 3 líneas.
+                            formatFechaHora(orden.fechaAceptacion),
                           ),
                         if (orden.notasAdicionales != null &&
                             orden.notasAdicionales!.isNotEmpty)
@@ -333,7 +352,13 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Proveedor', style: AppTextStyles.textStyleTitle),
+                        Text(
+                          'Proveedor',
+                          // Jerarquía de cabecera de bloque (Parte 5).
+                          style: AppTextStyles.textStyleBody.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: AppSpacing.spacingMd),
                         _buildDetailRow(
                           Icons.store,

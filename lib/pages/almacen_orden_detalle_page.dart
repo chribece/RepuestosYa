@@ -4,12 +4,13 @@ import '../theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/orden_compra_service.dart';
 import '../utils/api_error_handler.dart';
-import '../widgets/ry_button.dart';
+import '../widgets/ry_bottom_action_bar.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/formato_fecha.dart';
 
 class AlmacenOrdenDetallePage extends StatefulWidget {
   final String ordenId;
@@ -179,38 +180,42 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
                   _buildInfoCard(
                     title: 'Creada',
                     icon: Icons.calendar_today,
-                    content: _formatFecha(_orden?['created_at']),
+                    content: formatFechaHora(_orden?['created_at']),
                   ),
-                  const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Botones de acción condicionales
-                  if (_orden?['estado'] == 'pendiente' ||
-                      _orden?['estado'] == 'pendiente_pago')
-                    RyButton(
-                      label: 'Marcar como Confirmada',
-                      icon: Icons.check_circle,
-                      variant: RyButtonVariant.primary,
-                      size: RyButtonSize.large,
-                      isLoading: _isUpdating,
-                      onPressed: _isUpdating
-                          ? null
-                          : () => _actualizarEstado('confirmada'),
-                    ),
-                  if (_orden?['estado'] == 'confirmada')
-                    RyButton(
-                      label: 'Marcar como Entregada',
-                      icon: Icons.local_shipping,
-                      variant: RyButtonVariant.primary,
-                      size: RyButtonSize.large,
-                      isLoading: _isUpdating,
-                      onPressed: _isUpdating
-                          ? null
-                          : () => _actualizarEstado('entregada'),
-                    ),
+                  const SizedBox(height: AppSpacing.spacingXl),
                 ],
               ),
             ),
+      bottomNavigationBar: _buildActionBar(),
     );
+  }
+
+  /// Barra de acción inferior (componente compartido del DS): las acciones
+  /// condicionales de la orden pasan de estar al final del scroll (quedaban
+  /// ocultas bajo la barra de gestos) a una barra fija que respeta el inset.
+  Widget? _buildActionBar() {
+    final estado = _orden?['estado'];
+    if (estado == 'pendiente' || estado == 'pendiente_pago') {
+      return RyBottomActionBar(
+        primaryLabel: 'Marcar como Confirmada',
+        primaryIcon: Icons.check_circle,
+        primaryLoading: _isUpdating,
+        onPrimaryPressed: _isUpdating
+            ? null
+            : () => _actualizarEstado('confirmada'),
+      );
+    }
+    if (estado == 'confirmada') {
+      return RyBottomActionBar(
+        primaryLabel: 'Marcar como Entregada',
+        primaryIcon: Icons.local_shipping,
+        primaryLoading: _isUpdating,
+        onPrimaryPressed: _isUpdating
+            ? null
+            : () => _actualizarEstado('entregada'),
+      );
+    }
+    return null;
   }
 
   Widget _buildInfoCard({
@@ -425,15 +430,5 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         ),
       ],
     );
-  }
-
-  String _formatFecha(String? fecha) {
-    if (fecha == null) return 'No disponible';
-    try {
-      final dateTime = DateTime.parse(fecha);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-    } catch (e) {
-      return 'No disponible';
-    }
   }
 }

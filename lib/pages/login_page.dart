@@ -312,10 +312,14 @@ class _LoginPageState extends State<LoginPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Contraseña',
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
+            // Flexible: en móvil angosto el label sin wrap empujaba el enlace
+            // "¿Olvidó su clave?" fuera del viewport (RenderFlex overflow).
+            Flexible(
+              child: Text(
+                'Contraseña',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ),
             TextButton(
@@ -369,10 +373,14 @@ class _LoginPageState extends State<LoginPage> {
           }),
           checkColor: AppColors.onPrimaryContainer,
         ),
-        Text(
-          'Recordar sesión en este equipo',
-          style: AppTextStyles.textStyleCaption.copyWith(
-            color: AppColors.onSurfaceVariant,
+        // Flexible: el texto largo desbordaba el Row en móvil angosto
+        // (RenderFlex overflow de 133px); hace wrap junto al checkbox.
+        Flexible(
+          child: Text(
+            'Recordar sesión en este equipo',
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -392,13 +400,43 @@ class _LoginPageState extends State<LoginPage> {
           onPressed: _handleLogin,
         ),
         const SizedBox(height: AppSpacing.spacingMd),
-        Center(
-          child: RyButton(
-            label: '¿Aún no tienes cuenta? Regístrate',
-            variant: RyButtonVariant.text,
-            onPressed: () {
-              context.pushNamed(RouteNames.roleSelection);
-            },
+        // El label completo en un botón de texto se truncaba con ellipsis en
+        // móvil angosto (el RyButton limita a 1 línea): se muestra como texto
+        // + enlace, con wrap completo si no cabe. SizedBox(infinite) hace que
+        // el Wrap ocupe todo el ancho y cada línea quede CENTRADA (sin él, el
+        // Wrap mide su contenido y se pega a la izquierda).
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '¿Aún no tienes cuenta? ',
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  context.pushNamed(RouteNames.roleSelection);
+                },
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingXs,
+                  ),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                ),
+                child: Text(
+                  'Regístrate',
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.tertiaryContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -408,45 +446,57 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildFooter() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'Certificado ISO 9001',
-                  style: AppTextStyles.textStyleSmall.copyWith(
+        // Wrap: en móvil angosto los dos badges + divisor no cabían en un
+        // Row (RenderFlex overflow); con Wrap bajan a una segunda línea.
+        // SizedBox(infinite) + alignment center: cada línea queda CENTRADA
+        // (sin el ancho completo, el Wrap se pega a la izquierda).
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.verified,
+                    size: 18,
                     color: AppColors.onSurfaceVariant,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Container(width: 1, height: 16, color: AppColors.outlineVariant),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Row(
-              children: [
-                Icon(
-                  Icons.security,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'SSL Secure',
-                  style: AppTextStyles.textStyleSmall.copyWith(
+                  const SizedBox(width: AppSpacing.spacingXxs),
+                  Text(
+                    'Certificado ISO 9001',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              // Divisor vertical: solo tiene sentido si ambos badges quedan en
+              // la MISMA línea. Sin él, cuando el contenido no cabe, cada badge
+              // se centra en su propia línea (antes el divisor "colgaba" y el
+              // primer badge quedaba corrido a la izquierda).
+              const SizedBox(width: AppSpacing.spacingLg),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.security,
+                    size: 18,
                     color: AppColors.onSurfaceVariant,
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: AppSpacing.spacingXxs),
+                  Text(
+                    'SSL Secure',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.spacingMd),
         Padding(

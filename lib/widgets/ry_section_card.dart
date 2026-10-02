@@ -61,7 +61,12 @@ class RySectionCard extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.spacingSm),
                 ],
-                Text(title, style: AppTextStyles.textStyleTitle),
+                // Expanded: en pantallas angostas un título largo hacía que
+                // el Row midiera el Text a su ancho natural de una línea y
+                // desbordaba (RenderFlex overflow). Con Expanded hace wrap.
+                Expanded(
+                  child: Text(title, style: AppTextStyles.textStyleTitle),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.spacingMd),

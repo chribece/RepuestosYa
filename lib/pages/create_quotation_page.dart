@@ -11,12 +11,12 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
-import '../database/app_database.dart';
 import '../services/solicitud_service.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/outbox.dart';
 import '../services/upload_service.dart';
+import '../widgets/ry_bottom_action_bar.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_image_picker.dart';
 import '../widgets/ry_full_image_viewer.dart';
@@ -749,13 +749,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
             children: [
               const Icon(Icons.analytics, color: AppColors.primary, size: 20),
               const SizedBox(width: AppSpacing.spacingXs),
-              Text(
-                'FICHA TÉCNICA DEL VEHÍCULO',
-                style: GoogleFonts.sora(
-                  textStyle: AppTextStyles.textStyleSmall,
-                  color: AppColors.primary.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+              // Flexible: el título largo desbordaba el Row en móvil angosto
+              // (RenderFlex overflow).
+              Flexible(
+                child: Text(
+                  'FICHA TÉCNICA DEL VEHÍCULO',
+                  style: GoogleFonts.sora(
+                    textStyle: AppTextStyles.textStyleSmall,
+                    color: AppColors.primary.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
             ],
@@ -878,10 +882,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
             children: [
               Icon(icon, color: AppColors.onSurfaceVariant, size: 12),
               const SizedBox(width: AppSpacing.spacingXxs),
-              Text(
-                label,
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
+              // Flexible: labels como "Transmisión"/"Cilindraje" desbordaban
+              // la celda angosta en móvil (RenderFlex overflow); se truncan
+              // con ellipsis en vez de salirse.
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -909,6 +920,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       isRequired: true,
       prefixIcon: Icons.attach_money,
       helperText: 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN',
+      // Sin helperMaxLines el InputDecorator recorta el mensaje a 1 línea
+      // con ellipsis (se veía desbordado/truncado en móvil angosto).
+      helperMaxLines: 2,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Ingresa el precio de venta';
@@ -1316,76 +1330,19 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
+  /// Barra de acción fija al fondo con el componente compartido del DS:
+  /// respeta el inset inferior (barra de gestos) extendiendo el fondo hasta
+  /// el borde real y eleva el botón por encima del área segura.
   Widget _buildBottomActionButton() {
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.spacingMd),
-        decoration: BoxDecoration(
-          color: AppColors.background.withValues(alpha: 0.9),
-          border: const Border(
-            top: BorderSide(color: AppColors.outlineVariant, width: 1),
-          ),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: GFButton(
-            onPressed: _isSubmitting ? null : _enviarCotizacion,
-            type: GFButtonType.solid,
-            color: AppColors.primaryContainer,
-            textColor: AppColors.onPrimaryContainer,
-            disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
-            disabledTextColor: AppColors.onPrimaryContainer,
-            elevation: 0,
-            size: 56,
-            borderShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-            ),
-            child: _isSubmitting
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onPrimaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.spacingSm),
-                      Text(
-                        'PROCESANDO...',
-                        style: AppTextStyles.textStyleButton.copyWith(
-                          color: AppColors.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.send,
-                        color: AppColors.onPrimaryContainer,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppSpacing.spacingXs),
-                      Text(
-                        'ENVIAR COTIZACIÓN',
-                        style: AppTextStyles.textStyleButton.copyWith(
-                          color: AppColors.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
+      child: RyBottomActionBar(
+        primaryLabel: 'ENVIAR COTIZACIÓN',
+        primaryIcon: Icons.send,
+        primaryLoading: _isSubmitting,
+        onPrimaryPressed: _isSubmitting ? null : _enviarCotizacion,
       ),
     );
   }

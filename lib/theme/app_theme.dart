@@ -153,6 +153,11 @@ ThemeData get darkTheme {
       hintStyle: AppTextStyles.textStyleCaption.copyWith(
         color: AppColors.onSurfaceVariant.withValues(alpha: 0.7),
       ),
+      // Texto de ayuda persistente bajo el campo (helperText): mismo token
+      // de tipografía que el hint, con wrap completo (nunca se trunca).
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant.withValues(alpha: 0.8),
+      ),
       errorStyle: AppTextStyles.textStyleSmall.copyWith(
         color: SemanticColors.colorErrorText,
       ),

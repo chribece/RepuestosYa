@@ -20,6 +20,7 @@ import '../services/outbox.dart';
 import '../services/upload_service.dart';
 import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_bottom_action_bar.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
 import '../widgets/flujo_ubicacion.dart';
@@ -1242,8 +1243,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               RyTextField(
                 label: 'Detalles adicionales',
                 initialValue: provider.descripcion,
-                hint:
-                    'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad...',
+                // Hint corto: el placeholder largo se truncaba con ellipsis
+                // (el hint hereda el maxLines del campo). El ejemplo completo
+                // vive en helperText, que hace wrap sin truncar.
+                hint: 'Marca, modelo y año del repuesto',
+                helperText:
+                    'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad',
+                helperMaxLines: 4,
                 maxLines: 4,
                 isRequired: true,
                 errorText: _fieldErrors['descripcion'],
@@ -1271,7 +1277,43 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(provider),
+      bottomNavigationBar: RyBottomActionBar(
+        primaryLabel: 'BUSCAR REPUESTO',
+        primaryIcon: Icons.search,
+        primaryLoading: _isSubmitting,
+        primaryDisabled: !provider.ubicacionResuelta,
+        onPrimaryPressed: provider.ubicacionResuelta ? _handleSubmit : null,
+        banner: !provider.ubicacionResuelta
+            ? _buildUbicacionPendienteBanner()
+            : null,
+      ),
+    );
+  }
+
+  /// Aviso de ubicación pendiente que acompaña al botón primario (rúbrica:
+  /// el envío queda bloqueado hasta resolver coordenadas por GPS o dirección
+  /// manual).
+  Widget _buildUbicacionPendienteBanner() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.location_searching,
+          size: 16,
+          color: AppColors.warning,
+        ),
+        const SizedBox(width: AppSpacing.spacingXs),
+        Flexible(
+          child: Text(
+            'Ubicación pendiente — toca "Cambiar" junto a la dirección para verificarla',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.warning,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1584,6 +1626,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               ),
               dropdownColor: AppColors.surfaceContainerHigh,
               style: AppTextStyles.textStyleBody,
+              // isExpanded: el dropdown ocupa el ancho del campo y el item
+              // seleccionado se ajusta (sin él, el botón mide según el item
+              // más ancho y desbordaba el campo en móvil angosto).
+              isExpanded: true,
               icon: const Icon(
                 Icons.expand_more,
                 color: AppColors.onSurfaceVariant,
@@ -1624,6 +1670,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                             value: id,
                             child: Text(
                               '$nombre (VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin})',
+                              // En móvil angosto el item largo desbordaba el
+                              // campo (RenderFlex overflow de 128px): se
+                              // trunca con ellipsis en una línea.
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           );
                         })
@@ -1870,58 +1921,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(CreateRequestProvider provider) {
-    final ubicacionPendiente = !provider.ubicacionResuelta;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.8),
-        border: Border(top: BorderSide(color: AppColors.outlineVariant)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Indicador de ubicación pendiente (rúbrica: el envío queda
-          // bloqueado hasta resolver coordenadas por GPS o dirección manual).
-          if (ubicacionPendiente) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.location_searching,
-                  size: 16,
-                  color: AppColors.warning,
-                ),
-                const SizedBox(width: AppSpacing.spacingXs),
-                Flexible(
-                  child: Text(
-                    'Ubicación pendiente — toca "Cambiar" junto a la dirección para verificarla',
-                    style: AppTextStyles.textStyleSmall.copyWith(
-                      color: AppColors.warning,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.spacingSm),
-          ],
-          RyButton(
-            label: 'BUSCAR REPUESTO',
-            icon: Icons.search,
-            variant: RyButtonVariant.primary,
-            size: RyButtonSize.large,
-            isLoading: _isSubmitting,
-            isFullWidth: true,
-            isDisabled: ubicacionPendiente,
-            onPressed: ubicacionPendiente ? null : _handleSubmit,
           ),
         ],
       ),

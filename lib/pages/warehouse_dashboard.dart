@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/realtime_notification_service.dart';
+import '../services/outbox.dart';
 import '../services/sync_engine.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
@@ -329,10 +330,22 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Future<void> _cargarCotizacionesEnviadas() async {
     setState(() => _isLoadingCotizaciones = true);
     try {
+      // Cotizaciones creadas SIN conexión: quedan en el Outbox local hasta
+      // que el SyncEngine las envíe. Se muestran ANTES de las del servidor
+      // con el estado "pendiente de envío" (Parte 4: la lista refleja el
+      // estado local pendiente, no deja la pantalla vacía ni con datos
+      // viejos tras cotizar offline).
+      final outbox = Provider.of<OutboxService?>(context, listen: false);
+      final locales = outbox == null
+          ? const <CotizacionPendiente>[]
+          : await outbox.cotizacionesPendientesLocal();
       final cotizaciones = await _solicitudService.obtenerMisCotizaciones();
       if (mounted) {
         setState(() {
-          _cotizacionesEnviadas = List<Map<String, dynamic>>.from(cotizaciones);
+          _cotizacionesEnviadas = [
+            ...locales.map(_cotizacionLocalToCard),
+            ...List<Map<String, dynamic>>.from(cotizaciones),
+          ];
           _isLoadingCotizaciones = false;
         });
       }
@@ -785,9 +798,19 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          'Solicitudes Disponibles',
-                                          style: AppTextStyles.textStyleTitle,
+                                        // Expanded: el título sin wrap
+                                        // desbordaba el Row en 420px
+                                        // (overflow de 275px).
+                                        Expanded(
+                                          child: Text(
+                                            'Solicitudes Disponibles',
+                                            style: AppTextStyles.textStyleTitle,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          width: AppSpacing.spacingSm,
                                         ),
                                         RyButton(
                                           label: 'Ver todas',
@@ -846,7 +869,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 const SizedBox(height: AppSpacing.spacingXl),
                                 _buildFilterChips(),
                                 const SizedBox(height: AppSpacing.spacingMd),
-                                _isLoadingCotizaciones
+                                // El estado de carga solo aplica a la carga
+                                // INICIAL (lista vacía). Durante un
+                                // pull-to-refresh con datos ya visibles, la
+                                // lista se mantiene: reemplazarla por el
+                                // loading hacía "desaparecer" el contenido y
+                                // el refresh parecía no funcionar (el
+                                // RefreshIndicator ya muestra su propio
+                                // spinner sobre la lista).
+                                _isLoadingCotizaciones &&
+                                        _cotizacionesEnviadas.isEmpty
                                     ? const RyStateContainer(
                                         title: 'Cargando cotizaciones...',
                                         type: RyStateType.loading,
@@ -910,11 +942,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           const SizedBox(width: AppSpacing.spacingSm),
-          Text(
-            'REPUESTOSYA',
-            style: AppTextStyles.textStyleHeading.copyWith(
-              color: AppColors.primaryContainer,
-              letterSpacing: -0.5,
+          // Flexible: en móvil angosto el título sin wrap empujaba el chip
+          // "Abierto/Cerrado" fuera del viewport (overflow de 68px).
+          Flexible(
+            child: Text(
+              'REPUESTOSYA',
+              style: AppTextStyles.textStyleHeading.copyWith(
+                color: AppColors.primaryContainer,
+                letterSpacing: -0.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const Spacer(),
@@ -1151,80 +1189,86 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   Widget _buildFilterChips() {
-    return Row(
-      children: [
-        FilterChip(
-          label: const Text('Todas'),
-          selected: _filtroActual == 'todas',
-          onSelected: (selected) {
-            setState(() {
-              _filtroActual = 'todas';
-            });
-          },
-          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
-          checkmarkColor: AppColors.primaryContainer,
-          labelStyle: AppTextStyles.textStyleCaption.copyWith(
-            color: _filtroActual == 'todas'
-                ? AppColors.primaryContainer
-                : AppColors.onSurfaceVariant,
+    // Scroll horizontal: en móvil angosto los 4 chips sumaban más ancho que
+    // la pantalla y el Row desbordaba (overflow de 255px). En tablet se ve
+    // igual (una fila completa, sin scroll necesario).
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          FilterChip(
+            label: const Text('Todas'),
+            selected: _filtroActual == 'todas',
+            onSelected: (selected) {
+              setState(() {
+                _filtroActual = 'todas';
+              });
+            },
+            selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+            checkmarkColor: AppColors.primaryContainer,
+            labelStyle: AppTextStyles.textStyleCaption.copyWith(
+              color: _filtroActual == 'todas'
+                  ? AppColors.primaryContainer
+                  : AppColors.onSurfaceVariant,
+            ),
+            backgroundColor: AppColors.surfaceContainerLow,
           ),
-          backgroundColor: AppColors.surfaceContainerLow,
-        ),
-        const SizedBox(width: AppSpacing.spacingSm),
-        FilterChip(
-          label: const Text('Pendientes'),
-          selected: _filtroActual == 'pendientes',
-          onSelected: (selected) {
-            setState(() {
-              _filtroActual = 'pendientes';
-            });
-          },
-          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
-          checkmarkColor: AppColors.primaryContainer,
-          labelStyle: AppTextStyles.textStyleCaption.copyWith(
-            color: _filtroActual == 'pendientes'
-                ? AppColors.primaryContainer
-                : AppColors.onSurfaceVariant,
+          const SizedBox(width: AppSpacing.spacingSm),
+          FilterChip(
+            label: const Text('Pendientes'),
+            selected: _filtroActual == 'pendientes',
+            onSelected: (selected) {
+              setState(() {
+                _filtroActual = 'pendientes';
+              });
+            },
+            selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+            checkmarkColor: AppColors.primaryContainer,
+            labelStyle: AppTextStyles.textStyleCaption.copyWith(
+              color: _filtroActual == 'pendientes'
+                  ? AppColors.primaryContainer
+                  : AppColors.onSurfaceVariant,
+            ),
+            backgroundColor: AppColors.surfaceContainerLow,
           ),
-          backgroundColor: AppColors.surfaceContainerLow,
-        ),
-        const SizedBox(width: AppSpacing.spacingSm),
-        FilterChip(
-          label: const Text('Ganadas'),
-          selected: _filtroActual == 'ganadas',
-          onSelected: (selected) {
-            setState(() {
-              _filtroActual = 'ganadas';
-            });
-          },
-          selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
-          checkmarkColor: AppColors.primaryContainer,
-          labelStyle: AppTextStyles.textStyleCaption.copyWith(
-            color: _filtroActual == 'ganadas'
-                ? AppColors.primaryContainer
-                : AppColors.onSurfaceVariant,
+          const SizedBox(width: AppSpacing.spacingSm),
+          FilterChip(
+            label: const Text('Ganadas'),
+            selected: _filtroActual == 'ganadas',
+            onSelected: (selected) {
+              setState(() {
+                _filtroActual = 'ganadas';
+              });
+            },
+            selectedColor: AppColors.primaryContainer.withValues(alpha: 0.2),
+            checkmarkColor: AppColors.primaryContainer,
+            labelStyle: AppTextStyles.textStyleCaption.copyWith(
+              color: _filtroActual == 'ganadas'
+                  ? AppColors.primaryContainer
+                  : AppColors.onSurfaceVariant,
+            ),
+            backgroundColor: AppColors.surfaceContainerLow,
           ),
-          backgroundColor: AppColors.surfaceContainerLow,
-        ),
-        const SizedBox(width: AppSpacing.spacingSm),
-        FilterChip(
-          label: const Text('Rechazadas'),
-          selected: _filtroActual == 'rechazadas',
-          onSelected: (selected) {
-            setState(() {
-              _filtroActual = 'rechazadas';
-            });
-          },
-          selectedColor: AppColors.error.withValues(alpha: 0.2),
-          checkmarkColor: AppColors.error,
-          labelStyle: AppTextStyles.textStyleCaption.copyWith(
-            color: _filtroActual == 'rechazadas'
-                ? AppColors.error
-                : AppColors.onSurfaceVariant,
+          const SizedBox(width: AppSpacing.spacingSm),
+          FilterChip(
+            label: const Text('Rechazadas'),
+            selected: _filtroActual == 'rechazadas',
+            onSelected: (selected) {
+              setState(() {
+                _filtroActual = 'rechazadas';
+              });
+            },
+            selectedColor: AppColors.error.withValues(alpha: 0.2),
+            checkmarkColor: AppColors.error,
+            labelStyle: AppTextStyles.textStyleCaption.copyWith(
+              color: _filtroActual == 'rechazadas'
+                  ? AppColors.error
+                  : AppColors.onSurfaceVariant,
+            ),
+            backgroundColor: AppColors.surfaceContainerLow,
           ),
-          backgroundColor: AppColors.surfaceContainerLow,
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1296,6 +1340,25 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
+  /// Convierte una cotización local (Outbox, creada sin conexión) al formato
+  /// de tarjeta del dashboard. La fila local no guarda el nombre de la pieza
+  /// ni el cliente (el servidor no la conoce aún), así que la tarjeta se
+  /// identifica como "pendiente de envío" con su precio y tiempo estimado.
+  Map<String, dynamic> _cotizacionLocalToCard(CotizacionPendiente local) {
+    return {
+      'id': local.id,
+      'precio_venta': local.precio,
+      'estado': local.estado,
+      'created_at': local.createdAt.toIso8601String(),
+      'tiempo_entrega_estimado': local.tiempoEntrega,
+      'solicitudes_repuesto': {
+        'pieza_nombre': 'Cotización pendiente de envío',
+        'profiles': {'nombre_completo': null},
+      },
+      'pendiente_envio': true,
+    };
+  }
+
   /// Chip informativo con el número de cotizaciones recibidas por la solicitud.
   Widget _buildQuotationsCountChip(int cantidadCotizaciones) {
     final bool tieneCotizaciones = cantidadCotizaciones > 0;
@@ -1354,7 +1417,13 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
 
     if (vueltaConExito == true && mounted) {
+      // Parte 4: al volver del formulario, la lista de cotizaciones enviadas
+      // se recarga SOLA (sin refrescar a mano). El feed también, porque la
+      // solicitud ya no debe aparecer como disponible. Si el envío fue
+      // offline, la cotización local (Outbox) queda reflejada al frente de
+      // la lista con su estado pendiente de envío.
       _cargarSolicitudes();
+      _cargarCotizacionesEnviadas();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('¡Cotización enviada exitosamente!'),
@@ -1440,10 +1509,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       return const SizedBox.shrink();
     }
 
+    // Cotización local creada sin conexión (Outbox): aún no está en el
+    // servidor. Se muestra con su propio badge y sin swipe.
+    final bool pendienteEnvio = cotizacion['pendiente_envio'] == true;
+
     // Determinar estado para RyStatusBadge
     String statusBadge;
     String statusLabel;
-    if (estado == 'aceptada' && ordenEstado != null) {
+    if (pendienteEnvio) {
+      statusBadge = 'pending';
+      statusLabel = 'PENDIENTE DE ENVÍO';
+    } else if (estado == 'aceptada' && ordenEstado != null) {
       switch (ordenEstado) {
         case 'pendiente_pago':
           statusBadge = 'pending';
@@ -1563,6 +1639,26 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   'Entrega: $tiempoEntrega',
                   style: AppTextStyles.textStyleSmall.copyWith(
                     color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (pendienteEnvio) ...[
+            const SizedBox(height: AppSpacing.spacingSm),
+            Row(
+              children: [
+                const Icon(
+                  Icons.sync_problem,
+                  color: AppColors.warning,
+                  size: 16,
+                ),
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Text(
+                  'Se enviará al recuperar la conexión',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

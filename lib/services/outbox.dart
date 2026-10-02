@@ -5,7 +5,7 @@ import 'package:drift/drift.dart';
 import '../database/app_database.dart';
 import '../utils/app_logger.dart';
 
-export '../database/app_database.dart' show OutboxData;
+export '../database/app_database.dart' show OutboxData, CotizacionPendiente;
 
 class OutboxService {
   final AppDatabase _db;
@@ -82,6 +82,23 @@ class OutboxService {
     await (_db.delete(
       _db.cotizacionesPendientes,
     )..where((t) => t.clientId.equals(clientId))).go();
+  }
+
+  /// Cotizaciones creadas sin conexión que aún no llegaron al servidor
+  /// (espejo local del dashboard del almacén, Parte 4 de los fixes de
+  /// layout). El SyncEngine las elimina al sincronizarlas.
+  Future<List<CotizacionPendiente>> cotizacionesPendientesLocal() async {
+    try {
+      return await (_db.select(
+        _db.cotizacionesPendientes,
+      )..orderBy([(t) => OrderingTerm(expression: t.createdAt)])).get();
+    } catch (e) {
+      AppLogger.error(
+        'Error al leer cotizaciones pendientes locales: $e',
+        name: 'OutboxService',
+      );
+      return [];
+    }
   }
 
   OutboxCompanion _buildEntry({

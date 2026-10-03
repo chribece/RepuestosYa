@@ -1,4 +1,4 @@
-package com.example.repuestosya
+package com.repuestosya.app
 
 import io.flutter.embedding.android.FlutterActivity
 

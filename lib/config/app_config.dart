@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Configuración de la aplicación por ambiente.
 ///
 /// Los valores se leen mediante `String.fromEnvironment` y pueden
@@ -42,9 +44,31 @@ class AppConfig {
   /// Permite al integration_test apuntar al backend LOCAL sin depender de
   /// `--dart-define` (en Flutter 3.44 no llegan al integration_test en
   /// dispositivos). Solo lo usa `integration_test/app_test.dart`.
-  static String? overrideBaseUrl;
+  ///
+  /// Protección de release: el setter es INERTE cuando `kReleaseMode == true`
+  /// (compilado en `flutter build apk --release`), de modo que la app de
+  /// producción SIEMPRE apunta a `API_BASE_URL` y nunca a una URL local.
+  static set overrideBaseUrl(String? value) {
+    aplicarOverrideParaTest(value, releaseMode: kReleaseMode);
+  }
 
-  static String get baseUrl => overrideBaseUrl ?? _baseUrl;
+  static String? get overrideBaseUrl => _overrideBaseUrl;
+
+  static String? _overrideBaseUrl;
+
+  /// [visibleForTesting] — expone el guard del override para testear el
+  /// comportamiento en release sin compilar en release (`kReleaseMode` es
+  /// una constante de compilación y no se puede alternar en un test).
+  @visibleForTesting
+  static void aplicarOverrideParaTest(
+    String? value, {
+    required bool releaseMode,
+  }) {
+    if (releaseMode) return; // en release el override es inerte
+    _overrideBaseUrl = value;
+  }
+
+  static String get baseUrl => _overrideBaseUrl ?? _baseUrl;
   static String get supabaseUrl => _supabaseUrl;
   static String get supabaseAnonKey => _supabaseAnonKey;
   static String get environment => _environment;

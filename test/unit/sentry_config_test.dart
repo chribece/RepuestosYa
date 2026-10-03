@@ -90,4 +90,51 @@ void main() {
     // ignore: deprecated_member_use
     expect(filtrado!.extra, {'codigo': 42});
   });
+
+  test(
+    'breadcrumb: elimina claves prohibidas del data y conserva el resto',
+    () {
+      final breadcrumb = Breadcrumb(
+        message: 'POST /api/auth/login',
+        type: 'http',
+        data: {
+          'url': 'https://api.test/auth/login',
+          'status_code': 200,
+          'email': 'cliente@example.com',
+          'token': 'eyJ-secreto',
+        },
+      );
+
+      final filtrado = SentryConfig.filtrarBreadcrumbParaTest(breadcrumb);
+
+      expect(filtrado, isNotNull);
+      final data = filtrado!.data!;
+      expect(data.containsKey('email'), isFalse);
+      expect(data.containsKey('token'), isFalse);
+      expect(data['url'], 'https://api.test/auth/login');
+      expect(data['status_code'], 200);
+    },
+  );
+
+  test('breadcrumb: redacta emails y JWTs del mensaje', () {
+    final breadcrumb = Breadcrumb(
+      message:
+          'Login de cliente@example.com con token eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSJ9.firma-falsa-123',
+    );
+
+    final filtrado = SentryConfig.filtrarBreadcrumbParaTest(breadcrumb);
+
+    expect(filtrado!.message, isNot(contains('cliente@example.com')));
+    expect(filtrado.message, isNot(contains('eyJhbGciOiJIUzI1NiJ9')));
+    expect(filtrado.message, contains('[EMAIL]'));
+    expect(filtrado.message, contains('[TOKEN]'));
+  });
+
+  test('breadcrumb: mensaje sin datos personales pasa intacto', () {
+    final breadcrumb = Breadcrumb(message: 'Carga de catálogo OK');
+
+    final filtrado = SentryConfig.filtrarBreadcrumbParaTest(breadcrumb);
+
+    expect(filtrado!.message, 'Carga de catálogo OK');
+  });
 }

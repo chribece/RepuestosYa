@@ -20,8 +20,11 @@ import 'app_logger.dart';
 class SentryConfig {
   const SentryConfig._();
 
-  /// Release/dist alineado con `pubspec.yaml` (version: 1.0.0+1).
-  static const String release = 'repuestosya@1.0.0+1';
+  /// Release/dist alineado con `pubspec.yaml` (1.0.0+1). Se puede inyectar
+  /// con `--dart-define=APP_VERSION=1.0.0+1` (CI); el default debe
+  /// sincronizarse con `pubspec.yaml` al distribuir (ver docs/ambientes.md).
+  static final String release =
+      'repuestosya@${String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0+1')}';
 
   /// Claves que nunca deben salir del dispositivo (case-insensitive).
   @visibleForTesting
@@ -57,12 +60,15 @@ class SentryConfig {
         ..dsn = dsn
         ..environment = AppConfig.environment
         ..release = release
+        // Nunca enviar PII recogida por el SDK (datos del dispositivo).
+        ..sendDefaultPii = false
         // Capa gratuita: muestreo de trazas bajo para no disparar el límite.
         ..tracesSampleRate = 0.1
         // Diagnóstico opcional: logs del SDK (envelope enviado, event id)
         // con --dart-define=SENTRY_DEBUG=true. Off por defecto.
         ..debug = const bool.fromEnvironment('SENTRY_DEBUG')
-        ..beforeSend = _filtrarEvento;
+        ..beforeSend = _filtrarEvento
+        ..beforeBreadcrumb = _filtrarBreadcrumb;
     });
     AppLogger.info('Sentry inicializado', name: 'SentryConfig');
   }
@@ -126,6 +132,53 @@ class SentryConfig {
   static bool _esCampoProhibido(String key) {
     final lower = key.toLowerCase();
     return camposProhibidos.any((p) => lower == p.toLowerCase());
+  }
+
+  // ── Breadcrumbs ─────────────────────────────────────────────────────────
+
+  static final RegExp _emailRegex = RegExp(r'[\w.+-]+@[\w-]+(\.[\w-]+)+');
+  static final RegExp _jwtRegex = RegExp(
+    r'eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}',
+  );
+
+  /// Redacta emails y tokens tipo JWT de cualquier texto.
+  static String _sanitizarTexto(String texto) {
+    return texto
+        .replaceAll(_emailRegex, '[EMAIL]')
+        .replaceAll(_jwtRegex, '[TOKEN]');
+  }
+
+  static dynamic _sanitizarValor(dynamic value) {
+    if (value is String) return _sanitizarTexto(value);
+    return value;
+  }
+
+  /// Filtro de breadcrumbs (beforeBreadcrumb): elimina claves prohibidas del
+  /// `data` y redacta emails/tokens del mensaje. Los breadcrumbs HTTP que
+  /// añade el SDK nunca incluyen headers, así que Authorization no llega aquí.
+  static Breadcrumb? _filtrarBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
+    if (breadcrumb == null) return null;
+    final data = breadcrumb.data;
+    if (data != null && data.isNotEmpty) {
+      breadcrumb.data = <String, dynamic>{
+        for (final e in data.entries)
+          if (!_esCampoProhibido(e.key)) e.key: _sanitizarValor(e.value),
+      };
+    }
+    final message = breadcrumb.message;
+    if (message != null) {
+      breadcrumb.message = _sanitizarTexto(message);
+    }
+    return breadcrumb;
+  }
+
+  /// Puente para tests: expone [SentryConfig._filtrarBreadcrumb] públicamente.
+  @visibleForTesting
+  static Breadcrumb? filtrarBreadcrumbParaTest(
+    Breadcrumb breadcrumb, {
+    Hint? hint,
+  }) {
+    return _filtrarBreadcrumb(breadcrumb, hint ?? Hint());
   }
 
   /// Puente para tests: expone [SentryConfig._filtrarEvento] públicamente.

@@ -127,7 +127,7 @@ class _RyLocationMapPickerState extends State<RyLocationMapPicker> {
               children: [
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.repuestosya',
+                  userAgentPackageName: 'com.repuestosya.app',
                 ),
                 MarkerLayer(
                   markers: widget.showPin

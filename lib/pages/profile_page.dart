@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import '../config/app_config.dart';
 import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
+import '../utils/app_logger.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -383,6 +389,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMenuSection() {
+    // Botón de fallo de prueba: SOLO en debug o cuando APP_ENV != prod.
+    // Nunca aparece en el build release de producción (kReleaseMode + env
+    // 'prod' eliminan el widget por dead-code elimination).
+    final mostrarPruebaFallo = _mostrarPruebaFallo;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
@@ -411,9 +422,39 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () {
               context.pushNamed(RouteNames.misOrdenes);
             },
-            isLast: true,
+            isLast: !mostrarPruebaFallo,
           ),
+          if (mostrarPruebaFallo)
+            _buildMenuItem(
+              icon: Icons.bug_report_outlined,
+              title: 'Provocar fallo de prueba (Sentry)',
+              onTap: _probarFallo,
+              isLast: true,
+            ),
         ],
+      ),
+    );
+  }
+
+  /// Solo debug o staging/dev: nunca en el build release de producción.
+  bool get _mostrarPruebaFallo =>
+      !kReleaseMode || AppConfig.environment != 'prod';
+
+  void _probarFallo() {
+    final mensaje =
+        'Fallo de prueba manual desde Mi Perfil (env=${AppConfig.environment})';
+    AppLogger.error(mensaje, name: 'ProfilePage');
+    unawaited(
+      Sentry.captureException(
+        StateError(mensaje),
+        stackTrace: StackTrace.current,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Fallo de prueba enviado a Sentry (env=${AppConfig.environment}).',
+        ),
       ),
     );
   }

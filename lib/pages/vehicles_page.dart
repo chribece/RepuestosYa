@@ -158,12 +158,14 @@ class _VehiclesPageState extends State<VehiclesPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+          tooltip: 'Regresar',
           onPressed: () => context.pop(),
         ),
         title: const Text('Mis Vehículos', style: AppTextStyles.textStyleTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.add, color: AppColors.primaryContainer),
+            tooltip: 'Agregar vehículo',
             onPressed: () => _mostrarFormularioVehiculo(),
           ),
         ],
@@ -265,6 +267,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               Icons.edit,
                               color: AppColors.primary,
                             ),
+                            tooltip: 'Editar vehículo',
                             onPressed: () =>
                                 _mostrarFormularioVehiculo(vehiculo),
                           ),
@@ -273,6 +276,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                               Icons.delete,
                               color: AppColors.error,
                             ),
+                            tooltip: 'Eliminar vehículo',
                             onPressed: () => _eliminarVehiculo(vehiculo['id']),
                           ),
                         ],

@@ -101,6 +101,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             color: AppColors.primary,
             size: 28,
           ),
+          tooltip: 'Regresar',
           onPressed: () => context.pop(),
         ),
         title: Text(

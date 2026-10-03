@@ -436,6 +436,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                     color: AppColors.primaryContainer,
                     size: 24,
                   ),
+                  tooltip: 'Abrir menú',
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
               ),

@@ -939,6 +939,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               color: AppColors.primaryContainer,
               size: 24,
             ),
+            tooltip: 'Abrir menú',
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           const SizedBox(width: AppSpacing.spacingSm),

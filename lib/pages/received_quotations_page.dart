@@ -278,6 +278,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+        tooltip: 'Regresar',
         onPressed: () => Navigator.pop(context),
       ),
       title: Text('Cotizaciones', style: AppTextStyles.textStyleTitle),

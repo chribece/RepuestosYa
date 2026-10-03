@@ -396,7 +396,9 @@ flutter analyze                                            → No issues found
 servicios reales de la app (ApiClient → backend Express → Supabase) desde el dispositivo.
 
 **Backend usado (decisión documentada):** el backend local de desarrollo
-(`192.168.100.2:3000`, el mismo que la app usa por defecto) con datos de prueba:
+(`192.168.100.2:3000`) con datos de prueba. El default de la app apunta a
+PRODUCCIÓN (`https://repuestosya.onrender.com/api`, ver `lib/config/app_config.dart`),
+así que el propio test fija la URL local con `AppConfig.overrideBaseUrl`:
 - El **cliente** es una cuenta **efímera por corrida** (`e2e.cliente.<timestamp>@repuestosya.test`).
 - El **almacén** es un **fixture pre-aprobado** (`almacen.e2e@repuestosya.test`) provisionado por
   `backend/scripts/e2e_fixture.js` (idempotente, usa la service-role key del `.env` gitignored).
@@ -408,7 +410,8 @@ servicios reales de la app (ApiClient → backend Express → Supabase) desde el
 flutter test integration_test/ -d T10MPROPLUS00342411
 ```
 (En Flutter 3.44 los `--dart-define` no llegan al integration_test en dispositivos — quirk
-verificado — así que la contraseña del fixture es una constante TEST-ONLY documentada.)
+verificado — así que la URL local y la contraseña del fixture se fijan en el código del test:
+`AppConfig.overrideBaseUrl` + constante TEST-ONLY documentada.)
 
 **Evidencia real (persistida en Supabase, no solo "compiló"):**
 - Solicitud creada → `201`.

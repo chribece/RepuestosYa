@@ -1,0 +1,275 @@
+{
+  "info": {
+    "name": "RepuestosYa API",
+    "description": "Colección de pruebas de la API de RepuestosYa (Parte 1 — producción). Cubre: /health, register, login, refresh, GET protegido (200/401), 403 de almacén no aprobado y 422 de validación.\n\nVariable {{baseUrl}}: \n- Local: http://localhost:3000\n- Producción: https://repuestosya.onrender.com (primer request tarda ~1 min si el servicio dormía)\n\nEl login extrae automáticamente el token a la variable de colección {{token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://repuestosya.onrender.com"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health (público)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/health",
+        "description": "Público, sin token y fuera de los rate limiters. 200 con db:\"ok\"; 503 con db:\"error\" si Supabase no responde."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Health responde 200 con status ok', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('ok');",
+              "  pm.expect(body.version).to.be.a('string');",
+              "  pm.expect(body.uptime).to.be.a('number');",
+              "  pm.expect(body.db).to.eql('ok');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Register (201)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"cliente.api@example.com\",\n  \"password\": \"ClaveSegura-2026!\",\n  \"nombreCompleto\": \"Cliente Pruebas API\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/register",
+        "description": "201 esperado. Cambia el email en cada ejecución (el registro es único por email); 409 si ya existe."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Register responde 201 con token', () => {",
+              "  pm.response.to.have.status(201);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.token).to.be.a('string');",
+              "  pm.collectionVariables.set('token', body.token);",
+              "  pm.collectionVariables.set('refreshToken', body.refreshToken || '');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Login (200)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"cliente.api@example.com\",\n  \"password\": \"ClaveSegura-2026!\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "description": "200 esperado; 401 con credenciales inválidas. Guarda el token en {{token}} para las peticiones protegidas."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Login responde 200 y guarda token', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.token).to.be.a('string');",
+              "  pm.collectionVariables.set('token', body.token);",
+              "  pm.collectionVariables.set('refreshToken', body.refreshToken || '');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Refresh (200)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/refresh",
+        "description": "200 esperado; 401 con refresh_token inválido. Usa {{refreshToken}} capturado en login/register."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Refresh responde 200 con token nuevo', () => {",
+              "  pm.response.to.have.status(200);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.token).to.be.a('string');",
+              "  pm.collectionVariables.set('token', body.token);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. GET protegido — sin token (401)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/profile",
+        "description": "401 esperado: sin Authorization no se accede al recurso."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Sin token responde 401', () => {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. GET protegido — con token (200)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/profile",
+        "description": "200 esperado con el token de la colección (se llena en login/register)."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Con token responde 200', () => {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Cotización con almacén no aprobado (403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tokenAlmacen}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"solicitud_id\": \"SOLICITUD_ID\",\n  \"almacen_id\": \"ALMACEN_ID\",\n  \"precio_venta\": 15.5,\n  \"condicion_repuesto\": \"nuevo\"\n}"
+        },
+        "url": "{{baseUrl}}/api/quotations",
+        "description": "403 WAREHOUSE_NOT_APPROVED esperado. Requiere setup previo: token de un usuario rol 'almacen' (variable {{tokenAlmacen}}), su almacén con verification_status != 'approved' y una solicitud en 'en_proceso'."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Almacén no aprobado responde 403 con code WAREHOUSE_NOT_APPROVED', () => {",
+              "  pm.response.to.have.status(403);",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.code).to.eql('WAREHOUSE_NOT_APPROVED');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Crear solicitud inválida (422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"repuesto\": \"\"\n}"
+        },
+        "url": "{{baseUrl}}/api/requests",
+        "description": "422 esperado: body inválido (campos obligatorios ausentes) responde con errores de validación normalizados."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Validación responde 422', () => {",
+              "  pm.response.to.have.status(422);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

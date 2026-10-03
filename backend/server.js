@@ -1,29 +1,66 @@
 require('dotenv').config();
 
 const isProd = process.env.NODE_ENV === 'production';
+const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
-// En producción se desactiva console.* para impedir que controladores y
+// B4: el logging de requests (método, ruta, status, ms) se activa SOLO en
+// desarrollo o con LOG_LEVEL=debug. En producción por defecto no se registran
+// requests; cuando se activa, Morgan nunca incluye headers, así que
+// Authorization, cookies ni tokens no aparecen en los logs.
+const requestLoggingEnabled = !isProd || LOG_LEVEL === 'debug';
+
+// En producción se silencia console.* para impedir que controladores y
 // servicios existentes filtren emails, IDs, perfiles o errores sensibles.
-// Morgan conserva únicamente método, ruta y status HTTP.
+// El detalle de errores server-side se escribe vía logger
+// (src/utils/logger.js), que va directo a stderr y no pasa por console.
 if (isProd) {
   console.log = () => {};
   console.warn = () => {};
   console.error = () => {};
 }
 
+// Validación de variables obligatorias ANTES de cargar rutas/controladores:
+// en producción, si falta alguna, el proceso termina con mensaje claro
+// (sin imprimir valores).
+require('./src/config/env');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const morgan = require('morgan'); 
+const morgan = require('morgan');
+const logger = require('./src/utils/logger');
 const routes = require('./src/routes');
+const healthController = require('./src/controllers/healthController');
 const timingMiddleware = require('./src/middleware/timing');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// En producción solo se conservan método, ruta y estado HTTP.
-app.use(morgan(isProd ? ':method :url :status' : 'dev'));
+// Render (y cualquier proxy HTTPS) termina TLS y reenvía x-forwarded-*.
+// Sin esto, express-rate-limit contaría todas las peticiones como si vinieran
+// de la IP del proxy y el bloqueo por IP dejaría de funcionar.
+app.set('trust proxy', 1);
+
+// HTTPS obligatorio en producción (Render reenvía x-forwarded-proto).
+// GET/HEAD se redirigen a https; el resto se rechaza con 403.
+if (isProd) {
+  app.use((req, res, next) => {
+    if (req.headers['x-forwarded-proto'] !== 'https') {
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        const host = req.headers.host || 'localhost';
+        return res.redirect(301, `https://${host}${req.originalUrl}`);
+      }
+      return res.status(403).json({ error: 'HTTPS required' });
+    }
+    next();
+  });
+}
+
+// B4: logging de requests condicional.
+if (requestLoggingEnabled) {
+  app.use(morgan(isProd ? ':method :url :status :response-time ms' : 'dev'));
+}
 
 // Security middleware
 app.use(helmet());
@@ -46,6 +83,8 @@ app.use(cors({
   credentials: true,
 }));
 
+// Health check público: se registra ANTES de los limitadores y no requiere token.
+app.get('/health', healthController.check);
 
 // Rate limiting por capas. Los endpoints de credenciales/token (login,
 // register, refresh) llevan un límite estricto anti fuerza bruta y se
@@ -76,24 +115,11 @@ app.use('/api/', apiLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware de logging manual solo para desarrollo.
-app.use((req, res, next) => {
-  if (!isProd) {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  }
-  next();
-});
-
-// Timing middleware
+// Timing middleware (log vía logger.debug: solo dev o LOG_LEVEL=debug)
 app.use(timingMiddleware);
 
 // Routes
 app.use('/api', routes);
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
 
 // 404 handler
 app.use((req, res) => {
@@ -101,14 +127,20 @@ app.use((req, res) => {
 });
 
 // Error handler. En producción nunca se expone el mensaje interno (p. ej.
-// errores crudos de Supabase o de negocio); el detalle queda solo para
-// desarrollo. El stack no se envía al cliente en ningún ambiente de producción.
+// errores crudos de Supabase o de negocio): el detalle queda SOLO en los
+// logs del servidor (B3). El stack no se envía al cliente en ningún ambiente
+// de producción.
 app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
   if (isProd) {
-    return res.status(err.status || 500).json({ error: 'Internal server error' });
+    logger.error(
+      `[error] ${req.method} ${req.originalUrl} -> ${status}\n`,
+      err.stack || err.message || err
+    );
+    return res.status(status).json({ error: 'Internal server error' });
   }
   console.error(err.stack);
-  res.status(err.status || 500).json({
+  res.status(status).json({
     error: err.message || 'Internal server error',
     stack: err.stack
   });

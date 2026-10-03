@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
+import 'package:repuestosya/config/app_config.dart';
 import 'package:repuestosya/models/part_catalog.dart';
 import 'package:repuestosya/services/almacen_service.dart';
 import 'package:repuestosya/services/auth_service.dart';
@@ -18,15 +19,20 @@ import 'package:repuestosya/services/vehiculo_service.dart';
 ///   cliente acepta la cotización → se genera la orden.
 ///
 /// Decide y documenta (docs/TESTING.md §5): corre contra el backend local de
-/// desarrollo (192.168.100.2:3000, el mismo que la app usa por defecto) con
-/// datos de prueba — el cliente es una cuenta EFÍMERA por corrida y el
-/// almacén es un fixture pre-aprobado (la aprobación es acción de admin, no
-/// parte del recorrido del usuario).
+/// desarrollo (192.168.100.2:3000) con datos de prueba. El default de la app
+/// apunta a PRODUCCIÓN (`https://repuestosya.onrender.com/api`), así que este
+/// test fija la URL local con `AppConfig.overrideBaseUrl` (los `--dart-define`
+/// no llegan al integration_test en dispositivos, ver abajo). El cliente es
+/// una cuenta EFÍMERA por corrida y el almacén es un fixture pre-aprobado (la
+/// aprobación es acción de admin, no parte del recorrido del usuario).
 ///
 /// Se corre SOLO en dispositivo físico (nunca emulador):
 ///   flutter test integration_test/ -d T10MPROPLUS00342411
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  // Backend local de desarrollo (el default de la app es producción).
+  AppConfig.overrideBaseUrl = 'http://192.168.100.2:3000/api';
 
   testWidgets(
     'recorrido crítico: solicitud → cotización → aceptar → orden generada',

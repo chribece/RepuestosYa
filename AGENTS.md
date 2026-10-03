@@ -22,7 +22,10 @@
   procesos pesados (backend de node, gradle daemons) y correr con
   `flutter test --concurrency=1`.
 - E2E (solo dispositivo físico `T10MPROPLUS00342411`, requiere backend local
-  en `192.168.100.2:3000` + fixture):
+  en `192.168.100.2:3000` + fixture). El default de la app apunta a
+  PRODUCCIÓN (`https://repuestosya.onrender.com/api`, ver
+  `lib/config/app_config.dart`); el test fija la URL local vía
+  `AppConfig.overrideBaseUrl`:
   `cmd.exe /c "cd /d C:\RepuestosYa && flutter test integration_test/ -d T10MPROPLUS00342411"`
   Fixture de almacén: `"/mnt/d/Program Files/nodejs/node.exe" backend/scripts/e2e_fixture.js`.
 - CI: `.github/workflows/ci.yml` (analyze + test + formato + sintaxis backend;

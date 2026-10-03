@@ -7,7 +7,8 @@ const register = async (req, res) => {
   try {
     const { email, password, nombreCompleto, rol } = req.body;
 
-    console.log('Register request received:', { email, nombreCompleto, rol });
+    // B4: no se registra el email (PII) ni el body de login.
+    console.log('Register request received:', { nombreCompleto, rol });
 
     if (!email || !password || !nombreCompleto) {
       return res.status(400).json({ error: 'Email, password and nombreCompleto are required' });
@@ -143,7 +144,8 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log('Login request received for email:', email);
+    // B4: no se registra el email (PII) ni el body de login.
+    console.log('Login request received');
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -163,7 +165,6 @@ const login = async (req, res) => {
 
     const userId = authData.user.id;
     console.log('Login successful for user ID:', userId);
-    console.log('User email:', authData.user.email);
 
     // 2. BUSCAR PROFILE (solo campos necesarios - UNA sola consulta)
     console.log('Fetching profile from database...');

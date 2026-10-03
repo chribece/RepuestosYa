@@ -1,8 +1,12 @@
 /// Configuración de la aplicación por ambiente.
 ///
 /// Los valores se leen mediante `String.fromEnvironment` y pueden
-/// reemplazarse con `--dart-define` en cada build. Sin flags, se conservan
-/// los valores de desarrollo actuales.
+/// reemplazarse con `--dart-define` en cada build. Sin flags, los defaults
+/// apuntan a PRODUCCIÓN: backend en Render (`https://repuestosya.onrender.com`)
+/// y Supabase (mismo proyecto del desarrollo).
+///
+/// Desarrollo local (backend en la LAN):
+/// `flutter run --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://192.168.100.2:3000/api`
 ///
 /// Ejemplo:
 /// `flutter run --dart-define=API_BASE_URL=https://api.repuestosya.com/api`
@@ -11,7 +15,9 @@
 class AppConfig {
   AppConfig._();
 
-  static const String _defaultApiBaseUrl = 'http://192.168.100.2:3000/api';
+  /// Backend de producción (Render). Se sobrescribe con `API_BASE_URL`.
+  static const String _defaultApiBaseUrl =
+      'https://repuestosya.onrender.com/api';
   static const String _defaultSupabaseUrl =
       'https://vpgnasrlgdgkxpggorxl.supabase.co';
   static const String _defaultSupabaseAnonKey =
@@ -30,10 +36,15 @@ class AppConfig {
     defaultValue: _defaultSupabaseAnonKey,
   );
   static final String _environment = _normalizedEnvironment(
-    String.fromEnvironment('APP_ENV', defaultValue: 'dev'),
+    String.fromEnvironment('APP_ENV', defaultValue: 'prod'),
   );
 
-  static String get baseUrl => _baseUrl;
+  /// Permite al integration_test apuntar al backend LOCAL sin depender de
+  /// `--dart-define` (en Flutter 3.44 no llegan al integration_test en
+  /// dispositivos). Solo lo usa `integration_test/app_test.dart`.
+  static String? overrideBaseUrl;
+
+  static String get baseUrl => overrideBaseUrl ?? _baseUrl;
   static String get supabaseUrl => _supabaseUrl;
   static String get supabaseAnonKey => _supabaseAnonKey;
   static String get environment => _environment;

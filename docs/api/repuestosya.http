@@ -1,0 +1,94 @@
+# RepuestosYa API — Colección de pruebas (formato REST Client)
+# Compatible con: VS Code (REST Client), JetBrains (HTTP Client).
+#
+# Variable {{baseUrl}} — cambia según el destino:
+#   Local:        http://localhost:3000
+#   Producción:   https://repuestosya.onrender.com   (primer request tarda ~1 min si el servicio dormía)
+@baseUrl = http://localhost:3000
+
+###############################################################################
+# 1. HEALTH — público, sin token ni rate-limit
+###############################################################################
+
+### 1.1 /health (200 esperado; 503 con db:"error" si Supabase no responde)
+GET {{baseUrl}}/health
+
+###############################################################################
+# 2. AUTH
+###############################################################################
+
+### 2.1 Registro de cliente (201 esperado; 409 si el email ya existe)
+# Cambia el email en cada ejecución (el registro es único por email).
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "cliente.api@example.com",
+  "password": "ClaveSegura-2026!",
+  "nombreCompleto": "Cliente Pruebas API"
+}
+
+### 2.2 Login (200 esperado; 401 con credenciales inválidas)
+# Copia el valor de "token" a {{token}} en las peticiones protegidas.
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "cliente.api@example.com",
+  "password": "ClaveSegura-2026!"
+}
+
+### 2.3 Refresh (200 esperado; 401 con refresh_token inválido)
+# Reemplaza REEMPLAZAR_CON_REFRESH_TOKEN por el refreshToken del login.
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "REEMPLAZAR_CON_REFRESH_TOKEN"
+}
+
+###############################################################################
+# 3. GET PROTEGIDO — 401 sin token, 200 con token
+###############################################################################
+
+### 3.1 GET /api/profile sin token (401 esperado)
+GET {{baseUrl}}/api/profile
+
+### 3.2 GET /api/profile con token (200 esperado)
+# Reemplaza {{token}} por el JWT devuelto por el login (2.2).
+GET {{baseUrl}}/api/profile
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 4. 403 ALMACÉN NO APROBADO — WAREHOUSE_NOT_APPROVED
+###############################################################################
+# Requiere setup previo:
+#   - Token de un usuario con rol 'almacen' ({{tokenAlmacen}}).
+#   - Un almacén del usuario con verification_status != 'approved'.
+#   - Una solicitud en estado 'en_proceso' ({{solicitudId}}).
+# Respuesta esperada: 403 {"code":"WAREHOUSE_NOT_APPROVED", ...}
+
+### 4.1 Crear cotización con almacén pendiente (403 esperado)
+POST {{baseUrl}}/api/quotations
+Authorization: Bearer {{tokenAlmacen}}
+Content-Type: application/json
+
+{
+  "solicitud_id": "SOLICITUD_ID",
+  "almacen_id": "ALMACEN_ID",
+  "precio_venta": 15.5,
+  "condicion_repuesto": "nuevo"
+}
+
+###############################################################################
+# 5. 422 VALIDACIÓN
+###############################################################################
+
+### 5.1 POST /api/requests con body inválido (422 esperado)
+POST {{baseUrl}}/api/requests
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "repuesto": ""
+}

@@ -1,4 +1,12 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+// Base de la API. En producción se define NEXT_PUBLIC_API_URL en Vercel
+// (valor recomendado: https://repuestosya.onrender.com). El sufijo /api se
+// añade aquí si la base no lo incluye ya, de modo que ambos formatos
+// funcionan: "...onrender.com" y "...onrender.com/api".
+// En producción NUNCA se cae a localhost: si falta la variable, la URL queda
+// relativa (/api/...) y el fallo es visible en el panel.
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : '')).replace(/\/+$/, '');
+const API_URL = API_BASE.endsWith('/api') ? API_BASE : `${API_BASE}/api`;
 
 export class ApiClient {
   private token: string | null = null;

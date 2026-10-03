@@ -1,0 +1,38 @@
+# Render Blueprint — RepuestosYa Backend
+# URL de producción: https://repuestosya.onrender.com
+#
+# Uso: en el dashboard de Render -> New -> Blueprint y apuntar a este repo,
+# o crear un Web Service manual con rootDir=backend y el mismo startCommand.
+# Detalles y limitaciones del plan free: docs/DESPLIEGUE.md.
+services:
+  - type: web
+    name: repuestosya-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    healthCheckPath: /health
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Versión de Node (20+). Render también lee backend/.nvmrc.
+      - key: NODE_VERSION
+        value: "20"
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      # ALLOWED_ORIGINS exacto para el despliegue (admin panel en Vercel).
+      # Sin barra final. La app móvil no usa CORS.
+      - key: ALLOWED_ORIGINS
+        value: https://repuestos-ya-vert.vercel.app
+      # Secretos: se cargan en Render -> Environment (sync: false), nunca en el repo.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false

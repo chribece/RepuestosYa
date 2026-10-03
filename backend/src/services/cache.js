@@ -1,7 +1,15 @@
 const Redis = require('ioredis');
+const logger = require('../utils/logger');
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 const redis = new Redis(redisUrl);
+
+// Sin listener, un error de conexión a Redis (p. ej. sin Redis en el plan
+// free) lanza un 'error' no manejado y derriba el proceso. Aquí se captura
+// y se degrada: el caché falla silenciosamente y la API sigue respondiendo.
+redis.on('error', (err) => {
+  logger.error('[cache] Redis connection error:', err.message);
+});
 
 /**
  * Intenta obtener valor de caché. Si no existe, ejecuta fetcher y guarda resultado.

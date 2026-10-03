@@ -15,6 +15,12 @@ const connection = new Redis(redisUrl, {
   maxRetriesPerRequest: null
 });
 
+// Sin listener, un error de conexión a Redis derriba el worker (evento
+// 'error' no manejado). Se captura y se registra en los logs del servidor.
+connection.on('error', (err) => {
+  process.stderr.write(`[worker] Redis connection error: ${err.message}\n`);
+});
+
 const worker = new Worker(
   'notificaciones',
   async (job) => {

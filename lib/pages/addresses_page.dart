@@ -106,7 +106,7 @@ class _AddressesPageState extends State<AddressesPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          tooltip: 'Regresar'
+          tooltip: 'Regresar',
           onPressed: () => context.pop(),
         ),
       ),
@@ -160,7 +160,7 @@ class _AddressesPageState extends State<AddressesPage> {
                                   Icons.edit,
                                   color: AppColors.primary,
                                 ),
-                                tooltip: 'Editar dirección'
+                                tooltip: 'Editar dirección',
                                 onPressed: () => _mostrarFormulario(direccion),
                               ),
                               IconButton(
@@ -168,7 +168,7 @@ class _AddressesPageState extends State<AddressesPage> {
                                   Icons.delete,
                                   color: AppColors.error,
                                 ),
-                                tooltip: 'Eliminar dirección'
+                                tooltip: 'Eliminar dirección',
                                 onPressed: () {
                                   showDialog(
                                     context: context,

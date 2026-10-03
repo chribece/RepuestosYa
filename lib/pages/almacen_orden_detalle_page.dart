@@ -98,6 +98,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primaryContainer),
+          tooltip: 'Regresar',
           onPressed: () => context.pop(),
         ),
         title: const Text(

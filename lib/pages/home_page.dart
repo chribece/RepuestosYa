@@ -411,6 +411,7 @@ class _HomePageState extends State<HomePage> {
                   color: AppColors.primary,
                   size: 24,
                 ),
+                tooltip: 'Abrir menú',
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
               const SizedBox(width: AppSpacing.spacingXs),

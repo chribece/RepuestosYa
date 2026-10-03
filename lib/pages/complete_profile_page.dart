@@ -355,6 +355,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               color: AppColors.primary,
               size: 28,
             ),
+            tooltip: 'Salir',
             onPressed: _confirmarSalida,
           ),
           title: Text(

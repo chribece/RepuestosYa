@@ -47,6 +47,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+          tooltip: 'Regresar',
           onPressed: () {
             context.goNamed(RouteNames.home);
           },

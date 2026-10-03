@@ -1144,6 +1144,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
+          tooltip: 'Regresar',
           onPressed: () => context.pop(),
         ),
         title: Text('Crear Solicitud', style: AppTextStyles.textStyleHeading),

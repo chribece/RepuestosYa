@@ -489,6 +489,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               color: AppColors.primary,
               size: 28,
             ),
+            tooltip: 'Regresar',
             onPressed: () => Navigator.pop(context),
           ),
           const SizedBox(width: AppSpacing.spacingSm),

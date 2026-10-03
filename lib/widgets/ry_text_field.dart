@@ -238,6 +238,11 @@ class _RyTextFieldState extends State<RyTextField> {
                     _getSuffixIcon(),
                     color: AppColors.onSurfaceVariant,
                   ),
+                  tooltip: widget.type == RyTextFieldType.password
+                      ? (_obscureText
+                            ? 'Mostrar constraseña'
+                            : 'Ocultar contraseña')
+                      : null,
                   onPressed: _getSuffixIconCallback(),
                   // 48×48 dp mínimo WCAG 2.5.5 (antes constraints:
                   // BoxConstraints() colapsaba el área táctil a ~24 dp).

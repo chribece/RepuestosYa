@@ -98,3 +98,13 @@ coverage/
 
 # Artefacto accidental de Windows (archivo vacío creado con `> nul`)
 nul
+
+# ── Firma de publicación (nunca versionar) ──────────────────────────────────
+*.jks
+*.keystore
+android/key.properties
+
+# Símbolos de ofuscación: se suben a Sentry, NO se versionan.
+# (Los scripts build_release.* los generan en build/simbolos/<version+build>.)
+build/simbolos/
+build/app/outputs/symbols/

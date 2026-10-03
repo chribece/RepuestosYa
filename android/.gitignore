@@ -12,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Símbolos de ofuscación (se suben a Sentry, no se versionan)
+/simbolos/

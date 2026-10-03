@@ -1,0 +1,13 @@
+# ── RepuestosYa — Clave de subida a Google Play (plantilla) ─────────────────
+# Copia este archivo a android/key.properties y completa con los valores de la
+# clave de SUBIDA (upload key). NUNCA versiones key.properties.
+#
+# La clave se genera FUERA del repo (ver docs/FIRMA_Y_RELEASE.md):
+#   keytool -genkeypair -v -keystore <fuera-del-repo>/repuestosya-upload.jks ...
+#
+# storeFile: ruta ABSOLUTA (o relativa al módulo app) del keystore .jks.
+
+storePassword=RepuestosYaProd2026$$
+keyPassword=RepuestosYaProd2026$$
+keyAlias=upload
+storeFile=D:\\keystores\\repuestosya-upload.jks

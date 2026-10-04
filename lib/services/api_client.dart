@@ -164,6 +164,15 @@ class ApiClient {
     int networkAttempt = 0,
     String? requestToken,
   }) async {
+    // Parámetros del siguiente intento si hay que reintentar. La decisión se
+    // toma DENTRO del try (y sus catch), pero la recursión se ejecuta FUERA
+    // del try: así los errores del siguiente intento se propagan al caller y
+    // no vuelven a caer en el manejo de errores de ESTE intento (evita dobles
+    // reintentos). Un `return _execute(...)` dentro del try no dejaría que
+    // los catch atraparan los errores asíncronos (lint
+    // unawaited_return_in_try_block).
+    _Reintento? reintento;
+
     try {
       final response = await request().timeout(_requestTimeout);
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -177,96 +186,91 @@ class ApiClient {
       }
 
       if (response.statusCode == 401 && retryOnUnauthorized && !hasRetried) {
-        try {
-          // Si otro request ya actualizó el token mientras esta respuesta
-          // estaba en vuelo, se reutiliza sin iniciar un segundo refresh.
-          if (requestToken != null && requestToken != _token) {
-            return _execute(
-              request,
-              onSuccess,
-              retryOnUnauthorized: false,
-              hasRetried: true,
-              notifyUnauthorized: notifyUnauthorized,
-              retryOnGet: retryOnGet,
-              networkAttempt: networkAttempt,
-              requestToken: requestToken,
-            );
+        // Si otro request ya actualizó el token mientras esta respuesta
+        // estaba en vuelo, se reutiliza sin iniciar un segundo refresh
+        // (single-flight).
+        final tokenYaRenovado = requestToken != null && requestToken != _token;
+        if (!tokenYaRenovado) {
+          try {
+            final newToken = await _refreshTokenOnce();
+            if (newToken.isNotEmpty) {
+              reintento = _Reintento(
+                retryOnUnauthorized: false,
+                hasRetried: true,
+                networkAttempt: networkAttempt,
+              );
+            }
+            // newToken vacío → sin reintento: cae al throw del 401 original.
+          } catch (_) {
+            await _handleRefreshFailure();
+            throw _handleError(response, notifyUnauthorized: false);
           }
-
-          final newToken = await _refreshTokenOnce();
-          if (newToken.isNotEmpty) {
-            return _execute(
-              request,
-              onSuccess,
-              retryOnUnauthorized: false,
-              hasRetried: true,
-              notifyUnauthorized: notifyUnauthorized,
-              retryOnGet: retryOnGet,
-              networkAttempt: networkAttempt,
-              requestToken: requestToken,
-            );
-          }
-        } catch (_) {
-          await _handleRefreshFailure();
-          throw _handleError(response, notifyUnauthorized: false);
+        } else {
+          reintento = _Reintento(
+            retryOnUnauthorized: false,
+            hasRetried: true,
+            networkAttempt: networkAttempt,
+          );
         }
-      }
-
-      if (retryOnGet &&
+      } else if (retryOnGet &&
           response.statusCode >= 500 &&
           response.statusCode <= 599 &&
           networkAttempt < _maxGetAttempts - 1) {
         await Future<void>.delayed(_getRetryDelays[networkAttempt]);
-        return _execute(
-          request,
-          onSuccess,
+        reintento = _Reintento(
           retryOnUnauthorized: retryOnUnauthorized,
           hasRetried: hasRetried,
-          notifyUnauthorized: notifyUnauthorized,
-          retryOnGet: true,
           networkAttempt: networkAttempt + 1,
-          requestToken: requestToken,
         );
       }
 
-      throw _handleError(response, notifyUnauthorized: notifyUnauthorized);
+      if (reintento == null) {
+        throw _handleError(response, notifyUnauthorized: notifyUnauthorized);
+      }
     } on ApiException {
       // Ya traducida: se propaga sin doble envoltura.
       rethrow;
     } on TimeoutException {
       if (retryOnGet && networkAttempt < _maxGetAttempts - 1) {
         await Future<void>.delayed(_getRetryDelays[networkAttempt]);
-        return _execute(
-          request,
-          onSuccess,
+        reintento = _Reintento(
           retryOnUnauthorized: retryOnUnauthorized,
           hasRetried: hasRetried,
-          notifyUnauthorized: notifyUnauthorized,
-          retryOnGet: true,
           networkAttempt: networkAttempt + 1,
-          requestToken: requestToken,
         );
+      } else {
+        throw ApiErrorHandler.timeoutException();
       }
-      throw ApiErrorHandler.timeoutException();
     } catch (e) {
       final mappedError = ApiErrorHandler.fromException(e);
       if (retryOnGet &&
           mappedError.type == ApiErrorType.network &&
           networkAttempt < _maxGetAttempts - 1) {
         await Future<void>.delayed(_getRetryDelays[networkAttempt]);
-        return _execute(
-          request,
-          onSuccess,
+        reintento = _Reintento(
           retryOnUnauthorized: retryOnUnauthorized,
           hasRetried: hasRetried,
-          notifyUnauthorized: notifyUnauthorized,
-          retryOnGet: true,
           networkAttempt: networkAttempt + 1,
-          requestToken: requestToken,
         );
+      } else {
+        throw mappedError;
       }
-      throw mappedError;
     }
+
+    // Recursión FUERA del try: los errores del siguiente intento se propagan
+    // al caller (cada intento traduce sus propios errores). El análisis de
+    // flujo garantiza que reintento no es null aquí (todo path termina en
+    // return, throw o reintento).
+    return _execute(
+      request,
+      onSuccess,
+      retryOnUnauthorized: reintento.retryOnUnauthorized,
+      hasRetried: reintento.hasRetried,
+      notifyUnauthorized: notifyUnauthorized,
+      retryOnGet: retryOnGet,
+      networkAttempt: reintento.networkAttempt,
+      requestToken: requestToken,
+    );
   }
 
   Future<String> _refreshTokenOnce() {
@@ -463,4 +467,20 @@ class ApiClient {
       retryOnGet: false,
     );
   }
+}
+
+/// Señal interna de reintento: el intento actual decidió encadenar otro
+/// intento (401 con token renovado, o retry de transporte GET). La recursión
+/// se ejecuta FUERA del try de [ApiClient._execute] para que los errores del
+/// siguiente intento no vuelvan a caer en los catch del intento anterior.
+class _Reintento {
+  const _Reintento({
+    required this.retryOnUnauthorized,
+    required this.hasRetried,
+    required this.networkAttempt,
+  });
+
+  final bool retryOnUnauthorized;
+  final bool hasRetried;
+  final int networkAttempt;
 }

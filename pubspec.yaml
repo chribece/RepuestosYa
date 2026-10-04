@@ -78,6 +78,16 @@ dev_dependencies:
   image_picker_platform_interface: ^2.11.1
   sentry_dart_plugin: ^3.4.0
 
+# Configuración del plugin de Sentry (sentry_dart_plugin): sube los símbolos
+# de ofuscación de cada release (paso 11 de .github/workflows/release.yml).
+# org/project/token se pueden sobreescribir con las variables de entorno
+# SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN (ver docs/FIRMA_Y_RELEASE.md).
+sentry:
+  upload_debug_symbols: true
+  project: repuestosya-mobile
+  org: vcore-tech
+  symbols_path: build/simbolos
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

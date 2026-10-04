@@ -55,12 +55,22 @@ jobs:
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/repuestosya-upload.jks
 
     # 8. Generar el archivo key.properties dinámico para que Gradle lo lea en la nube
-    - name: Crear archivo key.properties de producción
+    # Las contraseñas se pasan como variables de entorno y se escriben con
+    # printf (%s): así los caracteres especiales del secreto ($, ", \, espacios)
+    # NO se interpretan como sintaxis de shell (el `echo "${{ secrets.X }}"`
+    # los corrompía y producía "keystore password was incorrect").
+    # Además se verifica el keystore ANTES de compilar: si la contraseña del
+    # almacén no coincide, el fallo es inmediato y claro (no 7 min de build).
+    - name: Crear key.properties y verificar keystore
+      env:
+        KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       run: |
-        echo "storePassword=${{ secrets.KEY_STORE_PASSWORD }}" > android/key.properties
-        echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-        echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-        echo "storeFile=repuestosya-upload.jks" >> android/key.properties
+        printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=repuestosya-upload.jks\n' \
+          "$KEY_STORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+        keytool -list -keystore android/app/repuestosya-upload.jks \
+          -storepass "$KEY_STORE_PASSWORD" -alias "$KEY_ALIAS" -noprompt
 
     # 9. Extraer la versión semántica de pubspec.yaml para sincronizar artefactos
     - name: Extraer versión de la aplicación
@@ -70,10 +80,12 @@ jobs:
         echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
     # 10. Compilar el APK y el App Bundle (.aab) firmados y ofuscados de producción
+    # --strip: quita el DWARF sin ofuscar del ELF (el símbolo de ofuscación va
+    # a split-debug-info y se sube a Sentry). Requiere Flutter estable reciente.
     - name: Compilar APK y AAB de producción
       run: |
-        flutter build apk --release --obfuscate --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
-        flutter build appbundle --release --obfuscate --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
+        flutter build apk --release --obfuscate --strip --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
+        flutter build appbundle --release --obfuscate --strip --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
 
     # 11. Ejecutar la subida automática de los símbolos de desofuscación a Sentry
     - name: Subir símbolos de depuración a Sentry

@@ -80,12 +80,12 @@ jobs:
         echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
     # 10. Compilar el APK y el App Bundle (.aab) firmados y ofuscados de producción
-    # --strip: quita el DWARF sin ofuscar del ELF (el símbolo de ofuscación va
-    # a split-debug-info y se sube a Sentry). Requiere Flutter estable reciente.
+    # Nota: el aviso "unobfuscated DWARF" de la herramienta es informativo; la
+    # flag --strip que sugiere NO existe en el stable actual de Flutter.
     - name: Compilar APK y AAB de producción
       run: |
-        flutter build apk --release --obfuscate --strip --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
-        flutter build appbundle --release --obfuscate --strip --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
+        flutter build apk --release --obfuscate --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
+        flutter build appbundle --release --obfuscate --split-debug-info=build/simbolos/${{ env.APP_VERSION }} --dart-define=APP_VERSION=${{ env.APP_VERSION }}
 
     # 11. Ejecutar la subida automática de los símbolos de desofuscación a Sentry
     - name: Subir símbolos de depuración a Sentry

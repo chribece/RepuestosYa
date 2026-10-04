@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/coordinacion_entrega.dart';
 import '../models/cotizacion.dart';
 import '../services/cotizacion_repository.dart';
 import '../utils/api_error_handler.dart';
@@ -24,6 +25,11 @@ class CotizacionProvider extends ChangeNotifier {
   // ID de la orden de compra generada al aceptar
   String? _ordenCompraId;
   String? get ordenCompraId => _ordenCompraId;
+
+  // Datos de coordinación de entrega (contacto del almacén ganador) devueltos
+  // por el endpoint de aceptación. Null si la respuesta no los incluye.
+  DatosCoordinacionEntrega? _coordinacionData;
+  DatosCoordinacionEntrega? get coordinacionData => _coordinacionData;
 
   // Indica si la solicitud fue cerrada (todas las cotizaciones rechazadas)
   bool _solicitudCerrada = false;
@@ -83,6 +89,15 @@ class CotizacionProvider extends ChangeNotifier {
       _ordenCompraId = result['ordenId']?.toString();
       _solicitudCerrada = false;
 
+      // Guardar el contacto del almacén ganador para la pantalla de
+      // coordinación (solo si la respuesta lo incluye).
+      final indice = _cotizaciones.indexWhere((c) => c.id == cotizacionId);
+      _coordinacionData = DatosCoordinacionEntrega.fromAceptacionResponse(
+        result,
+        cotizacionId: cotizacionId,
+        solicitudId: indice != -1 ? _cotizaciones[indice].solicitudId : '',
+      );
+
       // Actualización optimista: cambiar estado localmente
       final index = _cotizaciones.indexWhere((c) => c.id == cotizacionId);
       if (index != -1) {
@@ -130,6 +145,7 @@ class CotizacionProvider extends ChangeNotifier {
     _isLoading = false;
     _errorMessage = null;
     _ordenCompraId = null;
+    _coordinacionData = null;
     _solicitudCerrada = false;
     _cotizacionesProcesando.clear();
     notifyListeners();

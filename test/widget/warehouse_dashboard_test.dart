@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:repuestosya/pages/warehouse_dashboard.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
+import 'package:repuestosya/widgets/ry_button.dart';
 import 'package:repuestosya/widgets/ry_part_card.dart';
 
 import '../helpers/fake_connectivity.dart';
@@ -171,4 +172,103 @@ void main() {
     // El feed no se intentó cargar: el fallo ocurrió antes.
     expect(solicitud.solicitudesActivasCalls, 0);
   });
+
+  testWidgets(
+    'tarjeta GANADA muestra datos de entrega del cliente y la no ganada no',
+    (tester) async {
+      solicitud.respuestaMisCotizaciones = [
+        {
+          'id': 'cot-1',
+          'precio_venta': 45.5,
+          'estado': 'aceptada',
+          'created_at': '2026-10-01T10:00:00.000Z',
+          'tiempo_entrega_estimado': 'Mañana',
+          'solicitudes_repuesto': {
+            'pieza_nombre': 'Filtro de aceite',
+            'estado': 'aceptada',
+            'profiles': {
+              'nombre_completo': 'Juan Pérez',
+              'telefono': '0991234567',
+            },
+            'direcciones_entrega': {
+              'alias': 'Casa',
+              'calle_principal': 'Av. Amazonas',
+              'calle_secundaria': 'Calle 10',
+              'referencia': 'Frente al parque',
+            },
+          },
+          'ordenes_compra': {'id': 'ord-1', 'estado': 'pendiente'},
+        },
+        {
+          'id': 'cot-2',
+          'precio_venta': 60.0,
+          'estado': 'rechazada',
+          'created_at': '2026-10-01T11:00:00.000Z',
+          'tiempo_entrega_estimado': 'Mañana',
+          // Sin teléfono ni dirección: el backend no los envía.
+          'solicitudes_repuesto': {
+            'pieza_nombre': 'Bujías NGK',
+            'estado': 'rechazada',
+            'profiles': {'nombre_completo': 'María Gómez'},
+          },
+        },
+      ];
+      await pumpDashboard(tester);
+
+      // Cambiar a la pestaña de Cotizaciones Enviadas.
+      await tester.tap(find.text('Cotizaciones'));
+      await tester.pumpAndSettle();
+
+      // Solo la GANADA muestra la sección de datos de entrega del cliente.
+      expect(find.text('Datos de entrega del cliente'), findsOneWidget);
+      expect(find.text('Juan Pérez'), findsOneWidget);
+      expect(find.text('0991234567'), findsOneWidget);
+      expect(find.textContaining('Av. Amazonas'), findsOneWidget);
+      expect(find.textContaining('Frente al parque'), findsOneWidget);
+      // Botones de contacto habilitados (teléfono válido).
+      expect(find.text('Llamar'), findsOneWidget);
+      expect(find.text('WhatsApp'), findsOneWidget);
+
+      // La no ganada muestra su badge y NUNCA los datos del cliente.
+      expect(find.text('NO SELECCIONADA'), findsOneWidget);
+      expect(find.text('María Gómez'), findsNothing);
+      expect(find.text('Sin teléfono registrado'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tarjeta GANADA sin teléfono deshabilita Llamar/WhatsApp y lo indica',
+    (tester) async {
+      solicitud.respuestaMisCotizaciones = [
+        {
+          'id': 'cot-1',
+          'precio_venta': 45.5,
+          'estado': 'aceptada',
+          'created_at': '2026-10-01T10:00:00.000Z',
+          'tiempo_entrega_estimado': 'Mañana',
+          'solicitudes_repuesto': {
+            'pieza_nombre': 'Filtro de aceite',
+            'estado': 'aceptada',
+            'profiles': {'nombre_completo': 'Juan Pérez'},
+          },
+          'ordenes_compra': {'id': 'ord-1', 'estado': 'pendiente'},
+        },
+      ];
+      await pumpDashboard(tester);
+
+      await tester.tap(find.text('Cotizaciones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Datos de entrega del cliente'), findsOneWidget);
+      expect(find.text('Sin teléfono registrado'), findsOneWidget);
+      final llamar = tester.widget<RyButton>(
+        find.widgetWithText(RyButton, 'Llamar'),
+      );
+      final whatsapp = tester.widget<RyButton>(
+        find.widgetWithText(RyButton, 'WhatsApp'),
+      );
+      expect(llamar.isDisabled, isTrue);
+      expect(whatsapp.isDisabled, isTrue);
+    },
+  );
 }

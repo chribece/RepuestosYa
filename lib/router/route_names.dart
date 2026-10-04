@@ -17,6 +17,7 @@ class RouteNames {
   static const String createRequest = 'create-request';
   static const String solicitudes = 'solicitudes';
   static const String receivedQuotations = 'received-quotations';
+  static const String coordinacionEntrega = 'coordinacion-entrega';
 
   // Cotizaciones (Almacen)
   static const String createQuotation = 'create-quotation';

@@ -1,7 +1,7 @@
 const supabase = require('../services/supabase');
 const { invalidatePattern, getOrSet } = require('../services/cache');
 const notificacionesQueue = require('../queues/notificaciones.queue');
-const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError } = require('../services/cotizacionService');
+const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError, ConflictError } = require('../services/cotizacionService');
 const { validationError, validateImageUrl } = require('../utils/validation');
 const {
   validarCoordenadas,
@@ -195,6 +195,10 @@ const createCotizacion = async (req, res) => {
 };
 
 // GET /quotations/my-quotations (para almacenes)
+// Privacidad: los datos de entrega del cliente (teléfono y dirección) solo se
+// exponen cuando la cotización quedó GANADA ('aceptada'). El backend lee con
+// service role y SANITIZA en memoria: las ofertas pendientes/rechazadas nunca
+// reciben el teléfono ni la dirección del cliente.
 const getMisCotizaciones = async (req, res) => {
   try {
     // Get warehouse ID for this user
@@ -210,7 +214,7 @@ const getMisCotizaciones = async (req, res) => {
 
     const { data: cotizaciones, error } = await supabase
       .from('cotizaciones')
-      .select('*, solicitudes_repuesto(pieza_nombre, estado, profiles(nombre_completo)), ordenes_compra(id, estado)')
+      .select('*, solicitudes_repuesto(pieza_nombre, repuesto_nombre_snapshot, estado, direccion_entrega_id, direcciones_entrega(*), profiles(nombre_completo, telefono)), ordenes_compra(id, estado)')
       .eq('almacen_id', almacen.id)
       .order('created_at', { ascending: false });
 
@@ -218,7 +222,20 @@ const getMisCotizaciones = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.json(cotizaciones || []);
+    const cotizacionesSanitizadas = (cotizaciones || []).map((cotizacion) => {
+      if (cotizacion.estado !== 'aceptada' && cotizacion.solicitudes_repuesto) {
+        const solicitud = { ...cotizacion.solicitudes_repuesto };
+        // Solo la cotización GANADA expone teléfono y dirección del cliente.
+        const { telefono: _telefono, ...profilesResto } = solicitud.profiles || {};
+        solicitud.profiles = profilesResto;
+        delete solicitud.direcciones_entrega;
+        delete solicitud.direccion_entrega_id;
+        return { ...cotizacion, solicitudes_repuesto: solicitud };
+      }
+      return cotizacion;
+    });
+
+    res.json(cotizacionesSanitizadas || []);
   } catch (error) {
     console.error('Get cotizaciones error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -226,6 +243,9 @@ const getMisCotizaciones = async (req, res) => {
 };
 
 // GET /quotations/request/:solicitud_id (para clientes)
+// Privacidad: el teléfono/email del almacén solo se expone en la cotización
+// GANADA ('aceptada'); las pendientes/rechazadas devuelven el almacén sin
+// datos de contacto. El ownership ya se valida (403) antes de responder.
 const getCotizacionesPorSolicitud = async (req, res) => {
   try {
     const { solicitud_id } = req.params;
@@ -247,7 +267,7 @@ const getCotizacionesPorSolicitud = async (req, res) => {
 
     const { data: cotizaciones, error } = await supabase
       .from('cotizaciones')
-      .select('*, almacenes(nombre_comercial, direccion_texto, latitude, longitude)')
+      .select('*, almacenes(nombre_comercial, direccion_texto, latitude, longitude, telefono, email)')
       .eq('solicitud_id', solicitud_id)
       .order('created_at', { ascending: false });
 
@@ -255,7 +275,16 @@ const getCotizacionesPorSolicitud = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.json(cotizaciones || []);
+    const cotizacionesSanitizadas = (cotizaciones || []).map((cotizacion) => {
+      // El contacto del almacén solo se revela tras la aceptación.
+      if (cotizacion.estado !== 'aceptada' && cotizacion.almacenes) {
+        const { telefono: _telefono, email: _email, ...almacenResto } = cotizacion.almacenes;
+        return { ...cotizacion, almacenes: almacenResto };
+      }
+      return cotizacion;
+    });
+
+    res.json(cotizacionesSanitizadas || []);
   } catch (error) {
     console.error('Get cotizaciones por solicitud error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -373,6 +402,9 @@ const aceptarCotizacionController = async (req, res) => {
     if (error instanceof BadRequestError) {
       return res.status(400).json({ error: error.message });
     }
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
     console.error('Aceptar cotizacion error:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
@@ -410,6 +442,9 @@ const rechazarCotizacionController = async (req, res) => {
     }
     if (error instanceof BadRequestError) {
       return res.status(400).json({ error: error.message });
+    }
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message });
     }
     console.error('Rechazar cotizacion error:', error);
     res.status(500).json({ error: 'Error interno del servidor' });

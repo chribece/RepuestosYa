@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/contact_launcher.dart';
 import '../router/route_names.dart';
 
 class WarehouseDashboard extends StatefulWidget {
@@ -110,7 +112,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   String? get _rejectionReason => _almacenData?['rejection_reason'];
 
   // Variables dinámicas para el panel de estadísticas Bento
-  final int _ventasCount = 0;
+  // "Ventas" = cotizaciones GANADAS ('aceptada'); antes era un 0 fijo.
+  int get _ventasCount =>
+      _cotizacionesEnviadas.where((c) => c['estado'] == 'aceptada').length;
   final int _vistasCount = 0;
 
   @override
@@ -1252,7 +1256,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ),
           const SizedBox(width: AppSpacing.spacingSm),
           FilterChip(
-            label: const Text('Rechazadas'),
+            label: const Text('No seleccionadas'),
             selected: _filtroActual == 'rechazadas',
             onSelected: (selected) {
               setState(() {
@@ -1441,9 +1445,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final piezaNombre = solicitud?['pieza_nombre'] ?? 'Repuesto desconocido';
 
     String clienteNombre = 'Cliente desconocido';
+    String? telefonoCliente;
+    String? direccionClienteTexto;
     if (solicitud != null) {
       final profiles = solicitud['profiles'] as Map<String, dynamic>?;
       clienteNombre = profiles?['nombre_completo'] ?? 'Cliente desconocido';
+      // Solo llega poblado cuando la cotización está GANADA (backend).
+      telefonoCliente = profiles?['telefono']?.toString();
+      final direccion =
+          solicitud['direcciones_entrega'] as Map<String, dynamic>?;
+      direccionClienteTexto = _formatearDireccion(direccion);
     }
 
     final precio = (cotizacion['precio_venta'] as num?)?.toDouble() ?? 0.0;
@@ -1550,7 +1561,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           break;
         case 'rechazada':
           statusBadge = 'error';
-          statusLabel = 'RECHAZADA';
+          statusLabel = 'NO SELECCIONADA';
           break;
         default:
           statusBadge = 'pending';
@@ -1685,6 +1696,95 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ],
             ),
           ],
+          // ===== DATOS DE ENTREGA DEL CLIENTE (solo cotización GANADA) =====
+          // Privacidad: el backend solo envía teléfono/dirección en las
+          // cotizaciones 'aceptada'; la UI además lo condiciona a ese estado
+          // para que una oferta no ganada NUNCA muestre estos datos.
+          if (estado == 'aceptada') ...[
+            const SizedBox(height: AppSpacing.spacingMd),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.spacingMd),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                border: Border.all(
+                  color: AppColors.success.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.local_shipping_outlined,
+                        color: AppColors.success,
+                        size: 18,
+                      ),
+                      const SizedBox(width: AppSpacing.spacingXxs),
+                      Expanded(
+                        child: Text(
+                          'Datos de entrega del cliente',
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  _buildDatoEntrega('Cliente', clienteNombre),
+                  _buildDatoEntrega(
+                    'Dirección',
+                    direccionClienteTexto ?? 'Sin dirección registrada',
+                  ),
+                  _buildDatoEntrega(
+                    'Teléfono',
+                    telefonoCliente ?? 'Sin teléfono registrado',
+                  ),
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RyButton(
+                          label: 'Llamar',
+                          icon: Icons.phone,
+                          variant: RyButtonVariant.primary,
+                          size: RyButtonSize.small,
+                          isFullWidth: true,
+                          isDisabled: !isValidPhone(telefonoCliente),
+                          onPressed: () => _llamarCliente(
+                            telefonoCliente,
+                            clienteNombre,
+                            piezaNombre,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.spacingSm),
+                      Expanded(
+                        child: RyButton(
+                          label: 'WhatsApp',
+                          icon: Icons.chat,
+                          variant: RyButtonVariant.secondary,
+                          size: RyButtonSize.small,
+                          isFullWidth: true,
+                          isDisabled: !isValidPhone(telefonoCliente),
+                          onPressed: () => _enviarWhatsAppCliente(
+                            telefonoCliente,
+                            clienteNombre,
+                            piezaNombre,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1724,6 +1824,105 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
 
     return cardContent;
+  }
+
+  /// Construye el texto legible de la dirección de entrega del cliente
+  /// (alias, calle principal, calle secundaria y referencia).
+  String? _formatearDireccion(Map<String, dynamic>? direccion) {
+    if (direccion == null) return null;
+    final partes = <String>[
+      if (direccion['alias']?.toString().trim().isNotEmpty ?? false)
+        direccion['alias'].toString().trim(),
+      if (direccion['calle_principal']?.toString().trim().isNotEmpty ?? false)
+        direccion['calle_principal'].toString().trim(),
+      if (direccion['calle_secundaria']?.toString().trim().isNotEmpty ?? false)
+        direccion['calle_secundaria'].toString().trim(),
+      if (direccion['referencia']?.toString().trim().isNotEmpty ?? false)
+        direccion['referencia'].toString().trim(),
+    ];
+    if (partes.isEmpty) return null;
+    return partes.join(', ');
+  }
+
+  Widget _buildDatoEntrega(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingXs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _llamarCliente(String? telefono, String clienteNombre, String pieza) {
+    if (telefono == null || !isValidPhone(telefono)) return;
+    ContactLauncher.launch(buildTelUri(telefono)).then((resultado) {
+      if (!mounted) return;
+      if (resultado != ContactLaunchResult.launched) {
+        _mostrarFalloAperturaCliente('No se pudo abrir el marcador', telefono);
+      }
+    });
+  }
+
+  void _enviarWhatsAppCliente(
+    String? telefono,
+    String clienteNombre,
+    String pieza,
+  ) {
+    if (telefono == null || !isValidPhone(telefono)) return;
+    final mensaje = mensajeWhatsAppAlmacen(
+      clienteNombre: clienteNombre,
+      almacenNombre: _nombreAlmacen ?? 'Mi Almacén',
+      repuestoNombre: pieza,
+    );
+    ContactLauncher.launch(buildWhatsAppUri(telefono, mensaje)).then((
+      resultado,
+    ) {
+      if (!mounted) return;
+      if (resultado != ContactLaunchResult.launched) {
+        _mostrarFalloAperturaCliente('No se pudo abrir WhatsApp', telefono);
+      }
+    });
+  }
+
+  void _mostrarFalloAperturaCliente(String mensaje, String telefono) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Copiar',
+          textColor: AppColors.onSurface,
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: telefono));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Número copiado'),
+                backgroundColor: AppColors.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   /// Acción de swipe "Ver detalle" con los tokens del Design System

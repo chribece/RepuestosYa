@@ -8,6 +8,13 @@ class Almacen {
   final String? rejectionReason;
   final bool isOpen;
 
+  /// Teléfono de contacto del almacén. Solo llega poblado tras la aceptación
+  /// de una cotización (el backend sanitiza el resto de respuestas).
+  final String? telefono;
+
+  /// Email de contacto del almacén (misma regla de privacidad que [telefono]).
+  final String? email;
+
   Almacen({
     required this.id,
     required this.nombreComercial,
@@ -17,6 +24,8 @@ class Almacen {
     this.verificationStatus = 'pending',
     this.rejectionReason,
     this.isOpen = true,
+    this.telefono,
+    this.email,
   });
 
   factory Almacen.fromJson(Map<String, dynamic> json) {
@@ -30,6 +39,8 @@ class Almacen {
       verificationStatus: json['verification_status']?.toString() ?? 'pending',
       rejectionReason: json['rejection_reason']?.toString(),
       isOpen: json['estado_abierto'] ?? true,
+      telefono: json['telefono']?.toString(),
+      email: json['email']?.toString(),
     );
   }
 
@@ -43,6 +54,8 @@ class Almacen {
       'verification_status': verificationStatus,
       'rejection_reason': rejectionReason,
       'estado_abierto': isOpen,
+      'telefono': telefono,
+      'email': email,
     };
   }
 

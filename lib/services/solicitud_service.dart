@@ -383,7 +383,19 @@ class SolicitudService {
         name: 'SolicitudService',
       );
       return response;
-    } on ApiException {
+    } on ApiException catch (e) {
+      // Errores de negocio: el backend responde 409 con el texto legible
+      // ("Esta solicitud ya tiene una cotización aceptada") y 422 con el
+      // body de validación. Se propaga el mensaje del servidor en lugar del
+      // genérico "Ya existe un registro con esos datos".
+      if (e.statusCode == 409 || e.statusCode == 422) {
+        throw ApiException(
+          _mensajeDelServidor(e.technicalMessage) ?? e.message,
+          statusCode: e.statusCode,
+          technicalMessage: e.technicalMessage,
+          type: e.type,
+        );
+      }
       rethrow;
     } catch (e) {
       AppLogger.error(
@@ -411,7 +423,17 @@ class SolicitudService {
       );
       AppLogger.debug('Respuesta exitosa: $response', name: 'SolicitudService');
       return response;
-    } on ApiException {
+    } on ApiException catch (e) {
+      // Mismo patrón que aceptarCotizacion: los errores de negocio del
+      // backend (409/422) propagan el texto legible del servidor.
+      if (e.statusCode == 409 || e.statusCode == 422) {
+        throw ApiException(
+          _mensajeDelServidor(e.technicalMessage) ?? e.message,
+          statusCode: e.statusCode,
+          technicalMessage: e.technicalMessage,
+          type: e.type,
+        );
+      }
       rethrow;
     } catch (e) {
       AppLogger.error(

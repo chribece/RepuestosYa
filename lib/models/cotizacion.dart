@@ -93,4 +93,10 @@ class Cotizacion {
   bool get isPendiente => estado == 'pendiente';
   bool get isAceptada => estado == 'aceptada';
   bool get isRechazada => estado == 'rechazada';
+
+  /// La cotización ganó la solicitud (vista del almacén: badge "GANADA").
+  bool get isGanada => estado == 'aceptada';
+
+  /// La cotización no fue elegida (vista del almacén: "No seleccionada").
+  bool get isNoSeleccionada => estado == 'rechazada';
 }

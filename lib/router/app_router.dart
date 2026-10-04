@@ -15,6 +15,8 @@ import '../pages/warehouse_dashboard.dart';
 import '../pages/create_request_page.dart';
 import '../pages/todas_solicitudes_page.dart';
 import '../pages/received_quotations_page.dart';
+import '../pages/coordinacion_entrega_page.dart';
+import '../models/coordinacion_entrega.dart';
 import '../pages/create_quotation_page.dart';
 import '../pages/mis_ordenes_page.dart';
 import '../pages/orden_compra_page.dart';
@@ -220,6 +222,23 @@ class AppRouter {
               piezaNombre: extra?['piezaNombre'] ?? 'Solicitud',
               fotoUrl: extra?['fotoUrl'],
               ofertasPendientes: extra?['ofertasPendientes'] ?? 0,
+            );
+          },
+        ),
+        // Éxito y Coordinación de Entrega (solo rol cliente: el redirect
+        // global ya desvía cualquier `/solicitudes*` del rol almacén).
+        // `extra['datos']` trae los DatosCoordinacionEntrega completos tras
+        // aceptar; si se reabre desde una solicitud ACEPTADA, la página los
+        // recupera de la caché local o del backend.
+        GoRoute(
+          path: '/solicitudes/:id/coordinacion-entrega',
+          name: RouteNames.coordinacionEntrega,
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            final extra = state.extra as Map<String, dynamic>?;
+            return CoordinacionEntregaPage(
+              solicitudId: id,
+              datosIniciales: extra?['datos'] as DatosCoordinacionEntrega?,
             );
           },
         ),

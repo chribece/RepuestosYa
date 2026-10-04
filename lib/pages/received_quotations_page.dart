@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../theme/app_colors.dart';
+import '../models/coordinacion_entrega.dart';
+import '../services/coordinacion_entrega_cache.dart';
 import '../services/solicitud_service.dart';
 import '../services/realtime_notification_service.dart';
 import '../widgets/ry_button.dart';
@@ -20,12 +25,17 @@ class ReceivedQuotationsPage extends StatefulWidget {
   final String? fotoUrl;
   final int ofertasPendientes;
 
+  /// Servicio inyectable para widget tests (mismo patrón que
+  /// WarehouseDashboard); en producción se usa el servicio real.
+  final SolicitudService? solicitudService;
+
   const ReceivedQuotationsPage({
     super.key,
     required this.solicitudId,
     this.piezaNombre,
     this.fotoUrl,
     this.ofertasPendientes = 0,
+    this.solicitudService,
   });
 
   @override
@@ -33,7 +43,8 @@ class ReceivedQuotationsPage extends StatefulWidget {
 }
 
 class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
-  final SolicitudService _solicitudService = SolicitudService();
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
 
   int _selectedTabIndex = 0;
   List<Map<String, dynamic>> _cotizaciones = [];
@@ -60,7 +71,19 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
     _cargarCotizaciones();
     _cargarDetallesSolicitudSiEsNecesario();
-    RealtimeNotificationService().subscribeToCotizaciones(widget.solicitudId);
+    // Defensivo: si Supabase no está disponible (offline, tests), la
+    // suscripción falla en silencio sin romper la pantalla.
+    unawaited(
+      RealtimeNotificationService()
+          .subscribeToCotizaciones(widget.solicitudId)
+          .catchError((Object error) {
+            AppLogger.error(
+              'Error al suscribir a cotizaciones',
+              name: 'ReceivedQuotationsPage',
+              error: error,
+            );
+          }),
+    );
   }
 
   Future<void> _cargarDetallesSolicitudSiEsNecesario() async {
@@ -149,7 +172,112 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     });
   }
 
-  Future<void> _aceptarCotizacion(String cotizacionId) async {
+  /// Abre el diálogo de confirmación antes de aceptar (evita doble tap y
+  /// aceptaciones accidentales). Si no hay conexión, BLOQUEA la acción: la
+  /// aceptación requiere confirmación 2xx del servidor y NO se encola en el
+  /// Outbox (la coordinación depende de los datos que devuelve el backend).
+  Future<void> _confirmarAceptacion(
+    Map<String, dynamic> cotizacion,
+    String almacenNombre,
+    double precio,
+  ) async {
+    final resultados = await Connectivity().checkConnectivity();
+    if (resultados.contains(ConnectivityResult.none)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No hay conexión a internet. La aceptación requiere confirmación '
+            'del servidor; conéctate e intenta nuevamente.',
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final repuestoNombre =
+        _piezaNombreOverride ?? widget.piezaNombre ?? 'el repuesto';
+
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerHigh,
+        title: const Text('¿Aceptar esta cotización?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildResumenLinea('Almacén', almacenNombre),
+            _buildResumenLinea('Repuesto', repuestoNombre),
+            _buildResumenLinea(
+              'Precio',
+              '\$${precio.toStringAsFixed(2)}',
+              destacado: true,
+            ),
+            const SizedBox(height: AppSpacing.spacingSm),
+            const Text(
+              'Al aceptar verás los datos de contacto del almacén para '
+              'coordinar el pago y la entrega.',
+              style: AppTextStyles.textStyleSmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Aceptar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true || !mounted) return;
+    await _ejecutarAceptacion(cotizacion, almacenNombre, precio);
+  }
+
+  Widget _buildResumenLinea(
+    String label,
+    String value, {
+    bool destacado = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingXs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label: ',
+            style: AppTextStyles.textStyleCaption.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: destacado ? AppColors.primaryContainer : null,
+                fontWeight: destacado ? FontWeight.w800 : FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _ejecutarAceptacion(
+    Map<String, dynamic> cotizacion,
+    String almacenNombre,
+    double precio,
+  ) async {
+    final cotizacionId = cotizacion['id']?.toString() ?? '';
     setState(() {
       _loadingCotizaciones[cotizacionId] = true;
     });
@@ -160,24 +288,61 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         name: 'ReceivedQuotationsPage',
       );
       final response = await _solicitudService.aceptarCotizacion(cotizacionId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cotización aceptada correctamente'),
-            backgroundColor: AppColors.success,
-          ),
-        );
 
-        final ordenId = response['ordenId'] as String?;
-        if (ordenId != null) {
-          context.pushReplacementNamed(
-            RouteNames.ordenDetalle,
-            pathParameters: {'id': ordenId},
+      // Persistir los datos de coordinación: la pantalla de contacto se puede
+      // reabrir desde una solicitud ACEPTADA y funciona sin conexión.
+      final datos = DatosCoordinacionEntrega.fromAceptacionResponse(
+        response,
+        cotizacionId: cotizacionId,
+        solicitudId: widget.solicitudId,
+      );
+      if (datos != null) {
+        try {
+          final cache = await CoordinacionEntregaCache.instancia();
+          await cache.guardar(datos);
+        } catch (cacheError) {
+          AppLogger.error(
+            'Error al guardar caché de coordinación',
+            name: 'ReceivedQuotationsPage',
+            error: cacheError,
           );
-        } else {
-          Navigator.pop(context, true);
         }
       }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cotización aceptada correctamente'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      // pushReplacement: "atrás" no regresa a la cotización ya aceptada.
+      context.pushReplacementNamed(
+        RouteNames.coordinacionEntrega,
+        pathParameters: {'id': widget.solicitudId},
+        extra: {'datos': datos},
+      );
+    } on ApiException catch (e) {
+      AppLogger.error(
+        'Error al aceptar cotización',
+        name: 'ReceivedQuotationsPage',
+        error: e,
+      );
+      if (!mounted) return;
+
+      if (e.statusCode == 409) {
+        // Ya existe una cotización aceptada: mensaje del servidor y refresco
+        // para reflejar el estado real (el botón desaparece).
+        _cargarCotizaciones();
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ApiErrorHandler.userMessage(e)),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (e) {
       AppLogger.error(
         'Error al aceptar cotización',
@@ -201,6 +366,20 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         });
       }
     }
+  }
+
+  /// Reabre la pantalla de coordinación desde una cotización ya ACEPTADA
+  /// (sin depender del flujo inmediato de aceptación).
+  void _abrirCoordinacion(Map<String, dynamic> cotizacion) {
+    final datos = DatosCoordinacionEntrega.fromCotizacionMap(
+      cotizacion,
+      solicitudId: widget.solicitudId,
+    );
+    context.pushNamed(
+      RouteNames.coordinacionEntrega,
+      pathParameters: {'id': widget.solicitudId},
+      extra: {'datos': datos},
+    );
   }
 
   Future<void> _rechazarCotizacion(String cotizacionId) async {
@@ -815,9 +994,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                           child: Semantics(
                             button: true,
                             label:
-                                'Aceptar cotización de $almacenNombre por \$${precio.toStringAsFixed(2)}',
+                                'Seleccionar y aceptar cotización de $almacenNombre por \$${precio.toStringAsFixed(2)}',
                             child: RyButton(
-                              label: 'Aceptar',
+                              label: 'Seleccionar y Aceptar',
                               icon: Icons.check,
                               variant: RyButtonVariant.primary,
                               size: RyButtonSize.small,
@@ -826,13 +1005,36 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                               isDisabled: isLoading,
                               onPressed: isLoading
                                   ? null
-                                  : () => _aceptarCotizacion(cotizacionId),
+                                  : () => _confirmarAceptacion(
+                                      cotizacion,
+                                      almacenNombre,
+                                      precio,
+                                    ),
                             ),
                           ),
                         ),
                       ],
                     ),
                   ],
+                ),
+              ),
+            ],
+            // ===== REABRIR COORDINACIÓN (solo cotización GANADA) =====
+            if (estado == 'aceptada') ...[
+              _buildDivider(),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.spacingMd),
+                child: Semantics(
+                  button: true,
+                  label: 'Ver datos de contacto del almacén $almacenNombre',
+                  child: RyButton(
+                    label: 'Ver datos de contacto del almacén',
+                    icon: Icons.contact_phone_outlined,
+                    variant: RyButtonVariant.outline,
+                    size: RyButtonSize.small,
+                    isFullWidth: true,
+                    onPressed: () => _abrirCoordinacion(cotizacion),
+                  ),
                 ),
               ),
             ],

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:repuestosya/models/cotizacion.dart';
 import 'package:repuestosya/providers/cotizacion_provider.dart';
 import 'package:repuestosya/services/cotizacion_repository.dart';
+import 'package:repuestosya/utils/api_error_handler.dart';
 
 /// Pruebas del [CotizacionProvider] con un repositorio falso: carga,
 /// actualización optimista al aceptar/rechazar y manejo de errores sin tocar
@@ -88,6 +89,104 @@ void main() {
       expect(provider.ordenCompraId, isNull);
       expect(provider.cotizaciones.single.estado, 'pendiente');
       expect(provider.isCotizacionProcesando('c1'), isFalse);
+    });
+
+    test(
+      'éxito: guarda los datos de coordinación (contacto del almacén)',
+      () async {
+        final repo = _FakeCotizacionRepository(
+          alCargar: () async => [cotizacion()],
+          alAceptar: (id) async => {
+            'ordenId': 'ord-1',
+            'almacen': {
+              'nombre': 'Repuestos Central',
+              'telefono': '0991234567',
+              'email': 'contacto@repuestoscentral.com',
+            },
+            'repuestoNombre': 'Filtro de aceite',
+            'precioVenta': 45.5,
+          },
+        );
+        final provider = CotizacionProvider(repository: repo);
+        await provider.cargarCotizaciones('s1');
+
+        await provider.aceptarCotizacion('c1');
+
+        final datos = provider.coordinacionData;
+        expect(datos, isNotNull);
+        expect(datos!.almacenNombre, 'Repuestos Central');
+        expect(datos.telefono, '0991234567');
+        expect(datos.email, 'contacto@repuestoscentral.com');
+        expect(datos.repuestoNombre, 'Filtro de aceite');
+        expect(datos.precioVenta, 45.5);
+        expect(datos.solicitudId, 's1');
+        expect(datos.cotizacionId, 'c1');
+      },
+    );
+
+    test(
+      'error 409: expone el mensaje de conflicto sin marcar aceptada',
+      () async {
+        final repo = _FakeCotizacionRepository(
+          alCargar: () async => [cotizacion()],
+          alAceptar: (id) async => throw ApiException(
+            'Esta solicitud ya tiene una cotización aceptada',
+            statusCode: 409,
+            technicalMessage: 'Esta solicitud ya tiene una cotización aceptada',
+            type: ApiErrorType.http,
+          ),
+        );
+        final provider = CotizacionProvider(repository: repo);
+        await provider.cargarCotizaciones('s1');
+
+        await provider.aceptarCotizacion('c1');
+
+        expect(
+          provider.errorMessage,
+          'Esta solicitud ya tiene una cotización aceptada',
+        );
+        expect(provider.ordenCompraId, isNull);
+        expect(provider.coordinacionData, isNull);
+        expect(provider.cotizaciones.single.estado, 'pendiente');
+      },
+    );
+
+    test('error 403: mensaje sin cierre de sesión', () async {
+      final repo = _FakeCotizacionRepository(
+        alCargar: () async => [cotizacion()],
+        alAceptar: (id) async => throw ApiException(
+          'No tienes permisos para realizar esta acción.',
+          statusCode: 403,
+          type: ApiErrorType.http,
+        ),
+      );
+      final provider = CotizacionProvider(repository: repo);
+      await provider.cargarCotizaciones('s1');
+
+      await provider.aceptarCotizacion('c1');
+
+      expect(
+        provider.errorMessage,
+        'No tienes permisos para realizar esta acción.',
+      );
+      expect(provider.cotizaciones.single.estado, 'pendiente');
+    });
+
+    test('error sin conexión: mensaje de red claro', () async {
+      final repo = _FakeCotizacionRepository(
+        alCargar: () async => [cotizacion()],
+        alAceptar: (id) async => throw ApiException(
+          ApiErrorHandler.noConnectionMessage,
+          type: ApiErrorType.network,
+        ),
+      );
+      final provider = CotizacionProvider(repository: repo);
+      await provider.cargarCotizaciones('s1');
+
+      await provider.aceptarCotizacion('c1');
+
+      expect(provider.errorMessage, ApiErrorHandler.noConnectionMessage);
+      expect(provider.cotizaciones.single.estado, 'pendiente');
     });
   });
 

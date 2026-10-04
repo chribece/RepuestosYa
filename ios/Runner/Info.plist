@@ -72,5 +72,13 @@
 	<string>RepuestosYa usa la cámara para fotografiar la pieza que necesitas al crear una solicitud, o el repuesto ofertado al enviar una cotización.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>RepuestosYa accede a tus fotos para que adjuntes una imagen existente de la pieza en tu solicitud o cotización.</string>
+	<!-- url_launcher: esquemas consultados con canLaunchUrl (coordinación de
+	     entrega: tel:, wa.me/https y mailto:). -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>https</string>
+		<string>mailto</string>
+	</array>
 </dict>
 </plist>

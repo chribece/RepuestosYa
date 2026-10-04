@@ -430,6 +430,7 @@ Content-Type: application/json
 | 401 | Unauthorized | Token ausente o inválido |
 | 403 | Forbidden | Sin permisos |
 | 404 | Not Found | Recurso no existe |
+| 409 | Conflict | Conflicto de negocio (p. ej. cotización ya aceptada, solicitud ya respondida) |
 | 422 | Unprocessable Entity | Validación de negocio falló |
 | 500 | Internal Server Error | Error inesperado |
 
@@ -555,3 +556,91 @@ por la app):**
 4. La cancelación es un cambio de estado validado por el servidor: la app
    NO lo encola en el Outbox sin conexión (oculta la acción y avisa que se
    necesita conexión).
+
+---
+
+## Aceptación de cotización y coordinación de entrega (Parte Final)
+
+> Mismo envoltorio real que el resto del flujo de cotizaciones: éxito con la
+> fila/objeto crudo, fallo con `{ "error": "mensaje legible" }` (mostrado tal
+> cual por la app).
+
+### POST /api/quotations/:id/accept (aceptar cotización — rol cliente)
+
+**Descripción:** Acepta una cotización de forma **atómica** (RPC
+`aceptar_cotizacion`, `SECURITY DEFINER`). Marca la cotización elegida como
+`aceptada` (GANADA), las demás de la solicitud como `rechazada`
+(no seleccionadas), la solicitud como `aceptada` y crea la orden de compra
+con snapshot. La respuesta incluye los **datos de contacto del almacén
+ganador** (nombre, teléfono, email) para que el cliente coordine el pago y la
+entrega por fuera de la app.
+
+**Autenticación:** Requerida (Bearer JWT, rol `cliente`).
+
+**Idempotencia:** aceptar la **misma** cotización dos veces responde `200`
+con la orden existente (replay seguro, sin duplicar ni fallar).
+
+**Respuesta (200 OK):**
+
+```json
+{
+  "success": true,
+  "ordenId": "9f2c5b1e-...",
+  "solicitudId": "6dfca6fd-...",
+  "cotizacionGanadoraId": "c8a1e6d2-...",
+  "almacen": {
+    "nombre": "Repuestos Central",
+    "telefono": "0991234567",
+    "email": "contacto@repuestoscentral.com"
+  },
+  "repuestoNombre": "Filtro de aceite",
+  "precioVenta": 45.5
+}
+```
+
+**Errores:**
+
+| Código | Caso |
+|--------|------|
+| 400 | `id` no es UUID válido |
+| 401 | Token ausente o inválido |
+| 403 | Rol distinto de cliente, o el usuario no es dueño de la solicitud |
+| 404 | La cotización o la solicitud no existen |
+| 409 | Ya existe otra cotización aceptada para la solicitud, o la cotización ya fue decidida (rechazada) |
+| 422 | (validaciones de la RPC propagadas) |
+| 500 | Error interno |
+
+**Privacidad:** los datos de contacto del almacén SOLO se exponen tras la
+aceptación y únicamente al cliente dueño de la solicitud. Antes de aceptar,
+`GET /api/quotations/request/:solicitud_id` devuelve el almacén **sin**
+`telefono`/`email` (el backend sanitiza en memoria las cotizaciones
+pendientes/rechazadas).
+
+### GET /api/quotations/request/:solicitud_id (cotizaciones de una solicitud — rol cliente)
+
+Extiende la respuesta con `almacenes.telefono` y `almacenes.email` **solo en
+la cotización `aceptada`** (la GANADA). El resto de cotizaciones siguen
+devolviendo el almacén sin contacto. El ownership se valida con `403` antes
+de responder.
+
+### GET /api/quotations/my-quotations (ofertas del almacén — rol almacén)
+
+Extiende la respuesta con los **datos de entrega del cliente** únicamente en
+las cotizaciones `aceptada` (GANADA):
+
+- `solicitudes_repuesto.profiles.telefono` (teléfono del cliente)
+- `solicitudes_repuesto.direcciones_entrega` (alias, calle principal,
+  secundaria y referencia de la dirección de entrega)
+
+Las cotizaciones pendientes/rechazadas NUNCA incluyen teléfono ni dirección
+del cliente (sanitización server-side). El nombre del cliente ya se exponía
+antes de la aceptación (necesario para cotizar).
+
+### Estados del flujo
+
+| Entidad | Estados |
+|---------|---------|
+| `cotizaciones.estado` | `pendiente` → `aceptada` (ganadora) / `rechazada` (no seleccionada) |
+| `solicitudes_repuesto.estado` | `en_proceso` → `aceptada` (al elegir cotización) / `cerrada` (sin cotizaciones pendientes) / `cancelada` |
+| `ordenes_compra.estado` | `pendiente` (se crea al aceptar) → `pendiente_pago` / `confirmada` / `entregada` / `cancelada` |
+

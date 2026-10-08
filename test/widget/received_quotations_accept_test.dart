@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:repuestosya/pages/coordinacion_entrega_page.dart';
 import 'package:repuestosya/pages/received_quotations_page.dart';
 import 'package:repuestosya/router/route_names.dart';
+import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/solicitud_service.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
 
@@ -80,6 +81,19 @@ void main() {
     conectividad = FakeConnectivityPlatform();
     ConnectivityPlatform.instance = conectividad;
     servicio = _FakeSolicitudService();
+    // El cliente ya tiene teléfono registrado: el gate de "completar
+    // teléfono" no debe aparecer en los flujos normales de aceptación.
+    AuthService().currentUserForTesting = User(
+      id: 'cliente-1',
+      email: 'cliente@test.com',
+      nombreCompleto: 'Cliente E2E',
+      rol: 'cliente',
+      telefono: '0991234567',
+    );
+  });
+
+  tearDown(() {
+    AuthService().currentUserForTesting = null;
   });
 
   Future<void> pumpPagina(WidgetTester tester) async {
@@ -186,6 +200,29 @@ void main() {
     },
   );
 
+  testWidgets(
+    'respuesta sin bloque "almacen" (backend antiguo): navega igual usando '
+    'los datos de la tarjeta local',
+    (tester) async {
+      servicio.respuestaCotizaciones = [cotizacionPendiente()];
+      // Backend antiguo: aceptar NO devuelve `almacen` ni `precioVenta`.
+      servicio.respuestaAceptar = {'ordenId': 'ord-1'};
+      await pumpPagina(tester);
+
+      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(servicio.aceptarCalls, 1);
+      // La pantalla de coordinación se abre con los datos de la tarjeta
+      // (nombre del almacén) y NO se queda cargando.
+      expect(find.textContaining('¡Cotización seleccionada!'), findsOneWidget);
+      expect(find.text('Repuestos Central'), findsOneWidget);
+      expect(find.text('Cargando datos de contacto...'), findsNothing);
+    },
+  );
+
   testWidgets('sin conexión: bloquea la acción con SnackBar y sin diálogo', (
     tester,
   ) async {
@@ -223,6 +260,96 @@ void main() {
         find.text('Esta solicitud ya tiene una cotización aceptada'),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets('cliente SIN teléfono: se pide completarlo antes de aceptar y '
+      '"Cancelar" bloquea la acción', (tester) async {
+    // Perfil previo al requisito del teléfono: usuario sin teléfono.
+    AuthService().currentUserForTesting = User(
+      id: 'cliente-1',
+      email: 'cliente@test.com',
+      nombreCompleto: 'Cliente E2E',
+      rol: 'cliente',
+      telefono: null,
+    );
+    servicio.respuestaCotizaciones = [cotizacionPendiente()];
+    await pumpPagina(tester);
+
+    await tester.tap(find.text('Seleccionar y Aceptar'));
+    await tester.pumpAndSettle();
+
+    // Aparece el diálogo del teléfono, NO el de confirmación.
+    expect(find.text('Completa tu teléfono'), findsOneWidget);
+    expect(find.text('¿Aceptar esta cotización?'), findsNothing);
+
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(servicio.aceptarCalls, 0);
+    expect(
+      find.textContaining('Completa tu teléfono en tu perfil'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'cliente SIN teléfono: "Guardar" con teléfono inválido no continúa',
+    (tester) async {
+      AuthService().currentUserForTesting = User(
+        id: 'cliente-1',
+        email: 'cliente@test.com',
+        nombreCompleto: 'Cliente E2E',
+        rol: 'cliente',
+        telefono: null,
+      );
+      servicio.respuestaCotizaciones = [cotizacionPendiente()];
+      await pumpPagina(tester);
+
+      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '123');
+      await tester.tap(find.text('Guardar'));
+      await tester.pumpAndSettle();
+
+      // El error de validación se muestra en el propio diálogo.
+      expect(
+        find.text('Ingresa un teléfono válido (mín. 9 dígitos)'),
+        findsOneWidget,
+      );
+      expect(servicio.aceptarCalls, 0);
+      expect(find.text('¿Aceptar esta cotización?'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'cliente SIN teléfono: si la persistencia falla, la aceptación se '
+    'bloquea (no se encola ni se asume un valor por defecto)',
+    (tester) async {
+      AuthService().currentUserForTesting = User(
+        id: 'cliente-1',
+        email: 'cliente@test.com',
+        nombreCompleto: 'Cliente E2E',
+        rol: 'cliente',
+        telefono: null,
+      );
+      servicio.respuestaCotizaciones = [cotizacionPendiente()];
+      await pumpPagina(tester);
+
+      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '0991234567');
+      await tester.tap(find.text('Guardar'));
+      await tester.pumpAndSettle();
+
+      // En tests la red está bloqueada: ProfileService no puede persistir y
+      // la aceptación NO continúa.
+      expect(servicio.aceptarCalls, 0);
+      expect(
+        find.textContaining('No se pudo guardar tu teléfono'),
+        findsOneWidget,
+      );
+      expect(find.text('¿Aceptar esta cotización?'), findsNothing);
     },
   );
 }

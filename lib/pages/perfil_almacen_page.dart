@@ -5,6 +5,9 @@ import '../theme/app_colors.dart';
 import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/auth_service.dart';
+import '../services/geocoding_service.dart';
+import '../services/ubicacion_service.dart';
+import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -15,10 +18,22 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/contact_launcher.dart';
 import '../router/route_names.dart';
 
 class PerfilAlmacenPage extends StatefulWidget {
-  const PerfilAlmacenPage({super.key});
+  /// Servicios inyectables para tests (mismo patrón que WarehouseDashboard);
+  /// en producción se usan los servicios reales.
+  final UbicacionService? ubicacionService;
+  final GeocodingService? geocodingService;
+  final AlmacenService? almacenService;
+
+  const PerfilAlmacenPage({
+    super.key,
+    this.ubicacionService,
+    this.geocodingService,
+    this.almacenService,
+  });
 
   @override
   State<PerfilAlmacenPage> createState() => _PerfilAlmacenPageState();
@@ -42,13 +57,18 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   Map<String, String> _fieldErrors = {};
   Map<String, dynamic>? _almacenData;
 
-  late final AlmacenService _almacenService;
+  late final AlmacenService _almacenService =
+      widget.almacenService ??
+      AlmacenService(context.read<AlmacenRepository>());
   final AuthService _authService = AuthService();
+  late final UbicacionService _ubicacionService =
+      widget.ubicacionService ?? UbicacionService();
+  late final GeocodingService _geocodingService =
+      widget.geocodingService ?? GeocodingService();
 
   @override
   void initState() {
     super.initState();
-    _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _cargarAlmacen();
   }
 
@@ -674,12 +694,11 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             if (value == null || value.trim().isEmpty) {
               return 'El teléfono es requerido';
             }
-            final trimmed = value.trim();
-            // Acepta dígitos, +, espacios y guiones (patrón consistente
-            // con el resto de la app que usa RyTextFieldType.phone)
-            final phoneRegex = RegExp(r'^[0-9+\-\s()]{7,20}$');
-            if (!phoneRegex.hasMatch(trimmed)) {
-              return 'Ingresa un teléfono válido (mín. 7 dígitos)';
+            // Mínimo 9 dígitos (Ecuador) y máximo 15 (E.164 internacional):
+            // coincide con el CHECK `^[0-9]{9,}$` de la tabla y con la
+            // normalización que hace el backend (solo dígitos).
+            if (!esTelefonoValido(value)) {
+              return 'Ingresa un teléfono válido (mín. 9 dígitos)';
             }
             return null;
           },
@@ -707,6 +726,52 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   }
 
   // ========== SECCIÓN: UBICACIÓN ==========
+
+  /// Usa la ubicación actual del dispositivo (mismo flujo GPS que la
+  /// dirección de una solicitud): fija lat/lng y autocompleta la dirección
+  /// con reverse geocoding si aún no hay texto.
+  Future<void> _usarUbicacionActual() async {
+    final resultado = await flujoUbicacionGps(context, _ubicacionService);
+    if (!mounted) return;
+    if (!resultado.disponible) return; // el flujo ya mostró su aviso
+
+    final lat = resultado.latitude;
+    final lng = resultado.longitude;
+    if (lat == null || lng == null) return;
+
+    setState(() {
+      _latController.text = lat.toStringAsFixed(6);
+      _lonController.text = lng.toStringAsFixed(6);
+    });
+
+    // Autocompletar la dirección solo si está vacía (no pisar lo escrito).
+    if (_direccionController.text.trim().isEmpty) {
+      try {
+        final geocode = await _geocodingService.reverseGeocode(
+          lat: lat,
+          lng: lng,
+        );
+        if (!mounted || geocode == null) return;
+        final partes = <String>[
+          if (geocode.callePrincipal != null &&
+              geocode.callePrincipal!.isNotEmpty)
+            geocode.callePrincipal!,
+          if (geocode.referencia != null && geocode.referencia!.isNotEmpty)
+            geocode.referencia!,
+        ];
+        if (partes.isNotEmpty) {
+          setState(() => _direccionController.text = partes.join(', '));
+        }
+      } catch (e) {
+        AppLogger.error(
+          'Error al geocodificar ubicación del almacén',
+          name: 'PerfilAlmacenPage',
+          error: e,
+        );
+        // Degradación: el usuario puede escribir la dirección a mano.
+      }
+    }
+  }
 
   Widget _buildLocationSection() {
     return RySectionCard(
@@ -743,6 +808,21 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             color: AppColors.onSurfaceVariant,
           ),
         ),
+        if (_isEditing) ...[
+          const SizedBox(height: AppSpacing.spacingSm),
+          Semantics(
+            button: true,
+            label: 'Usar mi ubicación actual para el almacén',
+            child: RyButton(
+              label: 'Usar mi ubicación actual',
+              icon: Icons.my_location,
+              variant: RyButtonVariant.outline,
+              size: RyButtonSize.small,
+              isFullWidth: true,
+              onPressed: _usarUbicacionActual,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -70,6 +70,12 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
       _isLoading = false;
       if (mounted) setState(() {});
       unawaited(_persistirDatos());
+      // Reapertura desde una tarjeta que aún no traía contacto (backend
+      // previo): refrescar en segundo plano como en la ruta de caché.
+      if (widget.datosIniciales!.telefono == null &&
+          widget.datosIniciales!.email == null) {
+        unawaited(_refrescarDesdeBackend());
+      }
       return;
     }
 
@@ -81,10 +87,25 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
       _datos = cacheData;
       _isLoading = false;
       if (mounted) setState(() {});
+      // Caché ANTIGUA sin contacto (aceptación hecha con un backend previo
+      // que no devolvía `almacen.telefono/email`): se intenta refrescar en
+      // segundo plano; si el backend ya entrega el contacto, se actualiza la
+      // pantalla y la caché. Si falla o el almacén realmente no tiene
+      // contacto, se conserva lo cacheado (degradación offline).
+      if (cacheData.telefono == null && cacheData.email == null) {
+        unawaited(_refrescarDesdeBackend());
+      }
       return;
     }
 
     // 3. Backend: buscar la cotización GANADA de la solicitud.
+    await _refrescarDesdeBackend();
+  }
+
+  /// Consulta la cotización GANADA de la solicitud y actualiza `_datos` (y la
+  /// caché) si el backend entrega datos con contacto. No lanza: cualquier
+  /// fallo se degrada manteniendo lo que ya se muestra.
+  Future<void> _refrescarDesdeBackend() async {
     try {
       final cotizaciones = await _solicitudService.obtenerCotizacionesRecibidas(
         widget.solicitudId,
@@ -95,13 +116,25 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
           solicitudId: widget.solicitudId,
         );
         if (datos != null) {
-          _datos = datos;
-          unawaited(_persistirDatos());
-          if (mounted) setState(() {});
+          final tieneContacto =
+              (datos.telefono != null && datos.telefono!.isNotEmpty) ||
+              (datos.email != null && datos.email!.isNotEmpty);
+          // No pisar lo que ya se muestra con un resultado IGUAL de vacío
+          // (almacén realmente sin contacto): solo actualizar si hay datos
+          // nuevos o si aún no teníamos nada.
+          if (tieneContacto || _datos == null) {
+            _datos = datos;
+            // CRÍTICO: sin esto la pantalla quedaba en "Cargando datos de
+            // contacto..." para siempre cuando los datos venían del backend.
+            _isLoading = false;
+            unawaited(_persistirDatos());
+            if (mounted) setState(() {});
+          }
           return;
         }
       }
-      if (mounted) {
+      // Sin cotización aceptada y sin datos previos → estado de error.
+      if (_datos == null && mounted) {
         setState(() {
           _errorMessage =
               'No se encontró una cotización aceptada para esta solicitud.';
@@ -114,7 +147,7 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
         name: _logName,
         error: e,
       );
-      if (mounted) {
+      if (_datos == null && mounted) {
         setState(() {
           _errorMessage = ApiErrorHandler.userMessage(e);
           _isLoading = false;

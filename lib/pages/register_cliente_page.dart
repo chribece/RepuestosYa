@@ -6,6 +6,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/contact_launcher.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
@@ -24,6 +25,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _telefonoController = TextEditingController();
   bool _acceptTerms = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
@@ -34,6 +36,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _nameController.dispose();
+    _telefonoController.dispose();
     super.dispose();
   }
 
@@ -48,6 +51,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           email: _emailController.text.trim(),
           password: _passwordController.text,
           nombreCompleto: _nameController.text.trim(),
+          // El teléfono es FUNDAMENTAL: el almacén ganador lo necesita para
+          // coordinar el pago y la entrega de tu repuesto.
+          telefono: _telefonoController.text.trim(),
         );
 
         if (!mounted) return;
@@ -172,6 +178,10 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             // Email Field
             _buildEmailField(),
             const SizedBox(height: AppSpacing.spacingMd),
+            // Teléfono (obligatorio: el almacén ganador lo usa para coordinar
+            // el pago y la entrega del repuesto)
+            _buildTelefonoField(),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Password Field
             _buildPasswordField(),
             const SizedBox(height: AppSpacing.spacingMd),
@@ -224,6 +234,28 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
         if (!emailRegex.hasMatch(value.trim())) {
           return 'Por favor ingrese un email válido';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildTelefonoField() {
+    return RyTextField(
+      label: 'Teléfono',
+      hint: 'Ej: 0991234567',
+      controller: _telefonoController,
+      type: RyTextFieldType.phone,
+      isRequired: true,
+      prefixIcon: Icons.phone_android,
+      helperText:
+          'El almacén ganador lo usará para coordinar el pago y la entrega.',
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'El teléfono es requerido';
+        }
+        if (!esTelefonoValido(value)) {
+          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
         }
         return null;
       },

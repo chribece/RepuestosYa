@@ -6,6 +6,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../theme/app_colors.dart';
 import '../models/coordinacion_entrega.dart';
 import '../services/coordinacion_entrega_cache.dart';
+import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import '../services/solicitud_service.dart';
 import '../services/realtime_notification_service.dart';
 import '../widgets/ry_button.dart';
@@ -17,6 +19,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/business_rules.dart';
+import '../utils/contact_launcher.dart';
 import '../router/route_names.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
@@ -172,6 +175,120 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     });
   }
 
+  /// Asegura que el cliente tenga teléfono registrado ANTES de aceptar:
+  /// los perfiles creados antes de que el registro lo exigiera pueden no
+  /// tenerlo. Si falta, se solicita completarlo y se PERSISTE en el perfil
+  /// antes de continuar (nunca se usan valores ficticios ni por defecto).
+  /// Devuelve el teléfono utilizable, o `null` si el usuario cancela o la
+  /// persistencia falla (en ese caso se bloquea la aceptación).
+  Future<String?> _asegurarTelefonoCliente() async {
+    final actual = AuthService().currentUser?.telefono;
+    if (actual != null && actual.isNotEmpty && esTelefonoValido(actual)) {
+      return actual;
+    }
+
+    if (!mounted) return null;
+    // Sin TextEditingController: el diálogo se destruye con su animación de
+    // salida y un controller descartado antes rompería el TextField.
+    var telefono = '';
+    String? errorText;
+
+    final guardado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceContainerHigh,
+          title: const Text('Completa tu teléfono'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Para aceptar la cotización necesitas un teléfono de '
+                'contacto: el almacén ganador lo usará para coordinar el pago '
+                'y la entrega de tu repuesto.',
+                style: AppTextStyles.textStyleBody,
+              ),
+              const SizedBox(height: AppSpacing.spacingMd),
+              TextField(
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Teléfono',
+                  hintText: '+593 998757857',
+                  prefixIcon: const Icon(Icons.phone_android),
+                  errorText: errorText,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                  ),
+                ),
+                onChanged: (value) {
+                  telefono = value.trim();
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (!esTelefonoValido(telefono)) {
+                  setDialogState(
+                    () => errorText =
+                        'Ingresa un teléfono válido (mín. 9 dígitos)',
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return null;
+
+    if (guardado != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Completa tu teléfono en tu perfil para poder aceptar la cotización.',
+          ),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return null;
+    }
+
+    // Persistir lo que el usuario escribió (sin valores por defecto).
+    final actualizado = await ProfileService().updateProfile(
+      telefono: telefono,
+    );
+    if (actualizado == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se pudo guardar tu teléfono. Verifica tu conexión e intenta nuevamente.',
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return null;
+    }
+    return telefono;
+  }
+
   /// Abre el diálogo de confirmación antes de aceptar (evita doble tap y
   /// aceptaciones accidentales). Si no hay conexión, BLOQUEA la acción: la
   /// aceptación requiere confirmación 2xx del servidor y NO se encola en el
@@ -196,6 +313,11 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       );
       return;
     }
+
+    // Gate del teléfono: clientes sin teléfono (perfiles previos) deben
+    // completarlo y persistirlo antes de continuar.
+    final telefonoCliente = await _asegurarTelefonoCliente();
+    if (telefonoCliente == null) return;
 
     if (!mounted) return;
     final repuestoNombre =
@@ -291,11 +413,19 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
 
       // Persistir los datos de coordinación: la pantalla de contacto se puede
       // reabrir desde una solicitud ACEPTADA y funciona sin conexión.
-      final datos = DatosCoordinacionEntrega.fromAceptacionResponse(
-        response,
-        cotizacionId: cotizacionId,
-        solicitudId: widget.solicitudId,
-      );
+      final datos =
+          DatosCoordinacionEntrega.fromAceptacionResponse(
+            response,
+            cotizacionId: cotizacionId,
+            solicitudId: widget.solicitudId,
+          ) ??
+          // Respaldo: si el backend no devolvió el bloque `almacen` (versión
+          // antigua), se construye desde la tarjeta local para no depender de
+          // un segundo round-trip al abrir la pantalla de coordinación.
+          DatosCoordinacionEntrega.desdeTarjetaLocal(
+            cotizacion,
+            solicitudId: widget.solicitudId,
+          );
       if (datos != null) {
         try {
           final cache = await CoordinacionEntregaCache.instancia();

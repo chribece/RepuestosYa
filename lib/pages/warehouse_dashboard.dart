@@ -24,6 +24,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import '../utils/contact_launcher.dart';
 import '../router/route_names.dart';
 
@@ -1457,7 +1458,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       direccionClienteTexto = _formatearDireccion(direccion);
     }
 
-    final precio = (cotizacion['precio_venta'] as num?)?.toDouble() ?? 0.0;
+    final precio = parsePrecioVenta(cotizacion['precio_venta']);
     final estado = cotizacion['estado'] ?? 'pendiente';
     final createdAt = cotizacion['created_at'];
     final tiempoEntrega =

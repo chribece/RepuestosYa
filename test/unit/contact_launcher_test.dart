@@ -12,6 +12,20 @@ void main() {
       expect(normalizePhoneForWhatsApp('0991234567'), '593991234567');
     });
 
+    test('formato real de Ecuador "+593 998757857" → "593998757857"', () {
+      expect(normalizePhoneForWhatsApp('+593 998757857'), '593998757857');
+      expect(normalizePhoneForWhatsApp('+593998757857'), '593998757857');
+    });
+
+    test('internacional con "+" explícito se respeta (no antepone 593)', () {
+      expect(normalizePhoneForWhatsApp('+1 555 123 4567'), '15551234567');
+      expect(normalizePhoneForWhatsApp('+34 612 345 678'), '34612345678');
+    });
+
+    test('prefijo internacional "00" se normaliza (00 593... → 593...)', () {
+      expect(normalizePhoneForWhatsApp('00 593 998757857'), '593998757857');
+    });
+
     test('ya trae prefijo "593" → se respeta tal cual', () {
       expect(normalizePhoneForWhatsApp('593991234567'), '593991234567');
     });
@@ -25,13 +39,14 @@ void main() {
     });
 
     test('número sin cero inicial → se antepone 593', () {
-      expect(normalizePhoneForWhatsApp('991234567'), '593991234567');
+      expect(normalizePhoneForWhatsApp('998757857'), '593998757857');
     });
 
     test('vacío / sin dígitos → cadena vacía', () {
       expect(normalizePhoneForWhatsApp(''), '');
       expect(normalizePhoneForWhatsApp('   '), '');
       expect(normalizePhoneForWhatsApp('abc-()'), '');
+      expect(normalizePhoneForWhatsApp('+'), '');
     });
 
     test('código de país configurable', () {
@@ -42,20 +57,30 @@ void main() {
     });
   });
 
-  group('isValidPhone', () {
+  group('isValidPhone / esTelefonoValido', () {
     test('nulo o vacío → inválido', () {
       expect(isValidPhone(null), isFalse);
+      expect(esTelefonoValido(null), isFalse);
       expect(isValidPhone(''), isFalse);
       expect(isValidPhone('   '), isFalse);
     });
 
-    test('con 7+ dígitos → válido', () {
+    test('celular Ecuador (10 dígitos) → válido', () {
       expect(isValidPhone('0991234567'), isTrue);
-      expect(isValidPhone('+593991234567'), isTrue);
+      expect(isValidPhone('+593 998757857'), isTrue);
     });
 
-    test('con menos de 7 dígitos → inválido', () {
+    test('menos de 9 dígitos → inválido', () {
       expect(isValidPhone('123456'), isFalse);
+      expect(isValidPhone('09912345'), isFalse);
+    });
+
+    test('más de 15 dígitos → inválido', () {
+      expect(isValidPhone('+593991234567891234'), isFalse);
+    });
+
+    test('internacional válido (hasta 15 dígitos) → válido', () {
+      expect(isValidPhone('+1 555 123 4567'), isTrue);
     });
   });
 

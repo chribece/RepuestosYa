@@ -51,15 +51,24 @@ void main() {
       final clienteEmail = 'e2e.cliente.$stamp@repuestosya.test';
       const clientePassword = 'Cliente-E2E-2026!';
 
-      // 1) Registro del cliente (cuenta efímera, única por corrida).
+      // 1) Registro del cliente (cuenta efímera, única por corrida). El
+      // teléfono es FUNDAMENTAL para la coordinación de entrega (el almacén
+      // ganador lo necesita): se exige y persiste en el registro.
       final registro = await auth.signUpWithEmailAndPassword(
         email: clienteEmail,
         password: clientePassword,
         nombreCompleto: 'Cliente E2E',
         rol: 'cliente',
+        telefono: '0991112222',
       );
       expect(registro.user.rol, 'cliente');
       expect(registro.user.id, isNotEmpty);
+      expect(
+        registro.user.telefono,
+        '0991112222',
+        reason:
+            'El cliente debe registrar su teléfono para coordinar la entrega',
+      );
 
       // 2) Vehículo del cliente (catálogo real de marcas/modelos).
       final marcas = await MarcaService().getMarcas();
@@ -166,7 +175,9 @@ void main() {
       final cotizacionId = cotizacion['id'].toString();
       expect(cotizacionId, isNotEmpty, reason: 'La cotización no devolvió id');
 
-      // 7) El cliente acepta la cotización → se genera la orden.
+      // 7) El cliente acepta la cotización → se genera la orden y la
+      // respuesta trae el contacto del almacén ganador (fixture con
+      // telefono '0999999999' y email del fixture).
       await auth.signInWithEmailAndPassword(
         email: clienteEmail,
         password: clientePassword,
@@ -174,6 +185,22 @@ void main() {
       final aceptar = await SolicitudService().aceptarCotizacion(cotizacionId);
       final ordenId = aceptar['ordenId']?.toString();
       expect(ordenId, isNotNull, reason: 'Aceptar no devolvió ordenId');
+      expect(
+        aceptar['almacen']?['nombre'],
+        'Repuestos E2E Central',
+        reason:
+            'La respuesta de aceptación debe incluir el contacto del almacén',
+      );
+      expect(
+        aceptar['almacen']?['telefono'],
+        '0999999999',
+        reason: 'El contacto del almacén ganador viaja en la aceptación',
+      );
+      expect(
+        aceptar['almacen']?['email'],
+        'almacen.e2e@repuestosya.test',
+        reason: 'El email del almacén ganador viaja en la aceptación',
+      );
 
       // 8) La orden aparece en "Mis Órdenes" del cliente.
       final ordenes = await SolicitudService().obtenerMisOrdenes(

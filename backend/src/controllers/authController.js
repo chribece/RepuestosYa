@@ -1,14 +1,19 @@
 const supabase = require('../services/supabase');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
+const { normalizarTelefono } = require('../utils/phone');
 
 // POST /auth/register
 const register = async (req, res) => {
   try {
     const { email, password, nombreCompleto, rol } = req.body;
+    // El teléfono llega como el usuario lo escribe (+593, espacios, guiones)
+    // y se normaliza a DÍGITOS antes de persistir (coherente con el CHECK de
+    // la base y con la normalización de WhatsApp del cliente).
+    const telefono = normalizarTelefono(req.body.telefono);
 
     // B4: no se registra el email (PII) ni el body de login.
-    console.log('Register request received:', { nombreCompleto, rol });
+    console.log('Register request received:', { nombreCompleto, rol, telefono: telefono ? 'provided' : 'missing' });
 
     if (!email || !password || !nombreCompleto) {
       return res.status(400).json({ error: 'Email, password and nombreCompleto are required' });
@@ -44,7 +49,8 @@ const register = async (req, res) => {
         options: {
           data: {
             nombre_completo: nombreCompleto,
-            ...(rol && { rol }) // Include rol in metadata if provided
+            ...(rol && { rol }), // Include rol in metadata if provided
+            ...(telefono && { telefono }) // Teléfono de contacto (coordinación de entrega)
           }
         }
       });
@@ -87,7 +93,10 @@ const register = async (req, res) => {
         nombre_completo: nombreCompleto,
         email: email,
         rol: userRole,
-        tipo_membresia: 'Regular Member'
+        tipo_membresia: 'Regular Member',
+        // El teléfono es fundamental para la coordinación de entrega: el
+        // almacén ganador necesita contactar al cliente y viceversa.
+        ...(telefono && { telefono })
       })
       .select()
       .single();
@@ -108,6 +117,16 @@ const register = async (req, res) => {
         });
       }
       profile = existingProfile;
+
+      // Si el perfil lo creó el trigger (sin teléfono) y el registro traía
+      // teléfono, completarlo para no perder el dato de contacto.
+      if (telefono && !profile.telefono) {
+        await supabase
+          .from('profiles')
+          .update({ telefono })
+          .eq('id', authData.user.id);
+        profile.telefono = telefono;
+      }
     } else {
       profile = createdProfile;
     }
@@ -130,7 +149,8 @@ const register = async (req, res) => {
         id: profile.id,
         email: profile.email,
         nombre_completo: profile.nombre_completo,
-        rol: profile.rol
+        rol: profile.rol,
+        telefono: profile.telefono || null
       }
     });
   } catch (error) {
@@ -170,7 +190,7 @@ const login = async (req, res) => {
     console.log('Fetching profile from database...');
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, nombre_completo, rol')
+      .select('id, email, nombre_completo, rol, telefono')
       .eq('id', userId)
       .maybeSingle();
 
@@ -216,7 +236,8 @@ const login = async (req, res) => {
         id: profile.id,
         email: profile.email,
         nombre_completo: profile.nombre_completo,
-        rol: userRole
+        rol: userRole,
+        telefono: profile.telefono || null
       }
     });
 

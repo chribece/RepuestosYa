@@ -237,6 +237,60 @@ void main() {
   );
 
   testWidgets(
+    'estructura REAL de my-quotations (caso "Bomba de agua"): la oferta '
+    'ganada conserva teléfono y dirección del cliente',
+    (tester) async {
+      // Shape exacta que devuelve GET /quotations/my-quotations con el
+      // backend actualizado (solicitudes_repuesto embebida con
+      // repuesto_nombre_snapshot, direccion_entrega_id, direcciones_entrega
+      // y profiles.telefono).
+      solicitud.respuestaMisCotizaciones = [
+        {
+          'id': '68b7684a-2380-43a3-8a75-996c5892c095',
+          'precio_venta': '45.50',
+          'estado': 'aceptada',
+          'created_at': '2026-10-05T10:00:00.000Z',
+          'tiempo_entrega_estimado': 'Mañana',
+          'solicitudes_repuesto': {
+            'pieza_nombre': 'Bomba de agua',
+            'repuesto_nombre_snapshot': 'Bomba de agua',
+            'estado': 'aceptada',
+            'direccion_entrega_id': '4944c4da-a3d7-412f-a42a-464eeadd1735',
+            'direcciones_entrega': {
+              'alias': 'Taller pepito',
+              'calle_principal': 'De los Colibries',
+              'calle_secundaria': null,
+              'referencia': 'Marianitas',
+            },
+            'profiles': {
+              'nombre_completo': 'TestCliente',
+              'telefono': '0981234512',
+            },
+          },
+          'ordenes_compra': {
+            'id': 'e158e893-8123-4664-9fbd-1da50481b235',
+            'estado': 'pendiente',
+          },
+        },
+      ];
+      await pumpDashboard(tester);
+
+      await tester.tap(find.text('Cotizaciones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Datos de entrega del cliente'), findsOneWidget);
+      expect(find.text('TestCliente'), findsOneWidget);
+      expect(find.text('0981234512'), findsOneWidget);
+      // Dirección completa: alias + calles + referencia.
+      expect(find.textContaining('Taller pepito'), findsOneWidget);
+      expect(find.textContaining('De los Colibries'), findsOneWidget);
+      expect(find.textContaining('Marianitas'), findsOneWidget);
+      expect(find.text('Sin teléfono registrado'), findsNothing);
+      expect(find.text('Sin dirección registrada'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'tarjeta GANADA sin teléfono deshabilita Llamar/WhatsApp y lo indica',
     (tester) async {
       solicitud.respuestaMisCotizaciones = [

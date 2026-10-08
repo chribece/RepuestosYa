@@ -5,6 +5,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/contact_launcher.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
@@ -25,6 +26,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
 
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
@@ -35,6 +37,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _telefonoController.dispose();
     super.dispose();
   }
 
@@ -52,6 +55,8 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         password: _passwordController.text,
         nombreCompleto: _representanteController.text.trim(),
         rol: 'almacen',
+        // Teléfono de contacto del almacén (se prellena en el perfil).
+        telefono: _telefonoController.text.trim(),
       );
 
       if (mounted) {
@@ -126,6 +131,8 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
                 const SizedBox(height: AppSpacing.spacingLg),
                 _buildEmailField(),
                 const SizedBox(height: AppSpacing.spacingLg),
+                _buildTelefonoField(),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildPasswordField(),
                 const SizedBox(height: AppSpacing.spacingLg),
                 _buildConfirmPasswordField(),
@@ -193,6 +200,28 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
         if (!emailRegex.hasMatch(value.trim())) {
           return 'Por favor ingrese un email válido';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildTelefonoField() {
+    return RyTextField(
+      label: 'Teléfono',
+      hint: 'Ej: 0991234567',
+      controller: _telefonoController,
+      type: RyTextFieldType.phone,
+      isRequired: true,
+      prefixIcon: Icons.phone_android,
+      helperText:
+          'El cliente ganador lo usará para coordinar el pago y la entrega.',
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'El teléfono es requerido';
+        }
+        if (!esTelefonoValido(value)) {
+          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
         }
         return null;
       },

@@ -1,4 +1,5 @@
 const supabase = require('../services/supabase');
+const { normalizarTelefono } = require('../utils/phone');
 
 // GET /profile
 const getProfile = async (req, res) => {
@@ -29,7 +30,10 @@ const getProfile = async (req, res) => {
 // PUT /profile
 const updateProfile = async (req, res) => {
   try {
-    const { nombre_completo, telefono, avatar_url } = req.body;
+    const { nombre_completo, avatar_url } = req.body;
+    // El teléfono se normaliza a dígitos (el usuario puede escribir
+    // "+593 99...", espacios o guiones); coherente con el CHECK de la base.
+    const telefono = normalizarTelefono(req.body.telefono);
 
     const { data: profile, error } = await supabase
       .from('profiles')

@@ -1,4 +1,5 @@
 const supabase = require('../services/supabase');
+const { normalizarTelefono, telefonoValido } = require('../utils/phone');
 
 // POST /warehouses (crear almacén)
 const createAlmacen = async (req, res) => {
@@ -8,12 +9,15 @@ const createAlmacen = async (req, res) => {
       nombre_comercial, 
       ruc, 
       representante_legal, 
-      telefono, 
       email, 
       direccion_texto, 
       latitude, 
       longitude 
     } = req.body;
+
+    // El teléfono se normaliza a dígitos: el formulario acepta "+593 99...",
+    // espacios y guiones; la base exige `^[0-9]{9,}$`.
+    const telefono = normalizarTelefono(req.body.telefono);
 
     const required = { encargado_id, nombre_comercial, direccion_texto, ruc, representante_legal, telefono, email };
     const missing = Object.entries(required)
@@ -32,6 +36,15 @@ const createAlmacen = async (req, res) => {
       return res.status(422).json({
         field: 'ruc',
         message: 'El RUC debe tener exactamente 13 dígitos'
+      });
+    }
+
+    // Validar teléfono (9-15 dígitos tras normalizar; Ecuador 9-10,
+    // internacional E.164 hasta 15) — coherente con el frontend.
+    if (!telefonoValido(telefono)) {
+      return res.status(422).json({
+        field: 'telefono',
+        message: 'El teléfono debe tener entre 9 y 15 dígitos'
       });
     }
 
@@ -157,7 +170,16 @@ const updateAlmacen = async (req, res) => {
       updateData.estado_abierto = estado_abierto;
     }
     
-    if (telefono !== undefined) updateData.telefono = telefono;
+    if (telefono !== undefined) {
+      const telefonoNormalizado = normalizarTelefono(telefono);
+      if (telefono !== null && telefono !== '' && !telefonoValido(telefonoNormalizado)) {
+        return res.status(422).json({
+          field: 'telefono',
+          message: 'El teléfono debe tener entre 9 y 15 dígitos'
+        });
+      }
+      updateData.telefono = telefonoNormalizado;
+    }
     
     if (ruc !== undefined) {
       // Validar RUC (13 dígitos)

@@ -9,6 +9,7 @@ import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/contact_launcher.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -27,6 +28,9 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   // Llave global indispensable para abrir de manera segura el menú hamburguesa
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Validación del formulario de edición (teléfono obligatorio).
+  final _formKey = GlobalKey<FormState>();
 
   final AuthService _authService = AuthService();
   final ProfileService _profileService = ProfileService();
@@ -75,6 +79,10 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _saveProfile() async {
+    // El teléfono es obligatorio: sin él el almacén ganador no puede
+    // coordinar el pago y la entrega (se exige también al aceptar).
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -367,24 +375,40 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildEditableFields() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Información Personal', style: AppTextStyles.textStyleTitle),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Nombre Completo',
-          prefixIcon: Icons.person_outline,
-          controller: _nombreController,
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Teléfono',
-          prefixIcon: Icons.phone_android_outlined,
-          type: RyTextFieldType.phone,
-          controller: _telefonoController,
-        ),
-      ],
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Información Personal', style: AppTextStyles.textStyleTitle),
+          const SizedBox(height: AppSpacing.spacingMd),
+          RyTextField(
+            label: 'Nombre Completo',
+            prefixIcon: Icons.person_outline,
+            controller: _nombreController,
+          ),
+          const SizedBox(height: AppSpacing.spacingMd),
+          RyTextField(
+            label: 'Teléfono',
+            prefixIcon: Icons.phone_android_outlined,
+            type: RyTextFieldType.phone,
+            controller: _telefonoController,
+            isRequired: true,
+            helperText:
+                'Obligatorio: el almacén ganador lo usará para coordinar el '
+                'pago y la entrega de tu repuesto.',
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'El teléfono es requerido';
+              }
+              if (!esTelefonoValido(value)) {
+                return 'Ingresa un teléfono válido (mín. 9 dígitos)';
+              }
+              return null;
+            },
+          ),
+        ],
+      ),
     );
   }
 

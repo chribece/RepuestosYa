@@ -2,6 +2,10 @@
 /// ganador tras aceptar una cotización. Se persisten en caché local para que
 /// la pantalla "Éxito y Coordinación de Entrega" funcione sin conexión y
 /// pueda reabrirse desde una solicitud ya ACEPTADA.
+library;
+
+import '../utils/business_rules.dart';
+
 class DatosCoordinacionEntrega {
   final String solicitudId;
   final String cotizacionId;
@@ -29,7 +33,7 @@ class DatosCoordinacionEntrega {
       telefono: json['telefono']?.toString(),
       email: json['email']?.toString(),
       repuestoNombre: json['repuestoNombre']?.toString() ?? '',
-      precioVenta: (json['precioVenta'] as num?)?.toDouble() ?? 0.0,
+      precioVenta: parsePrecioVenta(json['precioVenta']),
     );
   }
 
@@ -64,7 +68,7 @@ class DatosCoordinacionEntrega {
       telefono: almacen['telefono']?.toString(),
       email: almacen['email']?.toString(),
       repuestoNombre: respuesta['repuestoNombre']?.toString() ?? '',
-      precioVenta: (respuesta['precioVenta'] as num?)?.toDouble() ?? 0.0,
+      precioVenta: parsePrecioVenta(respuesta['precioVenta']),
     );
   }
 
@@ -76,7 +80,24 @@ class DatosCoordinacionEntrega {
     required String solicitudId,
   }) {
     if (cotizacion['estado'] != 'aceptada') return null;
+    return _construirDesdeMapa(cotizacion, solicitudId: solicitudId);
+  }
 
+  /// Construye los datos desde el mapa de una cotización SIN validar el
+  /// estado (usado como respaldo al navegar tras aceptar, cuando la tarjeta
+  /// local aún está en 'pendiente').
+  static DatosCoordinacionEntrega? desdeTarjetaLocal(
+    Map<String, dynamic> cotizacion, {
+    required String solicitudId,
+  }) {
+    if (cotizacion['almacenes'] is! Map<String, dynamic>) return null;
+    return _construirDesdeMapa(cotizacion, solicitudId: solicitudId);
+  }
+
+  static DatosCoordinacionEntrega _construirDesdeMapa(
+    Map<String, dynamic> cotizacion, {
+    required String solicitudId,
+  }) {
     final almacenes = cotizacion['almacenes'];
     final almacen = almacenes is Map<String, dynamic> ? almacenes : null;
     final solicitud = cotizacion['solicitudes_repuesto'];
@@ -95,7 +116,8 @@ class DatosCoordinacionEntrega {
                     solicitud['pieza_nombre']?.toString() ??
                     '')
               : ''),
-      precioVenta: (cotizacion['precio_venta'] as num?)?.toDouble() ?? 0.0,
+      // PostgREST serializa numeric como STRING en JSON: se parsea robusto.
+      precioVenta: parsePrecioVenta(cotizacion['precio_venta']),
     );
   }
 

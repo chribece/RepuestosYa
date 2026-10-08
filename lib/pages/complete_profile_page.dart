@@ -19,6 +19,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/contact_launcher.dart';
 import '../router/route_names.dart';
 
 /// Formulario de registro/completado del perfil de almacén.
@@ -91,6 +92,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     final currentUser = _authService.currentUser;
     if (currentUser?.nombreCompleto != null) {
       _representanteController.text = currentUser!.nombreCompleto!;
+    }
+    // Pre-llenar el teléfono capturado en el registro (coordinación de
+    // entrega): el usuario no debe volver a escribirlo.
+    final telefonoRegistrado = currentUser?.telefono;
+    if (telefonoRegistrado != null && telefonoRegistrado.isNotEmpty) {
+      _telefonoController.text = telefonoRegistrado;
     }
   }
 
@@ -481,7 +488,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Widget _buildTelefonoField() {
     return RyTextField(
       label: 'Teléfono',
-      hint: 'Ej: 999123456',
+      hint: 'Ej: +593 998757857',
       controller: _telefonoController,
       type: RyTextFieldType.phone,
       isRequired: true,
@@ -489,8 +496,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         if (value == null || value.trim().isEmpty) {
           return 'El teléfono es requerido';
         }
-        if (value.trim().length < 9) {
-          return 'El teléfono debe tener al menos 9 dígitos';
+        if (!esTelefonoValido(value)) {
+          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
         }
         return null;
       },

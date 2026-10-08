@@ -14,7 +14,17 @@ class User {
   final String? nombreCompleto;
   final String? rol;
 
-  User({required this.id, required this.email, this.nombreCompleto, this.rol});
+  /// Teléfono de contacto del usuario (fundamental para la coordinación de
+  /// entrega: el almacén ganador necesita el teléfono del cliente y viceversa).
+  final String? telefono;
+
+  User({
+    required this.id,
+    required this.email,
+    this.nombreCompleto,
+    this.rol,
+    this.telefono,
+  });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -22,6 +32,7 @@ class User {
       email: json['email'] as String,
       nombreCompleto: json['nombre_completo'] as String?,
       rol: json['rol'] as String?,
+      telefono: json['telefono']?.toString(),
     );
   }
 }
@@ -111,10 +122,11 @@ class AuthService {
     required String password,
     String? nombreCompleto,
     String? rol,
+    String? telefono,
   }) async {
     try {
       AppLogger.debug(
-        'Intentando registrar usuario - Email: $email - Nombre: $nombreCompleto - Rol: $rol',
+        'Intentando registrar usuario - Email: $email - Nombre: $nombreCompleto - Rol: $rol - Telefono: ${telefono != null}',
         name: 'AuthService',
       );
 
@@ -125,6 +137,7 @@ class AuthService {
           'password': password,
           'nombreCompleto': nombreCompleto,
           'rol': rol,
+          'telefono': telefono,
         },
         requireAuth: false,
       );

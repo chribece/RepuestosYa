@@ -17,7 +17,9 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: true
+    // This server-side client is privileged and shared across requests. Never
+    // let a user login replace its service-role Authorization header.
+    persistSession: false
   },
   global: {
     headers: {

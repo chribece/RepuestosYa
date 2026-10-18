@@ -1,5 +1,5 @@
 const supabase = require('../services/supabase');
-const { createClient } = require('@supabase/supabase-js');
+const { createSupabaseAuthClient } = require('../services/supabaseAuth');
 const jwt = require('jsonwebtoken');
 const { normalizarTelefono } = require('../utils/phone');
 
@@ -43,7 +43,8 @@ const register = async (req, res) => {
     let authError;
     
     try {
-      const result = await supabase.auth.signUp({
+      const authClient = createSupabaseAuthClient();
+      const result = await authClient.auth.signUp({
         email,
         password,
         options: {
@@ -173,10 +174,9 @@ const login = async (req, res) => {
 
     // 1. Autenticar credenciales en Supabase Auth
     console.log('Authenticating with Supabase...');
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    const authClient = createSupabaseAuthClient();
+    const { data: authData, error: authError } =
+      await authClient.auth.signInWithPassword({ email, password });
 
     if (authError) {
       console.error('Supabase auth error:', authError);
@@ -260,24 +260,13 @@ const refresh = async (req, res) => {
     // anon key. NUNCA se usa la service-role key aquí: un endpoint público
     // operando con la service key tendría privilegios de administrador
     // (bypass de RLS) y elevaría cualquier abuso de refresh tokens.
-    const supabaseAuthKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!process.env.SUPABASE_URL || !supabaseAuthKey) {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
       return res.status(500).json({
         message: 'Servicio de autenticación no configurado'
       });
     }
 
-    const refreshClient = createClient(
-      process.env.SUPABASE_URL,
-      supabaseAuthKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    const refreshClient = createSupabaseAuthClient();
 
     const { data: authData, error: authError } =
       await refreshClient.auth.refreshSession({ refresh_token: refreshToken });

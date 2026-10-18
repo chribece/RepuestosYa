@@ -10,6 +10,47 @@ import 'package:repuestosya/widgets/ry_button.dart';
 /// el pin, el reverse geocoding prellena los campos en segundo plano, y las
 /// ediciones del usuario no se pisan con autocompletados posteriores.
 void main() {
+  testWidgets('Guardar se habilita al completar alias y calle principal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: DireccionService(),
+            resolverUbicacion: () async => const UbicacionResultado(
+              estado: UbicacionEstado.noDisponible,
+              mensaje: 'GPS no disponible',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final saveButtonFinder = find.widgetWithText(RyButton, 'Guardar');
+    expect(tester.widget<RyButton>(saveButtonFinder).isDisabled, isTrue);
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Casa');
+    await tester.pump();
+    expect(tester.widget<RyButton>(saveButtonFinder).isDisabled, isTrue);
+
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'Av. 10 de Agosto',
+    );
+    await tester.pump();
+
+    final enabledSaveButton = tester.widget<RyButton>(saveButtonFinder);
+    expect(enabledSaveButton.isDisabled, isFalse);
+    expect(enabledSaveButton.variant, RyButtonVariant.primary);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'usar el GPS autocompleta los campos y el usuario no reescribe desde cero',
     (tester) async {

@@ -5,7 +5,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
-import '../utils/contact_launcher.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -104,7 +104,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          'Registrar Almacén',
+          'Registro de Almacén',
           style: AppTextStyles.textStyleTitle.copyWith(
             color: AppColors.onSurface,
           ),
@@ -112,25 +112,29 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.spacingMd),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.spacingMd,
+            AppSpacing.spacingSm,
+            AppSpacing.spacingMd,
+            AppSpacing.spacingLg,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: AppSpacing.spacingMd),
                 _buildWelcomeText(),
-                const SizedBox(height: AppSpacing.spacingXl),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildRepresentanteField(),
-                const SizedBox(height: AppSpacing.spacingLg),
+                const SizedBox(height: AppSpacing.spacingMd),
                 _buildEmailField(),
-                const SizedBox(height: AppSpacing.spacingLg),
+                const SizedBox(height: AppSpacing.spacingMd),
                 _buildTelefonoField(),
-                const SizedBox(height: AppSpacing.spacingLg),
+                const SizedBox(height: AppSpacing.spacingMd),
                 _buildPasswordField(),
-                const SizedBox(height: AppSpacing.spacingLg),
+                const SizedBox(height: AppSpacing.spacingMd),
                 _buildConfirmPasswordField(),
-                const SizedBox(height: AppSpacing.spacingXl),
+                const SizedBox(height: AppSpacing.spacingLg),
                 _buildRegisterButton(),
               ],
             ),
@@ -142,20 +146,31 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   Widget _buildWelcomeText() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Crear Cuenta',
-          style: AppTextStyles.textStyleHeading.copyWith(
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.primaryContainer.withValues(alpha: 0.16),
+            border: Border.all(
+              color: AppColors.primaryContainer.withValues(alpha: 0.3),
+            ),
+          ),
+          child: const Icon(
+            Icons.storefront,
+            size: 42,
             color: AppColors.primary,
           ),
         ),
-        const SizedBox(height: AppSpacing.spacingXs),
+        const SizedBox(height: AppSpacing.spacingMd),
         Text(
-          'Regístrate para comenzar a gestionar tu almacén.',
+          'Ingresa tus datos básicos para comenzar el registro de tu establecimiento.',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -163,11 +178,13 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   Widget _buildRepresentanteField() {
     return RyTextField(
-      label: 'Nombre Completo',
+      label: 'Nombre completo',
       hint: 'Ej: Juan Pérez',
       controller: _representanteController,
       type: RyTextFieldType.text,
+      isDense: true,
       isRequired: true,
+      prefixIcon: Icons.person_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'El nombre completo es requerido';
@@ -182,18 +199,20 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   Widget _buildEmailField() {
     return RyTextField(
-      label: 'Email',
+      label: 'Correo electrónico',
       hint: 'Ej: contacto@repuestosya.com',
       controller: _emailController,
       type: RyTextFieldType.email,
+      isDense: true,
       isRequired: true,
+      prefixIcon: Icons.mail_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
-          return 'El email es requerido';
+          return 'El correo electrónico es requerido';
         }
         final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
         if (!emailRegex.hasMatch(value.trim())) {
-          return 'Por favor ingrese un email válido';
+          return 'Por favor ingrese un correo electrónico válido';
         }
         return null;
       },
@@ -203,22 +222,36 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   Widget _buildTelefonoField() {
     return RyTextField(
       label: 'Teléfono',
-      hint: 'Ej: 0991234567',
+      hint: 'Ej: 981894367',
       controller: _telefonoController,
       type: RyTextFieldType.phone,
+      isDense: true,
+      keyboardType: TextInputType.phone,
+      inputFormatters: ecuadorMobilePhoneInputFormatters(),
       isRequired: true,
-      prefixIcon: Icons.phone_android,
-      helperText:
-          'El cliente ganador lo usará para coordinar el pago y la entrega.',
+      prefixWidget: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Text(
+            '+593',
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Container(width: 1, height: 24, color: AppColors.outlineVariant),
+        ],
+      ),
+      helperText: 'Número de contacto para coordinar solicitudes.',
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant,
+      ),
       helperMaxLines: 3,
       validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El teléfono es requerido';
-        }
-        if (!esTelefonoValido(value)) {
-          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
-        }
-        return null;
+        return validarTelefonoMovilEcuador(value);
       },
     );
   }
@@ -229,7 +262,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       hint: '••••••••',
       controller: _passwordController,
       type: RyTextFieldType.password,
+      isDense: true,
       isRequired: true,
+      prefixIcon: Icons.lock_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'La contraseña es requerida';
@@ -244,11 +279,13 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   Widget _buildConfirmPasswordField() {
     return RyTextField(
-      label: 'Confirmar Contraseña',
+      label: 'Confirmar contraseña',
       hint: '••••••••',
       controller: _confirmPasswordController,
       type: RyTextFieldType.password,
+      isDense: true,
       isRequired: true,
+      prefixIcon: Icons.lock_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Por favor confirme su contraseña';

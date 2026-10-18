@@ -208,7 +208,10 @@ class AppRouter {
         GoRoute(
           path: '/request/create',
           name: RouteNames.createRequest,
-          builder: (context, state) => const CreateRequestPage(),
+          builder: (context, state) => CreateRequestPage(
+            isOnboardingFlow:
+                state.uri.queryParameters['source'] == 'onboarding',
+          ),
         ),
         GoRoute(
           path: '/solicitudes',

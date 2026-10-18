@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
@@ -14,16 +15,20 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/ry_snackbar.dart';
+import '../widgets/ry_button.dart';
 
 class VehiclesPage extends StatefulWidget {
-  const VehiclesPage({super.key});
+  const VehiclesPage({super.key, this.vehiculoService});
+
+  final VehiculoService? vehiculoService;
 
   @override
   State<VehiclesPage> createState() => _VehiclesPageState();
 }
 
 class _VehiclesPageState extends State<VehiclesPage> {
-  final VehiculoService _vehiculoService = VehiculoService();
+  late final VehiculoService _vehiculoService =
+      widget.vehiculoService ?? VehiculoService();
 
   List<Map<String, dynamic>> _vehiculos = [];
   bool _isLoading = false;
@@ -170,11 +175,22 @@ class _VehiclesPageState extends State<VehiclesPage> {
               type: RyStateType.loading,
             )
           : _vehiculos.isEmpty
-          ? const RyStateContainer(
+          ? RyStateContainer(
               title: 'Sin vehículos',
               subtitle:
                   'No tienes vehículos registrados. Agrega tu primer vehículo.',
               type: RyStateType.empty,
+              customContent: SizedBox(
+                width: double.infinity,
+                child: RyButton(
+                  label: 'Agregar mi primer vehículo',
+                  icon: Icons.add,
+                  variant: RyButtonVariant.primary,
+                  size: RyButtonSize.large,
+                  isFullWidth: true,
+                  onPressed: () => _mostrarFormularioVehiculo(),
+                ),
+              ),
             )
           : ListView.builder(
               padding: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -305,6 +321,10 @@ class VehicleFormDialog extends StatefulWidget {
 }
 
 class _VehicleFormDialogState extends State<VehicleFormDialog> {
+  static final RegExp _vinPattern = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$');
+  static const String _vinValidationMessage =
+      'El VIN debe tener 17 caracteres alfanuméricos.';
+
   final _formKey = GlobalKey<FormState>();
   final _selectionFieldKey = GlobalKey<FormFieldState<int>>();
   final _vinController = TextEditingController();
@@ -324,6 +344,10 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   int? _initialModeloId;
   bool _isLoadingMarcas = false;
   bool _isLoadingModelos = false;
+  int _modelosLoadSequence = 0;
+
+  String get _yearRangeMessage =>
+      'Ingresa un año válido entre 1900 y ${DateTime.now().year + 1}.';
 
   @override
   void initState() {
@@ -331,7 +355,9 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
     _cargarMarcas();
 
     if (widget.vehiculo != null) {
-      _vinController.text = widget.vehiculo!['vin'] ?? '';
+      _vinController.text = (widget.vehiculo!['vin'] ?? '')
+          .toString()
+          .toUpperCase();
       _anioController.text = widget.vehiculo!['anio']?.toString() ?? '';
       _patenteController.text = widget.vehiculo!['placa'] ?? '';
 
@@ -406,6 +432,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   }
 
   Future<void> _cargarModelos(int marcaId, {int? modeloInicial}) async {
+    final sequence = ++_modelosLoadSequence;
     setState(() {
       _isLoadingModelos = true;
       _modelos = [];
@@ -414,7 +441,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
 
     try {
       final modelos = await _modeloService.getModelosPorMarca(marcaId);
-      if (!mounted) return;
+      if (!mounted || sequence != _modelosLoadSequence) return;
       setState(() {
         _modelos = modelos;
         // A retired model stays unselected; the dropdown presents its hint.
@@ -425,6 +452,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             : null;
       });
     } catch (e) {
+      if (!mounted || sequence != _modelosLoadSequence) return;
       AppLogger.error(
         'Error al cargar modelos',
         name: '_VehicleFormDialogState',
@@ -439,7 +467,9 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoadingModelos = false);
+      if (mounted && sequence == _modelosLoadSequence) {
+        setState(() => _isLoadingModelos = false);
+      }
     }
   }
 
@@ -473,8 +503,20 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
     return _modeloExisteParaMarca(_modelos, modeloId, marcaId);
   }
 
+  bool get _requiredFieldsValid {
+    final vin = _vinController.text.trim();
+    final year = int.tryParse(_anioController.text.trim());
+    final latestAllowedYear = DateTime.now().year + 1;
+
+    return _seleccionMarcaModeloValida &&
+        _vinPattern.hasMatch(vin) &&
+        year != null &&
+        year >= 1900 &&
+        year <= latestAllowedYear;
+  }
+
   Future<void> _guardar() async {
-    if (_formKey.currentState!.validate()) {
+    if (_requiredFieldsValid && _formKey.currentState!.validate()) {
       try {
         if (widget.vehiculo != null) {
           // Actualizar
@@ -717,7 +759,8 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                           value: _seleccionMarcaModeloValida
                               ? _selectedModeloId
                               : null,
-                          onChanged: _selectedMarcaId == null
+                          onChanged:
+                              _selectedMarcaId == null || _modelos.isEmpty
                               ? null
                               : (value) {
                                   setState(() {
@@ -747,6 +790,8 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                           hint: Text(
                             _selectedMarcaId == null
                                 ? 'Selecciona primero una marca'
+                                : _modelos.isEmpty
+                                ? 'No hay modelos disponibles'
                                 : 'Selecciona un modelo',
                             style: AppTextStyles.textStyleCaption.copyWith(
                               color: AppColors.onSurfaceVariant,
@@ -785,30 +830,53 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
             RyTextField(
               label: 'Número VIN (Chasis)',
               controller: _vinController,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                  RegExp(r'[A-HJ-NPR-Z0-9a-hj-npr-z]'),
+                ),
+                LengthLimitingTextInputFormatter(17),
+                TextInputFormatter.withFunction(
+                  (oldValue, newValue) => newValue.copyWith(
+                    text: newValue.text.toUpperCase(),
+                    composing: TextRange.empty,
+                  ),
+                ),
+              ],
+              keyboardType: TextInputType.text,
               isRequired: true,
-              helperText: 'Debe tener 17 caracteres',
-              validator: (value) => value?.trim().length == 17
+              maxLength: 17,
+              helperText: '17 caracteres; busca en chasis o matrícula.',
+              helperStyle: AppTextStyles.textStyleCaption.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+              helperMaxLines: 4,
+              onChanged: (_) => setState(() {}),
+              validator: (value) =>
+                  _vinPattern.hasMatch(value?.trim().toUpperCase() ?? '')
                   ? null
-                  : 'Debe tener 17 caracteres',
+                  : _vinValidationMessage,
             ),
             const SizedBox(height: AppSpacing.spacingMd),
             RyTextField(
               label: 'Año',
               controller: _anioController,
               type: RyTextFieldType.number,
+              keyboardType: TextInputType.number,
               isRequired: true,
-              helperText: 'Debe estar entre 1900 y el año actual + 1',
+              helperText: _yearRangeMessage,
+              onChanged: (_) => setState(() {}),
               validator: (value) {
                 final year = int.tryParse(value?.trim() ?? '');
                 final latestAllowedYear = DateTime.now().year + 1;
                 return year != null && year >= 1900 && year <= latestAllowedYear
                     ? null
-                    : 'Debe estar entre 1900 y el año actual + 1';
+                    : _yearRangeMessage;
               },
             ),
             const SizedBox(height: AppSpacing.spacingMd),
             RyTextField(
               label: 'Placa (opcional)',
+              hint: 'Ej: ABC-1234',
               controller: _patenteController,
             ),
           ],
@@ -833,12 +901,20 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
           ),
         ),
         GFButton(
-          onPressed: _guardar,
+          onPressed: _requiredFieldsValid ? _guardar : null,
           type: GFButtonType.solid,
-          color: AppColors.primaryContainer,
-          textColor: AppColors.onPrimaryContainer,
+          color: _requiredFieldsValid
+              ? AppColors.primaryContainer
+              : AppColors.surfaceVariant,
+          textColor: _requiredFieldsValid
+              ? AppColors.onPrimaryContainer
+              : AppColors.onSurfaceVariant,
+          disabledColor: AppColors.surfaceVariant,
+          disabledTextColor: AppColors.onSurfaceVariant,
           textStyle: AppTextStyles.textStyleButton.copyWith(
-            color: AppColors.onPrimaryContainer,
+            color: _requiredFieldsValid
+                ? AppColors.onPrimaryContainer
+                : AppColors.onSurfaceVariant,
           ),
           size: 48,
           borderShape: RoundedRectangleBorder(

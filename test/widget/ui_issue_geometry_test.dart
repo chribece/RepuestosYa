@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:getwidget/getwidget.dart';
 import 'package:provider/provider.dart';
 
 import 'package:repuestosya/pages/addresses_page.dart';
@@ -11,6 +12,7 @@ import 'package:repuestosya/providers/onboarding_provider.dart';
 import 'package:repuestosya/services/marca_service.dart';
 import 'package:repuestosya/services/modelo_service.dart';
 import 'package:repuestosya/services/onboarding_repository.dart';
+import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/theme/app_text_styles.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_button.dart';
@@ -18,6 +20,10 @@ import 'package:repuestosya/widgets/ry_button.dart';
 void main() {
   const registrationLink = '¿Ya tienes cuenta? Inicia sesión';
   const onboardingTitle = 'Comienza con RepuestosYa';
+  const vinError = 'El VIN debe tener 17 caracteres alfanuméricos.';
+  const vinHelper = '17 caracteres; busca en chasis o matrícula.';
+  final yearRangeMessage =
+      'Ingresa un año válido entre 1900 y ${DateTime.now().year + 1}.';
 
   Future<void> setViewport(
     WidgetTester tester, {
@@ -434,7 +440,7 @@ void main() {
   });
 
   testWidgets(
-    'los requeridos del vehículo muestran sus validaciones a 420 px',
+    'Guardar permanece deshabilitado mientras falten campos obligatorios',
     (tester) async {
       await setViewport(tester, width: 420);
       await tester.pumpWidget(
@@ -450,30 +456,61 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Guardar'));
-      await tester.pumpAndSettle();
 
-      for (final message in [
-        'Debe tener 17 caracteres',
-        'Debe estar entre 1900 y el año actual + 1',
-        'Por favor selecciona marca y modelo',
-      ]) {
-        final finder = find.text(message);
-        expect(finder, findsOneWidget);
-        await tester.ensureVisible(finder);
-        await tester.pumpAndSettle();
-        final paragraph = tester.renderObject<RenderParagraph>(finder);
-        final messageRect = tester.getRect(finder);
-        final scrollRect = tester.getRect(
-          find.byKey(const ValueKey('ry-form-dialog-scroll')),
-        );
-        expect(messageRect.top, greaterThanOrEqualTo(scrollRect.top));
-        expect(messageRect.bottom, lessThanOrEqualTo(scrollRect.bottom));
-        expect(paragraph.didExceedMaxLines, isFalse, reason: message);
-      }
+      final saveButton = tester.widget<GFButton>(
+        find.widgetWithText(GFButton, 'Guardar'),
+      );
+      expect(saveButton.onPressed, isNull);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Guardar se habilita con marca, modelo, VIN y año válidos', (
+    tester,
+  ) async {
+    await setViewport(tester, width: 420);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        home: Scaffold(
+          body: VehicleFormDialog(
+            onSave: () {},
+            marcaService: _FakeMarcaService(),
+            modeloService: _FakeModeloService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final marcaDropdown = tester.widget<GFDropdown<int>>(
+      find.byType(GFDropdown<int>).at(0),
+    );
+    marcaDropdown.onChanged!(7);
+    await tester.pumpAndSettle();
+
+    final modeloDropdown = tester.widget<GFDropdown<int>>(
+      find.byType(GFDropdown<int>).at(1),
+    );
+    modeloDropdown.onChanged!(11);
+
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      '2A4KM4A67GH123456',
+    );
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      DateTime.now().year.toString(),
+    );
+    await tester.pumpAndSettle();
+
+    final saveButton = tester.widget<GFButton>(
+      find.widgetWithText(GFButton, 'Guardar'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+    expect(saveButton.color, AppColors.primaryContainer);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('las ayudas del formulario de vehículo hacen wrap a 420 px', (
     tester,
@@ -493,10 +530,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final helper in [
-      'Debe tener 17 caracteres',
-      'Debe estar entre 1900 y el año actual + 1',
-    ]) {
+    for (final helper in [vinHelper, yearRangeMessage]) {
       final finder = find.text(helper);
       expect(finder, findsOneWidget);
       await tester.ensureVisible(finder);
@@ -510,6 +544,39 @@ void main() {
       expect(helperRect.bottom, lessThanOrEqualTo(scrollRect.bottom));
       expect(paragraph.didExceedMaxLines, isFalse, reason: helper);
     }
+    expect(find.text('Ej: ABC-1234'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).keyboardType,
+      TextInputType.number,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('VIN acepta caracteres alfanuméricos y limita la entrada a 17', (
+    tester,
+  ) async {
+    await setViewport(tester, width: 420);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        home: Scaffold(
+          body: VehicleFormDialog(
+            onSave: () {},
+            marcaService: _FakeMarcaService(),
+            modeloService: _FakeModeloService(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final vinField = find.byType(TextFormField).at(0);
+    await tester.enterText(vinField, '2a4km4a67gh123456ZZ');
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(0)).controller!.text,
+      '2A4KM4A67GH123456',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -531,20 +598,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'VIN-CORTO');
+    await tester.enterText(find.byType(TextFormField).at(0), '123');
     await tester.enterText(find.byType(TextFormField).at(1), '1800');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Debe tener 17 caracteres'), findsOneWidget);
-    expect(
-      find.text('Debe estar entre 1900 y el año actual + 1'),
-      findsOneWidget,
-    );
-    for (final message in [
-      'Debe tener 17 caracteres',
-      'Debe estar entre 1900 y el año actual + 1',
-    ]) {
+    expect(find.text(vinError), findsOneWidget);
+    expect(find.text(yearRangeMessage), findsOneWidget);
+    for (final message in [vinError, yearRangeMessage]) {
       expect(
         tester
             .renderObject<RenderParagraph>(find.text(message))

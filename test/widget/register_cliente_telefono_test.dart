@@ -48,13 +48,30 @@ void main() {
 
   testWidgets('teléfono con menos de 9 dígitos: se bloquea', (tester) async {
     await pumpRegistro(tester);
-    await llenarCamposValidos(tester, telefono: '0991234');
+    await llenarCamposValidos(tester, telefono: '9812345');
 
     await tester.tap(find.text('REGISTRARSE'));
     await tester.pump();
 
     expect(
-      find.text('Ingresa un teléfono válido (mín. 9 dígitos)'),
+      find.text('Ingresa 9 dígitos sin el 0, ej: 981894367'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('el cero inicial se elimina del teléfono local', (tester) async {
+    await pumpRegistro(tester);
+    await llenarCamposValidos(tester, telefono: '098123456');
+
+    final telefono = tester.widget<TextField>(find.byType(TextField).at(2));
+    expect(telefono.controller!.text, '98123456');
+    expect(find.text('+593'), findsOneWidget);
+
+    await tester.tap(find.text('REGISTRARSE'));
+    await tester.pump();
+
+    expect(
+      find.text('Ingresa 9 dígitos sin el 0, ej: 981894367'),
       findsOneWidget,
     );
   });
@@ -62,14 +79,14 @@ void main() {
   testWidgets('teléfono válido: la validación del formulario no muestra '
       'errores de teléfono', (tester) async {
     await pumpRegistro(tester);
-    await llenarCamposValidos(tester, telefono: '+593 998757857');
+    await llenarCamposValidos(tester, telefono: '998757857');
 
     await tester.tap(find.text('REGISTRARSE'));
     await tester.pump();
 
     expect(find.text('El teléfono es requerido'), findsNothing);
     expect(
-      find.text('Ingresa un teléfono válido (mín. 9 dígitos)'),
+      find.text('Ingresa 9 dígitos sin el 0, ej: 981894367'),
       findsNothing,
     );
     // En tests la red está bloqueada (respuesta 400) y el registro muestra

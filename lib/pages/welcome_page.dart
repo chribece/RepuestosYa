@@ -4,6 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_logo_badge.dart';
 import '../router/route_names.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -18,23 +19,27 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Container(
-        decoration: const BoxDecoration(color: AppColors.background),
+      body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.spacingLg),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.spacingMd,
+              AppSpacing.spacingXs,
+              AppSpacing.spacingMd,
+              AppSpacing.spacingMd,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: AppSpacing.spacingXxl),
+                const SizedBox(height: AppSpacing.spacingLg),
                 // Welcome Text
                 _buildWelcomeText(),
-                const SizedBox(height: AppSpacing.spacingXxxl),
+                const SizedBox(height: AppSpacing.spacingLg),
                 // Action Buttons
                 _buildActionButtons(),
-                const SizedBox(height: AppSpacing.spacingXl),
+                const SizedBox(height: AppSpacing.spacingMd),
                 // Footer
                 _buildFooter(),
               ],
@@ -48,20 +53,8 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryContainer.withValues(alpha: 0.15),
-            border: Border.all(
-              color: AppColors.primaryContainer.withValues(alpha: 0.3),
-              width: 2,
-            ),
-          ),
-          child: const Icon(Icons.build, size: 60, color: AppColors.primary),
-        ),
-        const SizedBox(height: AppSpacing.spacingXl),
+        const RyLogoBadge(size: 160),
+        const SizedBox(height: AppSpacing.spacingMd),
         Text(
           'RepuestosYa',
           style: AppTextStyles.textStyleDisplay.copyWith(
@@ -84,7 +77,7 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: AppSpacing.spacingMd),
+        const SizedBox(height: AppSpacing.spacingSm),
         Text(
           'Conectamos clientes y almacenes con\nprecisión, velocidad y confianza.',
           style: AppTextStyles.textStyleBody.copyWith(
@@ -110,7 +103,7 @@ class _WelcomePageState extends State<WelcomePage> {
             context.pushNamed(RouteNames.login);
           },
         ),
-        const SizedBox(height: AppSpacing.spacingMd),
+        const SizedBox(height: AppSpacing.spacingSm),
         RyButton(
           label: 'Crear nueva cuenta',
           icon: Icons.person_add,
@@ -129,10 +122,14 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildFooter() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: AppSpacing.spacingMd,
+          runSpacing: AppSpacing.spacingXs,
           children: [
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
                   Icons.verified,
@@ -149,10 +146,8 @@ class _WelcomePageState extends State<WelcomePage> {
                 ),
               ],
             ),
-            const SizedBox(width: AppSpacing.spacingLg),
-            Container(width: 1, height: 16, color: AppColors.outlineVariant),
-            const SizedBox(width: AppSpacing.spacingLg),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
                   Icons.security,
@@ -171,9 +166,9 @@ class _WelcomePageState extends State<WelcomePage> {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.spacingLg),
+        const SizedBox(height: AppSpacing.spacingMd),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingSm),
           child: Text(
             '© 2026 VCore Tech S.A. Todos los derechos reservados.',
             style: AppTextStyles.textStyleSmall.copyWith(

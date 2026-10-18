@@ -6,7 +6,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
-import '../utils/contact_launcher.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -99,22 +99,23 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Container(
-        decoration: const BoxDecoration(color: AppColors.background),
+      body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.spacingMd,
+              AppSpacing.spacingXs,
+              AppSpacing.spacingMd,
+              AppSpacing.spacingLg,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo Section
                 _buildLogoSection(),
-                const SizedBox(height: AppSpacing.spacingXl),
+                const SizedBox(height: AppSpacing.spacingLg),
                 // Registration Form Card
                 _buildRegistrationForm(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                // Footer
-                _buildFooter(),
               ],
             ),
           ),
@@ -144,7 +145,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         ),
         const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Performance y precisión en cada pieza.',
+          'Crea tu cuenta para buscar y cotizar repuestos.',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -161,7 +162,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         border: Border.all(color: AppColors.outlineVariant),
       ),
-      padding: const EdgeInsets.all(AppSpacing.spacingLg),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       child: Form(
         key: _formKey,
         child: Column(
@@ -169,23 +170,23 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           children: [
             // Name Field
             _buildNameField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            const SizedBox(height: AppSpacing.spacingSm),
             // Email Field
             _buildEmailField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            const SizedBox(height: AppSpacing.spacingSm),
             // Teléfono (obligatorio: el almacén ganador lo usa para coordinar
             // el pago y la entrega del repuesto)
             _buildTelefonoField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            const SizedBox(height: AppSpacing.spacingSm),
             // Password Field
             _buildPasswordField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            const SizedBox(height: AppSpacing.spacingSm),
             // Confirm Password Field
             _buildConfirmPasswordField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            const SizedBox(height: AppSpacing.spacingSm),
             // Accept Terms
             _buildAcceptTerms(),
-            const SizedBox(height: AppSpacing.spacingLg),
+            const SizedBox(height: AppSpacing.spacingMd),
             // Action Buttons
             _buildActionButtons(),
           ],
@@ -200,6 +201,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       hint: 'Juan Pérez',
       controller: _nameController,
       type: RyTextFieldType.text,
+      isDense: true,
       isRequired: true,
       prefixIcon: Icons.person,
       validator: (value) {
@@ -216,19 +218,20 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
 
   Widget _buildEmailField() {
     return RyTextField(
-      label: 'Email corporativo / Usuario',
+      label: 'Correo electrónico',
       hint: 'nombre@empresa.com',
       controller: _emailController,
       type: RyTextFieldType.email,
+      isDense: true,
       isRequired: true,
       prefixIcon: Icons.mail,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
-          return 'Por favor ingrese su email';
+          return 'Por favor ingrese su correo electrónico';
         }
         final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
         if (!emailRegex.hasMatch(value.trim())) {
-          return 'Por favor ingrese un email válido';
+          return 'Por favor ingrese un correo electrónico válido';
         }
         return null;
       },
@@ -238,22 +241,37 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
   Widget _buildTelefonoField() {
     return RyTextField(
       label: 'Teléfono',
-      hint: 'Ej: 0991234567',
+      hint: 'Ej: 981894367',
       controller: _telefonoController,
       type: RyTextFieldType.phone,
+      isDense: true,
+      keyboardType: TextInputType.phone,
+      inputFormatters: ecuadorMobilePhoneInputFormatters(),
       isRequired: true,
-      prefixIcon: Icons.phone_android,
+      prefixWidget: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Text(
+            '+593',
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Container(width: 1, height: 24, color: AppColors.outlineVariant),
+        ],
+      ),
       helperText:
           'El almacén ganador lo usará para coordinar el pago y la entrega.',
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant,
+      ),
       helperMaxLines: 3,
       validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El teléfono es requerido';
-        }
-        if (!esTelefonoValido(value)) {
-          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
-        }
-        return null;
+        return validarTelefonoMovilEcuador(value);
       },
     );
   }
@@ -264,6 +282,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       hint: '••••••••',
       controller: _passwordController,
       type: RyTextFieldType.password,
+      isDense: true,
       isRequired: true,
       prefixIcon: Icons.lock,
       validator: (value) {
@@ -284,6 +303,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       hint: '••••••••',
       controller: _confirmPasswordController,
       type: RyTextFieldType.password,
+      isDense: true,
       isRequired: true,
       prefixIcon: Icons.lock_outline,
       validator: (value) {
@@ -347,7 +367,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           isLoading: _isLoading,
           onPressed: _handleRegistration,
         ),
-        const SizedBox(height: AppSpacing.spacingMd),
+        const SizedBox(height: AppSpacing.spacingLg),
         Center(
           child: RyButton(
             label: '¿Ya tienes cuenta? Inicia sesión',
@@ -355,63 +375,6 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             onPressed: () {
               context.goNamed(RouteNames.login);
             },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: AppSpacing.spacingMd,
-          runSpacing: AppSpacing.spacingXs,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'Certificado ISO 9001',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'SSL Secure',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
-          child: Text(
-            '© 2024 RepuestosYa S.A. Todos los derechos reservados.',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
           ),
         ),
       ],

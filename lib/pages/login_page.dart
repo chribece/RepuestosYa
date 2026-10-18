@@ -10,6 +10,7 @@ import '../utils/app_logger.dart';
 import '../utils/ry_snackbar.dart';
 import '../providers/user_role_provider.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_logo_badge.dart';
 import '../widgets/ry_text_field.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -199,15 +200,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryContainer.withValues(alpha: 0.2),
-          ),
-          child: Icon(Icons.build, size: 50, color: AppColors.primary),
-        ),
+        const RyLogoBadge(),
         const SizedBox(height: AppSpacing.spacingLg),
         Text('Bienvenido', style: AppTextStyles.textStyleHeading),
         const SizedBox(height: AppSpacing.spacingXs),

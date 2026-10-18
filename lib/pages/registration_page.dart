@@ -8,6 +8,7 @@ import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_logo_badge.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import '../router/route_names.dart';
@@ -120,15 +121,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryContainer.withValues(alpha: 0.2),
-          ),
-          child: const Icon(Icons.build, size: 50, color: AppColors.primary),
-        ),
+        const RyLogoBadge(),
         const SizedBox(height: AppSpacing.spacingLg),
         Text(
           'Crear Cuenta',

@@ -12,14 +12,13 @@ import '../services/almacen_repository.dart';
 import '../services/geocoding_service.dart';
 import '../services/ubicacion_service.dart';
 import '../widgets/ry_text_field.dart';
-import '../widgets/ry_button.dart';
 import '../widgets/ry_location_picker.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
-import '../utils/contact_launcher.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
@@ -370,25 +369,39 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildWelcomeText(),
-                  const SizedBox(height: AppSpacing.spacingXl),
-                  _buildNombreField(),
                   const SizedBox(height: AppSpacing.spacingLg),
+                  _buildSectionHeading(
+                    'Datos del negocio',
+                    Icons.storefront_outlined,
+                  ),
+                  const SizedBox(height: AppSpacing.spacingSm),
+                  _buildNombreField(),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildRucField(),
                   const SizedBox(height: AppSpacing.spacingLg),
+                  _buildSectionHeading(
+                    'Datos de contacto',
+                    Icons.contact_phone_outlined,
+                  ),
+                  const SizedBox(height: AppSpacing.spacingSm),
                   _buildRepresentanteField(),
-                  const SizedBox(height: AppSpacing.spacingLg),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildTelefonoField(),
                   const SizedBox(height: AppSpacing.spacingLg),
-                  // Ubicación: mapa embebido (reemplaza a lat/lng).
+                  _buildSectionHeading(
+                    'Ubicación y cobertura',
+                    Icons.location_on_outlined,
+                  ),
+                  const SizedBox(height: AppSpacing.spacingSm),
                   _buildUbicacionAlmacen(),
-                  const SizedBox(height: AppSpacing.spacingLg),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildDireccionField(),
                   const SizedBox(height: AppSpacing.spacingXl),
                   _buildCompleteButton(),
@@ -398,6 +411,31 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSectionHeading(String title, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primaryContainer.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+          ),
+          child: Icon(icon, color: AppColors.primary, size: 20),
+        ),
+        const SizedBox(width: AppSpacing.spacingSm),
+        Expanded(
+          child: Text(
+            title,
+            style: AppTextStyles.textStyleTitle.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -483,18 +521,35 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Widget _buildTelefonoField() {
     return RyTextField(
       label: 'Teléfono',
-      hint: 'Ej: +593 998757857',
+      hint: 'Ej: 981894367',
       controller: _telefonoController,
       type: RyTextFieldType.phone,
+      isDense: true,
+      keyboardType: TextInputType.phone,
+      inputFormatters: ecuadorMobilePhoneInputFormatters(),
       isRequired: true,
+      prefixWidget: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Text(
+            '+593',
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Container(width: 1, height: 24, color: AppColors.outlineVariant),
+        ],
+      ),
+      helperText: 'Ingresa 9 dígitos sin el 0 inicial.',
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant,
+      ),
       validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El teléfono es requerido';
-        }
-        if (!esTelefonoValido(value)) {
-          return 'Ingresa un teléfono válido (mín. 9 dígitos)';
-        }
-        return null;
+        return validarTelefonoMovilEcuador(value);
       },
     );
   }
@@ -518,22 +573,30 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSpacing.spacingXs,
+            runSpacing: AppSpacing.spacingXs,
             children: [
-              const Icon(
-                Icons.storefront_outlined,
-                size: 18,
-                color: AppColors.primaryContainer,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.storefront_outlined,
+                    size: 18,
+                    color: AppColors.primaryContainer,
+                  ),
+                  const SizedBox(width: AppSpacing.spacingXs),
+                  Text(
+                    'Ubicación del Almacén',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.spacingXs),
-              Text(
-                'Ubicación del Almacén',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
               if (_ubicacionFijada)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -583,12 +646,40 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             onChanged: _moverPin,
           ),
           const SizedBox(height: AppSpacing.spacingSm),
-          RyButton(
-            label: 'Usar mi ubicación actual',
-            icon: Icons.my_location,
-            variant: RyButtonVariant.primary,
-            isFullWidth: true,
-            onPressed: _usarUbicacionActual,
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: _usarUbicacionActual,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                backgroundColor: AppColors.surfaceContainerHigh,
+                side: BorderSide(
+                  color: AppColors.primaryContainer.withValues(alpha: 0.65),
+                ),
+                minimumSize: const Size.fromHeight(52),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingSm,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                ),
+                textStyle: AppTextStyles.textStyleButton,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.my_location),
+                  const SizedBox(width: AppSpacing.spacingXs),
+                  const Flexible(
+                    child: Text(
+                      'Usar mi ubicación actual',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           if (_autocompletando || _direccionAutocompletada) ...[
             const SizedBox(height: AppSpacing.spacingXs),
@@ -627,9 +718,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Widget _buildDireccionField() {
     return RyTextField(
       label: 'Dirección',
-      hint: 'Ej: Av. Principal 123, Ciudad',
+      hint: 'Ej: Av. Principal 123, sector norte, junto al parque',
       controller: _direccionController,
-      maxLines: 3,
+      maxLines: 4,
       isRequired: true,
       errorText: _fieldErrors['direccion_texto'],
       validator: (value) {

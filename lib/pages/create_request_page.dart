@@ -26,7 +26,6 @@ import '../widgets/ry_dropdown_field.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_image_picker.dart';
 import '../widgets/nueva_direccion_sheet.dart';
-import '../widgets/ry_section_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -46,6 +45,7 @@ class CreateRequestPage extends StatefulWidget {
     this.direccionService,
     this.catalogService,
     this.ubicacionService,
+    this.isOnboardingFlow = false,
   });
 
   /// Servicios inyectables para widget tests (Fase 2 de docs/TESTING.md):
@@ -55,6 +55,7 @@ class CreateRequestPage extends StatefulWidget {
   final DireccionService? direccionService;
   final CatalogService? catalogService;
   final UbicacionService? ubicacionService;
+  final bool isOnboardingFlow;
 
   @override
   State<CreateRequestPage> createState() => _CreateRequestPageState();
@@ -116,7 +117,14 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       if (provider.selectedCategoryId != null) {
         _cargarRepuestos(provider.selectedCategoryId!);
       }
-      for (final additionalPart in provider.additionalParts) {
+      final additionalParts = provider.additionalParts;
+      final firstIncomplete = additionalParts
+          .where((part) => part.repuestoId == null)
+          .firstOrNull;
+      if (firstIncomplete != null && mounted) {
+        setState(() => _expandedAdditionalParts.add(firstIncomplete.id));
+      }
+      for (final additionalPart in additionalParts) {
         _cargarRepuestosAdicional(additionalPart);
       }
     });
@@ -443,11 +451,41 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   // ========== IMAGEN ==========
 
   void _showToast(String message) {
-    mostrarSnackbarExito(
-      context,
-      mensaje: message,
-      duracion: const Duration(seconds: 5),
-    );
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.surfaceContainerHigh,
+          duration: const Duration(seconds: 2),
+          elevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            side: BorderSide(color: AppColors.success.withValues(alpha: 0.4)),
+          ),
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_outline,
+                color: AppColors.success,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
   }
 
   // ========== AGREGAR NUEVA DIRECCIÓN ==========
@@ -544,135 +582,236 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   void _changeLocation() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        title: Text(
-          'Seleccionar dirección de entrega',
-          style: AppTextStyles.textStyleTitle,
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: _isLoadingDirecciones
-              ? const RyStateContainer(
-                  title: 'Cargando direcciones...',
-                  type: RyStateType.loading,
-                )
-              : _direcciones.isEmpty
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'No tienes direcciones registradas',
-                      style: AppTextStyles.textStyleBody.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+      builder: (dialogContext) {
+        final media = MediaQuery.of(dialogContext);
+        final emptyStateHeight = (media.size.height * 0.3)
+            .clamp(120.0, 240.0)
+            .toDouble();
+
+        return Dialog(
+          backgroundColor: AppColors.surfaceContainerHigh,
+          insetPadding: const EdgeInsets.all(AppSpacing.spacingMd),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 560,
+              maxHeight: media.size.height * 0.86,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingMd,
+                vertical: AppSpacing.spacingSm,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.spacingSm,
                     ),
-                    const SizedBox(height: AppSpacing.spacingMd),
-                    RyButton(
-                      label: 'Agregar dirección',
-                      icon: Icons.add,
-                      variant: RyButtonVariant.primary,
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _agregarDireccion();
-                      },
-                    ),
-                  ],
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _direcciones.length,
-                        itemBuilder: (context, index) {
-                          final direccion = _direcciones[index];
-                          final isSelected =
-                              direccion['id'] ==
-                              context
-                                  .read<CreateRequestProvider>()
-                                  .selectedDireccionId;
-                          return ListTile(
-                            title: Text(
-                              _formatDireccion(direccion),
-                              style: AppTextStyles.textStyleBody,
-                            ),
-                            trailing: isSelected
-                                ? const Icon(
-                                    Icons.check_circle,
-                                    color: AppColors.primaryContainer,
-                                  )
-                                : null,
-                            onTap: () async {
-                              final provider = context
-                                  .read<CreateRequestProvider>();
-                              provider.updateDireccion(
-                                direccion['id'] as String?,
-                              );
-                              _gpsLat = null;
-                              _gpsLng = null;
-                              if (_tieneCoordenadas(direccion)) {
-                                provider.setUbicacionResuelta(true);
-                              } else {
-                                // Dirección legacy sin coordenadas: resolver
-                                // la ubicación AHORA (GPS o vía manual, que el
-                                // backend geocodifica al enviar) para que el
-                                // envío quede habilitado.
-                                final ubicacion = await _flujoUbicacionGps();
-                                if (!mounted) return;
-                                if (ubicacion.disponible) {
-                                  _gpsLat = ubicacion.latitude;
-                                  _gpsLng = ubicacion.longitude;
-                                }
-                                // GPS ok o manual → resuelta (el backend
-                                // geocodifica si hace falta).
-                                provider.setUbicacionResuelta(true);
-                              }
-                              if (!mounted || !context.mounted) return;
-                              setState(() {
-                                _locationController.text = _formatDireccion(
-                                  direccion,
-                                );
-                              });
-                              Navigator.pop(context);
-                              _showToast('Dirección actualizada');
-                            },
-                          );
-                        },
+                    child: Text(
+                      'Seleccionar dirección de entrega',
+                      style: AppTextStyles.textStyleTitle.copyWith(
+                        fontSize: 18,
+                        color: AppColors.onSurface,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
-                    const Divider(color: AppColors.outlineVariant),
-                    ListTile(
-                      leading: const Icon(
-                        Icons.add_circle,
-                        color: AppColors.primaryContainer,
-                      ),
-                      title: Text(
-                        'Agregar nueva dirección',
-                        style: AppTextStyles.textStyleBody.copyWith(
-                          color: AppColors.primaryContainer,
+                  ),
+                  const Divider(color: AppColors.outlineVariant),
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.spacingXs,
+                          vertical: AppSpacing.spacingSm,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: _isLoadingDirecciones
+                              ? const SizedBox(
+                                  height: 160,
+                                  child: Center(
+                                    child: RyStateContainer(
+                                      title: 'Cargando direcciones...',
+                                      type: RyStateType.loading,
+                                    ),
+                                  ),
+                                )
+                              : _direcciones.isEmpty
+                              ? SizedBox(
+                                  height: emptyStateHeight,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 64,
+                                          height: 64,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: AppColors.primaryContainer
+                                                .withValues(alpha: 0.12),
+                                          ),
+                                          child: const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 32,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          height: AppSpacing.spacingMd,
+                                        ),
+                                        Text(
+                                          'Aún no tienes direcciones',
+                                          style: AppTextStyles.textStyleTitle
+                                              .copyWith(
+                                                color: AppColors.onSurface,
+                                              ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(
+                                          height: AppSpacing.spacingXs,
+                                        ),
+                                        Text(
+                                          'Agrega una dirección para recibir tus repuestos.',
+                                          textAlign: TextAlign.center,
+                                          style: AppTextStyles.textStyleBody
+                                              .copyWith(
+                                                color:
+                                                    AppColors.onSurfaceVariant,
+                                              ),
+                                        ),
+                                        const SizedBox(
+                                          height: AppSpacing.spacingLg,
+                                        ),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: RyButton(
+                                            label: 'Agregar dirección',
+                                            icon: Icons.add,
+                                            variant: RyButtonVariant.primary,
+                                            size: RyButtonSize.large,
+                                            isFullWidth: true,
+                                            onPressed: () {
+                                              Navigator.pop(dialogContext);
+                                              _agregarDireccion();
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ..._direcciones.map((direccion) {
+                                      final isSelected =
+                                          direccion['id'] ==
+                                          dialogContext
+                                              .read<CreateRequestProvider>()
+                                              .selectedDireccionId;
+                                      return ListTile(
+                                        title: Text(
+                                          _formatDireccion(direccion),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: AppTextStyles.textStyleBody,
+                                        ),
+                                        trailing: isSelected
+                                            ? const Icon(
+                                                Icons.check_circle,
+                                                color:
+                                                    AppColors.primaryContainer,
+                                              )
+                                            : null,
+                                        onTap: () async {
+                                          final provider = dialogContext
+                                              .read<CreateRequestProvider>();
+                                          provider.updateDireccion(
+                                            direccion['id'] as String?,
+                                          );
+                                          _gpsLat = null;
+                                          _gpsLng = null;
+                                          if (_tieneCoordenadas(direccion)) {
+                                            provider.setUbicacionResuelta(true);
+                                          } else {
+                                            final ubicacion =
+                                                await _flujoUbicacionGps();
+                                            if (!mounted) return;
+                                            if (ubicacion.disponible) {
+                                              _gpsLat = ubicacion.latitude;
+                                              _gpsLng = ubicacion.longitude;
+                                            }
+                                            provider.setUbicacionResuelta(true);
+                                          }
+                                          if (!mounted ||
+                                              !dialogContext.mounted) {
+                                            return;
+                                          }
+                                          setState(() {
+                                            _locationController.text =
+                                                _formatDireccion(direccion);
+                                          });
+                                          Navigator.pop(dialogContext);
+                                          _showToast('Dirección actualizada');
+                                        },
+                                      );
+                                    }),
+                                    const Divider(
+                                      color: AppColors.outlineVariant,
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(
+                                        Icons.add_circle,
+                                        color: AppColors.primaryContainer,
+                                      ),
+                                      title: Text(
+                                        'Agregar nueva dirección',
+                                        style: AppTextStyles.textStyleBody
+                                            .copyWith(
+                                              color: AppColors.primaryContainer,
+                                            ),
+                                      ),
+                                      onTap: () {
+                                        Navigator.pop(dialogContext);
+                                        _agregarDireccion();
+                                      },
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        _agregarDireccion();
-                      },
                     ),
-                  ],
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancelar',
-              style: AppTextStyles.textStyleButton.copyWith(
-                color: AppColors.onSurfaceVariant,
+                  ),
+                  const Divider(color: AppColors.outlineVariant),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(88, 48),
+                        foregroundColor: AppColors.onSurfaceVariant,
+                      ),
+                      child: Text(
+                        'Cancelar',
+                        style: AppTextStyles.textStyleButton.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -973,19 +1112,58 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           backgroundColor: AppColors.surfaceContainerHigh,
-          title: const Text('¡Solicitud Enviada!'),
-          content: const Text(
-            'Los proveedores se encuentran revisando tu solicitud. Pronto recibirás respuesta en tu bandeja de cotizaciones. Te notificaremos cuando recibas ofertas.',
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryContainer.withValues(alpha: 0.14),
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  size: 36,
+                  color: AppColors.primaryContainer,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.spacingMd),
+              Text(
+                '¡Solicitud enviada con éxito!',
+                style: AppTextStyles.textStyleTitle.copyWith(
+                  color: AppColors.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          content: Text(
+            'Los almacenes ya están revisando lo que necesitas. '
+            'Te notificaremos en cuanto recibas las primeras cotizaciones.',
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
           ),
           actions: [
-            TextButton(
+            RyButton(
+              label: widget.isOnboardingFlow
+                  ? 'Continuar'
+                  : 'Ver mis solicitudes',
+              trailingIcon: Icons.arrow_forward,
+              variant: RyButtonVariant.primary,
+              size: RyButtonSize.medium,
               onPressed: () {
-                Navigator.pop(context);
-                context.pop();
+                Navigator.pop(dialogContext);
+                if (widget.isOnboardingFlow) {
+                  context.pop();
+                } else {
+                  context.goNamed(RouteNames.solicitudes);
+                }
               },
-              child: const Text('OK'),
             ),
           ],
         ),
@@ -1142,6 +1320,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.spacingMd),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Form(
           key: _formKey,
           child: Column(
@@ -1167,8 +1346,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 ],
               ),
               const SizedBox(height: AppSpacing.spacingXl),
-              _buildImageSection(provider),
+              _buildVehicleDropdown(provider),
               const SizedBox(height: AppSpacing.spacingXl),
+              _buildImageSection(provider),
+              const SizedBox(height: AppSpacing.spacingLg),
               RyDropdownField<PartCategory>(
                 label: 'Categoría de repuesto',
                 hint: 'Selecciona una categoría',
@@ -1208,10 +1389,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 },
               ),
               const SizedBox(height: AppSpacing.spacingMd),
-              _buildAdditionalPartsSection(provider),
-              const SizedBox(height: AppSpacing.spacingMd),
-              _buildVehicleDropdown(provider),
-              const SizedBox(height: AppSpacing.spacingMd),
               RyTextField(
                 label: 'Detalles adicionales',
                 initialValue: provider.descripcion,
@@ -1240,6 +1417,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 },
               ),
               const SizedBox(height: AppSpacing.spacingMd),
+              _buildAdditionalPartsSection(provider),
+              const SizedBox(height: AppSpacing.spacingMd),
               _buildPrioritySection(provider),
               const SizedBox(height: AppSpacing.spacingMd),
               _buildLocationSection(provider),
@@ -1256,37 +1435,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         primaryLoading: _isSubmitting,
         primaryDisabled: !provider.ubicacionResuelta,
         onPrimaryPressed: provider.ubicacionResuelta ? _handleSubmit : null,
-        banner: !provider.ubicacionResuelta
-            ? _buildUbicacionPendienteBanner()
-            : null,
       ),
-    );
-  }
-
-  /// Aviso de ubicación pendiente que acompaña al botón primario (rúbrica:
-  /// el envío queda bloqueado hasta resolver coordenadas por GPS o dirección
-  /// manual).
-  Widget _buildUbicacionPendienteBanner() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(
-          Icons.location_searching,
-          size: 16,
-          color: AppColors.warning,
-        ),
-        const SizedBox(width: AppSpacing.spacingXs),
-        Flexible(
-          child: Text(
-            'Ubicación pendiente — toca "Cambiar" junto a la dirección para verificarla',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.warning,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
     );
   }
 
@@ -1320,13 +1469,31 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   }
 
   Widget _buildAdditionalPartsSection(CreateRequestProvider provider) {
-    return RySectionCard(
-      title: 'Repuestos adicionales',
-      icon: Icons.add_box_outlined,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.add_box_outlined,
+              size: 20,
+              color: AppColors.primaryContainer,
+            ),
+            const SizedBox(width: AppSpacing.spacingSm),
+            Expanded(
+              child: Text(
+                'Repuestos adicionales',
+                style: AppTextStyles.textStyleTitle.copyWith(
+                  color: AppColors.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.spacingXxs),
         Text(
           'Agrega otros repuestos o accesorios que necesitas para el mismo vehículo.',
-          style: AppTextStyles.textStyleBody.copyWith(
+          style: AppTextStyles.textStyleCaption.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
         ),
@@ -1334,11 +1501,12 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           const SizedBox(height: AppSpacing.spacingMd),
           ...provider.additionalParts.asMap().entries.map(
             (entry) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+              padding: const EdgeInsets.only(bottom: AppSpacing.spacingSm),
               child: _buildAdditionalPartCard(provider, entry.value, entry.key),
             ),
           ),
         ],
+        const SizedBox(height: AppSpacing.spacingXs),
         RyButton(
           label: 'Agregar otro repuesto',
           icon: Icons.add,
@@ -1366,21 +1534,195 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         .where((part) => part.id == additionalPart.repuestoId)
         .firstOrNull;
     final isLoading = _loadingAdditionalParts.contains(additionalPart.id);
-    final isExpanded =
-        _expandedAdditionalParts.contains(additionalPart.id) ||
-        additionalPart.repuestoId == null;
+    final isExpanded = _expandedAdditionalParts.contains(additionalPart.id);
 
     if (!isExpanded) {
       return _buildCollapsedAdditionalPartCard(provider, additionalPart, index);
     }
 
-    return RySectionCard(
-      title: 'Repuesto adicional ${index + 1}',
-      icon: Icons.build_outlined,
-      children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Semantics(
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingSm),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Nuevo repuesto',
+                  style: AppTextStyles.textStyleTitle.copyWith(
+                    color: AppColors.onSurface,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: 'Eliminar repuesto adicional ${index + 1}',
+                child: IconButton(
+                  tooltip: 'Eliminar repuesto adicional',
+                  icon: const Icon(Icons.delete_outline),
+                  color: AppColors.error,
+                  onPressed: () {
+                    _additionalCategoryErrors.remove(additionalPart.id);
+                    _additionalPartErrors.remove(additionalPart.id);
+                    provider.removeAdditionalPart(additionalPart.id);
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.spacingXs),
+          RyDropdownField<PartCategory>(
+            label: 'Categoría',
+            hint: 'Selecciona una categoría',
+            isRequired: true,
+            items: _categories,
+            value: selectedCategory,
+            isLoading: _isLoadingCategories,
+            errorText: _additionalCategoryErrors[additionalPart.id],
+            itemLabelBuilder: (category) => category.nombre,
+            onChanged: (category) {
+              provider.updateAdditionalCategory(
+                additionalPart.id,
+                category?.id,
+                category?.nombre,
+              );
+              setState(() {
+                _additionalCategoryErrors.remove(additionalPart.id);
+                _additionalPartErrors.remove(additionalPart.id);
+              });
+              if (category != null) {
+                _cargarRepuestosAdicional(additionalPart);
+              }
+            },
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyDropdownField<CatalogPart>(
+            label: 'Repuesto',
+            hint: additionalPart.categoriaId == null
+                ? 'Selecciona primero una categoría'
+                : 'Selecciona el repuesto',
+            isRequired: true,
+            items: parts,
+            value: selectedPart,
+            enabled: additionalPart.categoriaId != null,
+            isLoading: isLoading,
+            errorText: _additionalPartErrors[additionalPart.id],
+            itemLabelBuilder: (part) => part.nombre,
+            onChanged: (part) {
+              provider.updateAdditionalPart(
+                additionalPart.id,
+                part?.id,
+                part?.nombre,
+              );
+              setState(() => _additionalPartErrors.remove(additionalPart.id));
+            },
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyTextField(
+            label: 'Detalles adicionales (opcional)',
+            initialValue: additionalPart.descripcionProblema,
+            maxLines: 3,
+            onChanged: (value) =>
+                provider.updateAdditionalDescription(additionalPart.id, value),
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyTextField(
+            label: 'Cantidad',
+            initialValue: additionalPart.cantidad.toString(),
+            type: RyTextFieldType.number,
+            keyboardType: TextInputType.number,
+            onChanged: (value) => provider.updateAdditionalQuantity(
+              additionalPart.id,
+              int.tryParse(value) ?? 1,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyButton(
+            label: 'Agregar a la lista',
+            icon: Icons.check,
+            variant: RyButtonVariant.outline,
+            isFullWidth: true,
+            onPressed: () => _addAdditionalPartToList(additionalPart),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollapsedAdditionalPartCard(
+    CreateRequestProvider provider,
+    AdditionalRequestPart additionalPart,
+    int index,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingSm,
+        vertical: AppSpacing.spacingXs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            additionalPart.repuestoId == null
+                ? Icons.pending_outlined
+                : Icons.check_circle_outline,
+            color: additionalPart.repuestoId == null
+                ? AppColors.onSurfaceVariant
+                : AppColors.success,
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  additionalPart.repuestoNombreSnapshot ??
+                      'Pendiente de elegir',
+                  style: AppTextStyles.textStyleBody,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Cantidad: ${additionalPart.cantidad}',
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: 'Editar repuesto adicional ${index + 1}',
+            child: IconButton(
+              tooltip: 'Editar repuesto adicional',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () {
+                setState(() {
+                  _expandedAdditionalParts
+                    ..clear()
+                    ..add(additionalPart.id);
+                });
+              },
+            ),
+          ),
+          Semantics(
             button: true,
             label: 'Eliminar repuesto adicional ${index + 1}',
             child: IconButton(
@@ -1394,138 +1736,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               },
             ),
           ),
-        ),
-        RyDropdownField<PartCategory>(
-          label: 'Categoría',
-          hint: 'Selecciona una categoría',
-          isRequired: true,
-          items: _categories,
-          value: selectedCategory,
-          isLoading: _isLoadingCategories,
-          errorText: _additionalCategoryErrors[additionalPart.id],
-          itemLabelBuilder: (category) => category.nombre,
-          onChanged: (category) {
-            provider.updateAdditionalCategory(
-              additionalPart.id,
-              category?.id,
-              category?.nombre,
-            );
-            setState(() {
-              _additionalCategoryErrors.remove(additionalPart.id);
-              _additionalPartErrors.remove(additionalPart.id);
-            });
-            if (category != null) {
-              _cargarRepuestosAdicional(additionalPart);
-            }
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyDropdownField<CatalogPart>(
-          label: 'Repuesto',
-          hint: additionalPart.categoriaId == null
-              ? 'Selecciona primero una categoría'
-              : 'Selecciona el repuesto',
-          isRequired: true,
-          items: parts,
-          value: selectedPart,
-          enabled: additionalPart.categoriaId != null,
-          isLoading: isLoading,
-          errorText: _additionalPartErrors[additionalPart.id],
-          itemLabelBuilder: (part) => part.nombre,
-          onChanged: (part) {
-            provider.updateAdditionalPart(
-              additionalPart.id,
-              part?.id,
-              part?.nombre,
-            );
-            setState(() => _additionalPartErrors.remove(additionalPart.id));
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Detalles adicionales (opcional)',
-          initialValue: additionalPart.descripcionProblema,
-          maxLines: 3,
-          onChanged: (value) =>
-              provider.updateAdditionalDescription(additionalPart.id, value),
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Cantidad',
-          initialValue: additionalPart.cantidad.toString(),
-          type: RyTextFieldType.number,
-          keyboardType: TextInputType.number,
-          onChanged: (value) => provider.updateAdditionalQuantity(
-            additionalPart.id,
-            int.tryParse(value) ?? 1,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyButton(
-          label: 'Agregar a la lista',
-          icon: Icons.check,
-          isFullWidth: true,
-          onPressed: () => _addAdditionalPartToList(additionalPart),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCollapsedAdditionalPartCard(
-    CreateRequestProvider provider,
-    AdditionalRequestPart additionalPart,
-    int index,
-  ) {
-    return RySectionCard(
-      title: 'Repuesto adicional ${index + 1}',
-      icon: Icons.check_circle_outline,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                additionalPart.repuestoNombreSnapshot ?? 'Repuesto pendiente',
-                style: AppTextStyles.textStyleBody,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Semantics(
-              button: true,
-              label: 'Editar repuesto adicional ${index + 1}',
-              child: IconButton(
-                tooltip: 'Editar repuesto adicional',
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () {
-                  setState(() {
-                    _expandedAdditionalParts
-                      ..clear()
-                      ..add(additionalPart.id);
-                  });
-                },
-              ),
-            ),
-            Semantics(
-              button: true,
-              label: 'Eliminar repuesto adicional ${index + 1}',
-              child: IconButton(
-                tooltip: 'Eliminar repuesto adicional',
-                icon: const Icon(Icons.delete_outline),
-                color: AppColors.error,
-                onPressed: () {
-                  provider.removeAdditionalPart(additionalPart.id);
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingXs),
-        Text(
-          'Cantidad: ${additionalPart.cantidad}',
-          style: AppTextStyles.textStyleCaption.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1796,11 +2008,20 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               ],
             ),
           ),
-          RyButton(
-            label: 'Cambiar',
-            variant: RyButtonVariant.text,
-            size: RyButtonSize.small,
+          const SizedBox(width: AppSpacing.spacingXs),
+          IconButton(
+            tooltip: 'Cambiar ubicación',
             onPressed: _changeLocation,
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(48),
+              backgroundColor: AppColors.primaryContainer.withValues(
+                alpha: 0.12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              ),
+            ),
+            icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
           ),
         ],
       ),
@@ -1847,10 +2068,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           size: 14,
           color: AppColors.warning,
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: AppSpacing.spacingXxs),
         Flexible(
           child: Text(
-            'Ubicación pendiente — toca "Cambiar" para verificarla',
+            'Pendiente de verificar',
             style: AppTextStyles.textStyleSmall.copyWith(
               color: AppColors.warning,
             ),

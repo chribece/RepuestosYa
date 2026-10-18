@@ -5,6 +5,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_logo_badge.dart';
 import '../router/route_names.dart';
 
 class RoleSelectionPage extends StatefulWidget {
@@ -15,32 +16,42 @@ class RoleSelectionPage extends StatefulWidget {
 }
 
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
-  final _formKey = GlobalKey<FormState>();
   String? _selectedRole;
+  bool _showRoleError = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Container(
-        decoration: const BoxDecoration(color: AppColors.background),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.spacingLg),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo Section
-                _buildLogoSection(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                // Role Selection Form
-                _buildRoleSelectionForm(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                // Footer
-                _buildFooter(),
-              ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: context.pop,
+                tooltip: 'Volver',
+                icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+              ),
             ),
-          ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.spacingMd,
+                  AppSpacing.spacingXs,
+                  AppSpacing.spacingMd,
+                  AppSpacing.spacingLg,
+                ),
+                child: Column(
+                  children: [
+                    _buildLogoSection(),
+                    const SizedBox(height: AppSpacing.spacingLg),
+                    _buildRoleSelectionForm(),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -49,16 +60,8 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryContainer.withValues(alpha: 0.2),
-          ),
-          child: const Icon(Icons.build, size: 50, color: AppColors.primary),
-        ),
-        const SizedBox(height: AppSpacing.spacingLg),
+        const RyLogoBadge(size: 160),
+        const SizedBox(height: AppSpacing.spacingMd),
         Text(
           'Cuéntanos quién eres',
           style: AppTextStyles.textStyleHeading.copyWith(
@@ -78,124 +81,131 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   }
 
   Widget _buildRoleSelectionForm() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      padding: const EdgeInsets.all(AppSpacing.spacingLg),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Role Dropdown
-            _buildRoleDropdown(),
-            const SizedBox(height: AppSpacing.spacingLg),
-            // Continue Button
-            _buildContinueButton(),
-            const SizedBox(height: AppSpacing.spacingMd),
-            // Back Button
-            _buildBackButton(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoleDropdown() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: 'Tipo de cuenta',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextSpan(
-                text: ' *',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.requiredAsterisk,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+        Text(
+          'Elige tu tipo de cuenta',
+          style: AppTextStyles.textStyleTitle.copyWith(
+            color: AppColors.onSurface,
           ),
         ),
-        const SizedBox(height: AppSpacing.spacingXs),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-            border: Border.all(color: AppColors.outlineVariant),
+        const SizedBox(height: AppSpacing.spacingSm),
+        _buildRoleCard(
+          role: 'Cliente',
+          description: 'Quiero encontrar y comprar repuestos',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: AppSpacing.spacingSm),
+        _buildRoleCard(
+          role: 'Almacén',
+          description: 'Quiero ofrecer repuestos y cotizaciones',
+          icon: Icons.storefront_outlined,
+        ),
+        if (_showRoleError) ...[
+          const SizedBox(height: AppSpacing.spacingXs),
+          Text(
+            'Selecciona una opción para continuar.',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: SemanticColors.colorErrorText,
+              letterSpacing: 0,
+            ),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              initialValue: _selectedRole,
-              decoration: const InputDecoration(
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingMd,
-                  vertical: AppSpacing.spacingSm,
+        ],
+        const SizedBox(height: AppSpacing.spacingLg),
+        _buildContinueButton(),
+      ],
+    );
+  }
+
+  Widget _buildRoleCard({
+    required String role,
+    required String description,
+    required IconData icon,
+  }) {
+    final isSelected = _selectedRole == role;
+    final accent = SemanticColors.colorPrimaryButton;
+    final radius = BorderRadius.circular(AppRadius.radiusMd);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? accent.withValues(alpha: 0.14)
+            : AppColors.surfaceContainerLow,
+        borderRadius: radius,
+        border: Border.all(
+          color: isSelected ? accent : AppColors.outlineVariant,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: () {
+            setState(() {
+              _selectedRole = role;
+              _showRoleError = false;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? accent.withValues(alpha: 0.2)
+                        : AppColors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isSelected ? accent : AppColors.onSurfaceVariant,
+                  ),
                 ),
-                border: InputBorder.none,
-              ),
-              dropdownColor: AppColors.surfaceContainerHigh,
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-              icon: const Icon(
-                Icons.expand_more,
-                color: AppColors.onSurfaceVariant,
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Cliente',
-                  child: Row(
+                const SizedBox(width: AppSpacing.spacingMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.person, color: AppColors.primary, size: 20),
-                      SizedBox(width: AppSpacing.spacingSm),
-                      Text('Cliente'),
+                      Text(
+                        role,
+                        style: AppTextStyles.textStyleTitle.copyWith(
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.spacingXxs),
+                      Text(
+                        description,
+                        style: AppTextStyles.textStyleCaption.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                DropdownMenuItem(
-                  value: 'Almacén',
-                  child: Row(
-                    children: [
-                      Icon(Icons.warehouse, color: AppColors.primary, size: 20),
-                      SizedBox(width: AppSpacing.spacingSm),
-                      Text('Almacén'),
-                    ],
-                  ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Icon(
+                  isSelected
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  color: isSelected ? accent : AppColors.outlineVariant,
                 ),
               ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedRole = value;
-                });
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Por favor selecciona un tipo de cuenta';
-                }
-                return null;
-              },
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _buildContinueButton() {
     return RyButton(
-      label: 'CONTINUAR',
+      label: 'Continuar',
       trailingIcon: Icons.arrow_forward,
       variant: RyButtonVariant.primary,
       size: RyButtonSize.large,
@@ -204,83 +214,16 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     );
   }
 
-  Widget _buildBackButton() {
-    return Center(
-      child: RyButton(
-        label: 'Volver',
-        variant: RyButtonVariant.text,
-        onPressed: () {
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
   void _handleContinue() {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedRole == 'Cliente') {
-        context.pushNamed(RouteNames.registerCliente);
-      } else if (_selectedRole == 'Almacén') {
-        context.pushNamed(RouteNames.registerAlmacen);
-      }
+    if (_selectedRole == null) {
+      setState(() => _showRoleError = true);
+      return;
     }
-  }
 
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'Certificado ISO 9001',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Container(width: 1, height: 16, color: AppColors.outlineVariant),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Row(
-              children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
-                Text(
-                  'SSL Secure',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
-          child: Text(
-            '© 2026 VCore Tech S.A. Todos los derechos reservados.',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
+    if (_selectedRole == 'Cliente') {
+      context.pushNamed(RouteNames.registerCliente);
+    } else if (_selectedRole == 'Almacén') {
+      context.pushNamed(RouteNames.registerAlmacen);
+    }
   }
 }

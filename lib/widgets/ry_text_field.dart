@@ -22,6 +22,7 @@ class RyTextField extends StatefulWidget {
   final String? initialValue;
   final TextEditingController? controller;
   final String? helperText;
+  final TextStyle? helperStyle;
   final String? errorText;
   final RyTextFieldType type;
   final bool isRequired;
@@ -59,6 +60,7 @@ class RyTextField extends StatefulWidget {
     this.initialValue,
     this.controller,
     this.helperText,
+    this.helperStyle,
     this.errorText,
     this.type = RyTextFieldType.text,
     this.isRequired = false,
@@ -225,10 +227,17 @@ class _RyTextFieldState extends State<RyTextField> {
           hintText: widget.hint,
           hintMaxLines: widget.hintMaxLines,
           helperText: widget.helperText,
+          helperStyle: widget.helperStyle,
           helperMaxLines: widget.helperMaxLines,
           errorText: widget.errorText,
           errorMaxLines: widget.errorMaxLines,
           isDense: widget.isDense,
+          contentPadding: widget.isDense
+              ? const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingSm,
+                )
+              : null,
           prefixIcon: widget.prefixWidget != null
               ? Padding(
                   padding: const EdgeInsets.all(AppSpacing.spacingSm),

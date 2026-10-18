@@ -11,6 +11,7 @@ import 'package:repuestosya/providers/solicitudes_provider.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/ubicacion_service.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
+import 'package:repuestosya/widgets/ry_button.dart';
 
 import '../helpers/fake_connectivity.dart';
 import '../helpers/fake_services.dart';
@@ -80,8 +81,10 @@ void main() {
   Future<void> pumpForm(
     WidgetTester tester, {
     CreateRequestProvider? provider,
+    Size viewport = const Size(800, 2200),
+    bool isOnboardingFlow = false,
   }) async {
-    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.physicalSize = viewport;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -103,6 +106,7 @@ void main() {
               direccionService: direcciones,
               catalogService: catalogo,
               ubicacionService: _FakeUbicacion(),
+              isOnboardingFlow: isOnboardingFlow,
             ),
           ),
         ),
@@ -120,6 +124,191 @@ void main() {
     await tester.tap(find.text('Toyota Corolla (VIN: ...8901)').last);
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'el vehículo aparece primero y la ubicación pendiente solo se indica '
+    'dentro de su tarjeta',
+    (tester) async {
+      direcciones.respuestaDirecciones = [
+        {
+          'id': 'd-1',
+          'alias': 'Casa',
+          'calle_principal': 'Av. 10 de Agosto',
+          'es_principal': true,
+        },
+      ];
+      await pumpForm(tester);
+
+      Finder requiredLabel(String label) => find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().trim() == '$label *',
+      );
+
+      final orderedElements = [
+        requiredLabel('Selecciona tu vehículo'),
+        find.text('Toca para seleccionar'),
+        requiredLabel('Categoría de repuesto'),
+        requiredLabel('Repuesto'),
+        find.text('Detalles adicionales'),
+        find.text('Repuestos adicionales'),
+        find.text('Prioridad de la solicitud'),
+        find.text('Ubicación de entrega'),
+      ];
+
+      for (var index = 0; index < orderedElements.length - 1; index++) {
+        expect(
+          tester.getTopLeft(orderedElements[index]).dy,
+          lessThan(tester.getTopLeft(orderedElements[index + 1]).dy),
+        );
+      }
+
+      expect(find.text('Pendiente de verificar'), findsOneWidget);
+      expect(find.textContaining('Ubicación pendiente — toca'), findsNothing);
+      expect(find.text('BUSCAR REPUESTO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('el estado de ubicación no desborda en pantalla compacta', (
+    tester,
+  ) async {
+    direcciones.respuestaDirecciones = [
+      {
+        'id': 'd-1',
+        'alias': 'Casa',
+        'calle_principal': 'Av. 10 de Agosto',
+        'es_principal': true,
+      },
+    ];
+    await pumpForm(tester, viewport: const Size(320, 720));
+
+    final pendingStatus = find.text('Pendiente de verificar');
+    expect(pendingStatus, findsOneWidget);
+    await tester.ensureVisible(pendingStatus);
+    await tester.pumpAndSettle();
+
+    final statusRect = tester.getRect(pendingStatus);
+    expect(statusRect.left, greaterThanOrEqualTo(0));
+    expect(statusRect.right, lessThanOrEqualTo(320));
+    final changeLocationButton = find.byTooltip('Cambiar ubicación');
+    expect(changeLocationButton, findsOneWidget);
+    expect(tester.getRect(changeLocationButton).right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el selector sin direcciones muestra un CTA prominente', (
+    tester,
+  ) async {
+    direcciones.respuestaDirecciones = [];
+    await pumpForm(tester);
+
+    await tester.tap(find.byTooltip('Cambiar ubicación'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Aún no tienes direcciones'), findsOneWidget);
+    final addButton = tester.widget<RyButton>(
+      find.byWidgetPredicate(
+        (widget) => widget is RyButton && widget.label == 'Agregar dirección',
+      ),
+    );
+    expect(addButton.variant, RyButtonVariant.primary);
+    expect(addButton.size, RyButtonSize.large);
+    expect(addButton.isFullWidth, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'el selector de direcciones permite desplazar el contenido en horizontal',
+    (tester) async {
+      direcciones.respuestaDirecciones = List.generate(
+        8,
+        (index) => {
+          'id': 'd-$index',
+          'alias': 'Dirección $index',
+          'calle_principal':
+              'Avenida principal número $index, sector residencial norte',
+          'es_principal': index == 0,
+        },
+      );
+      await pumpForm(tester, viewport: const Size(640, 360));
+
+      final changeLocation = find.byTooltip('Cambiar ubicación');
+      await tester.ensureVisible(changeLocation);
+      await tester.pumpAndSettle();
+      await tester.tap(changeLocation);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Seleccionar dirección de entrega'), findsOneWidget);
+      expect(find.text('Cancelar'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Cancelar')).bottom,
+        lessThanOrEqualTo(360),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'la gestión de repuestos adicionales usa CTAs secundarios y se colapsa '
+    'al agregar a la lista',
+    (tester) async {
+      final provider = CreateRequestProvider();
+      await pumpForm(
+        tester,
+        provider: provider,
+        viewport: const Size(320, 720),
+      );
+
+      RyButton buttonWithLabel(String label) => tester.widget<RyButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is RyButton && widget.label == label,
+        ),
+      );
+
+      expect(
+        buttonWithLabel('Agregar otro repuesto').variant,
+        RyButtonVariant.outline,
+      );
+      final addNextAdditionalPart = find.text('Agregar otro repuesto');
+      await tester.ensureVisible(addNextAdditionalPart);
+      await tester.tap(addNextAdditionalPart);
+      await tester.pumpAndSettle();
+
+      final additionalPart = provider.additionalParts.single;
+      provider.updateAdditionalCategory(additionalPart.id, 'cat-1', 'Frenos');
+      provider.updateAdditionalPart(
+        additionalPart.id,
+        'rep-1',
+        'Pastillas de freno',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        buttonWithLabel('Agregar a la lista').variant,
+        RyButtonVariant.outline,
+      );
+      final addToList = find.text('Agregar a la lista');
+      await tester.ensureVisible(addToList);
+      await tester.tap(addToList);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pastillas de freno'), findsOneWidget);
+      expect(find.text('Agregar a la lista'), findsNothing);
+      expect(find.byTooltip('Eliminar repuesto adicional'), findsOneWidget);
+      expect(find.text('Repuesto 1'), findsNothing);
+
+      final addAnother = find.text('Agregar otro repuesto');
+      await tester.ensureVisible(addAnother);
+      await tester.tap(addAnother);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nuevo repuesto'), findsOneWidget);
+      expect(find.text('Pastillas de freno'), findsOneWidget);
+      expect(find.text('Agregar a la lista'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   group('bloqueo del envío con datos inválidos', () {
     testWidgets('campo obligatorio vacío: error visible y servicio nunca '
@@ -203,6 +392,37 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
   });
+
+  testWidgets(
+    'confirma el envío con un diálogo de éxito y acceso a solicitudes',
+    (tester) async {
+      final provider = CreateRequestProvider()
+        ..updatePiezaNombre('Filtro')
+        ..setSelectedCategoryId('cat-1')
+        ..setSelectedPartId('rep-1', 'Pastillas de freno')
+        ..updateVehiculo('v-1')
+        ..updateDescripcion('Pastillas delanteras para Toyota Corolla');
+      await pumpForm(tester, provider: provider, isOnboardingFlow: true);
+      await seleccionarVehiculo(tester);
+
+      await tester.tap(find.text('BUSCAR REPUESTO'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('¡Solicitud enviada con éxito!'), findsOneWidget);
+      expect(
+        find.text(
+          'Los almacenes ya están revisando lo que necesitas. '
+          'Te notificaremos en cuanto recibas las primeras cotizaciones.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.text('Continuar'), findsOneWidget);
+      expect(find.text('Ver mis solicitudes'), findsNothing);
+      expect(find.text('OK'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 /// Doble de UbicacionService: nunca debería invocarse en estos tests porque

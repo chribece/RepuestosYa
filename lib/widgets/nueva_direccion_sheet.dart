@@ -85,13 +85,11 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
 
   bool get _huboAutocompletado => _callePrincipalController.text.isNotEmpty;
 
-  /// Guardar queda deshabilitado hasta que haya coordenadas confirmadas
-  /// (por mapa) o, en el camino sin GPS, hasta que haya texto de dirección
-  /// manual no vacío.
-  bool get _puedeGuardar {
-    if (_coordenadasConfirmadas) return true;
-    return _callePrincipalController.text.trim().isNotEmpty;
-  }
+  /// GPS es opcional; el backend puede geocodificar la dirección manualmente.
+  /// Guardar se habilita cuando Alias y Calle principal tienen contenido.
+  bool get _puedeGuardar =>
+      _aliasController.text.trim().isNotEmpty &&
+      _callePrincipalController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -236,7 +234,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   }
 
   Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_puedeGuardar || !_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
     try {
       final nueva = await widget.direccionService.createDireccion(
@@ -323,15 +321,16 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
           label: 'Alias (ej: Casa, Taller)',
           controller: _aliasController,
           isRequired: true,
-          validator: (value) =>
-              (value == null || value.isEmpty) ? 'Ingresa un alias' : null,
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Ingresa un alias'
+              : null,
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         RyTextField(
           label: 'Calle principal',
           controller: _callePrincipalController,
           isRequired: true,
-          validator: (value) => (value == null || value.isEmpty)
+          validator: (value) => (value == null || value.trim().isEmpty)
               ? 'Ingresa la calle principal'
               : null,
         ),

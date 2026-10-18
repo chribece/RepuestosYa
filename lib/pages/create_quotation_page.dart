@@ -30,8 +30,15 @@ import '../utils/ry_snackbar.dart';
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
+  final SolicitudService? solicitudService;
+  final AlmacenService? almacenService;
 
-  const CreateQuotationPage({super.key, required this.solicitud});
+  const CreateQuotationPage({
+    super.key,
+    required this.solicitud,
+    this.solicitudService,
+    this.almacenService,
+  });
 
   @override
   State<CreateQuotationPage> createState() => _CreateQuotationPageState();
@@ -50,15 +57,89 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   // Almacén del encargado: se carga al iniciar para mostrar la distancia real
   // almacén → punto de entrega y reutilizarlo al enviar la cotización.
   Map<String, dynamic>? _almacen;
+  late Map<String, dynamic> _solicitud;
+  bool _isLoadingSolicitud = false;
+  bool _solicitudFetchInProgress = false;
+  String? _errorSolicitud;
 
-  final SolicitudService _solicitudService = SolicitudService();
-  late final AlmacenService _almacenService;
+  late final SolicitudService _solicitudService =
+      widget.solicitudService ?? SolicitudService();
+  late final AlmacenService _almacenService =
+      widget.almacenService ??
+      AlmacenService(context.read<AlmacenRepository>());
 
   @override
   void initState() {
     super.initState();
-    _almacenService = AlmacenService(context.read<AlmacenRepository>());
+    _solicitud = Map<String, dynamic>.from(widget.solicitud);
     _cargarAlmacen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _cargarSolicitudCompleta();
+    });
+  }
+
+  Map<String, dynamic> _datosSolicitud() {
+    final anidada = _solicitud['solicitud'];
+    if (anidada is Map) {
+      return {..._solicitud, ...Map<String, dynamic>.from(anidada)};
+    }
+    return _solicitud;
+  }
+
+  String _idSolicitud() {
+    final datos = _datosSolicitud();
+    return datos['id']?.toString() ?? datos['solicitud_id']?.toString() ?? '';
+  }
+
+  bool _tieneFichaTecnicaCompleta() {
+    final vehiculo = _datosSolicitud()['vehiculos_cliente'];
+    if (vehiculo is! Map) return false;
+    final modelo = vehiculo['modelos_vehiculo'];
+    if (modelo is! Map) return false;
+    final marca = modelo['marcas_vehiculo'];
+    return modelo['nombre'] != null && marca is Map && marca['nombre'] != null;
+  }
+
+  Future<void> _cargarSolicitudCompleta() async {
+    if (_solicitudFetchInProgress || _tieneFichaTecnicaCompleta()) return;
+    final id = _idSolicitud();
+    if (id.isEmpty || id == 'null') return;
+
+    _solicitudFetchInProgress = true;
+    setState(() {
+      _isLoadingSolicitud = true;
+      _errorSolicitud = null;
+    });
+    try {
+      final response = await _solicitudService.obtenerSolicitudPorId(id);
+      final rawData = response['data'] is Map
+          ? response['data'] as Map
+          : response;
+      final datosCompletos = Map<String, dynamic>.from(rawData);
+      if (!mounted) return;
+
+      setState(() {
+        final anidada = _solicitud['solicitud'];
+        _solicitud = {
+          ..._solicitud,
+          ...datosCompletos,
+          if (anidada is Map)
+            'solicitud': {
+              ...Map<String, dynamic>.from(anidada),
+              ...datosCompletos,
+            },
+        };
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorSolicitud = 'No se pudo cargar la ficha técnica del vehículo.';
+        });
+      }
+    } finally {
+      _solicitudFetchInProgress = false;
+      if (mounted) setState(() => _isLoadingSolicitud = false);
+    }
   }
 
   Future<void> _cargarAlmacen() async {
@@ -145,16 +226,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     String? uploadedImageUrl;
 
     try {
-      final Map<String, dynamic> objetoInterno =
-          widget.solicitud['solicitud'] is Map<String, dynamic>
-          ? widget.solicitud['solicitud'] as Map<String, dynamic>
-          : {};
-
-      solicitudId =
-          objetoInterno['id']?.toString() ??
-          widget.solicitud['solicitud_id']?.toString() ??
-          widget.solicitud['id']?.toString() ??
-          '';
+      solicitudId = _idSolicitud();
 
       if (solicitudId.isEmpty || solicitudId == 'null') {
         throw Exception(
@@ -361,24 +433,15 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic> objetoInterno =
-        widget.solicitud['solicitud'] is Map<String, dynamic>
-        ? widget.solicitud['solicitud'] as Map<String, dynamic>
-        : {};
+    final objetoInterno = _datosSolicitud();
 
     final String piezaNombre =
-        objetoInterno['pieza_nombre'] ??
-        widget.solicitud['pieza_nombre'] ??
-        'Repuesto';
+        objetoInterno['pieza_nombre']?.toString() ?? 'Repuesto';
     final String descripcion =
-        objetoInterno['descripcion'] ??
-        widget.solicitud['descripcion'] ??
+        objetoInterno['descripcion']?.toString() ??
         'Sin especificaciones técnicas';
 
-    final String idSolicitud =
-        widget.solicitud['solicitud_id']?.toString() ??
-        widget.solicitud['id']?.toString() ??
-        '0000';
+    final String idSolicitud = _idSolicitud();
     final String idCorto = idSolicitud.isNotEmpty
         ? idSolicitud.substring(
             0,
@@ -528,16 +591,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   }
 
   Widget _buildSummaryCard(String title, String subtitle) {
-    final Map<String, dynamic> objetoInterno =
-        widget.solicitud['solicitud'] is Map<String, dynamic>
-        ? widget.solicitud['solicitud'] as Map<String, dynamic>
-        : {};
+    final objetoInterno = _datosSolicitud();
 
-    final String? urlDeLaImagen =
-        objetoInterno['foto_url'] ??
-        objetoInterno['image_url'] ??
-        widget.solicitud['foto_url'] ??
-        widget.solicitud['image_url'];
+    final rawImageUrl = objetoInterno['foto_url'] ?? objetoInterno['image_url'];
+    final String? urlDeLaImagen = rawImageUrl?.toString();
     final bool hasImage =
         urlDeLaImagen != null && urlDeLaImagen.trim().isNotEmpty;
 
@@ -699,22 +756,69 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
-  Widget _buildVehicleTechnicalSheet(Map<String, dynamic> objetoInterno) {
-    final Map<String, dynamic> vehiculo =
-        widget.solicitud['vehiculos_cliente'] is Map<String, dynamic>
-        ? widget.solicitud['vehiculos_cliente'] as Map<String, dynamic>
-        : (objetoInterno['vehiculos_cliente'] is Map<String, dynamic>
-              ? objetoInterno['vehiculos_cliente'] as Map<String, dynamic>
-              : {});
+  Widget _buildFichaTecnicaEstado(
+    Widget icono,
+    String mensaje, {
+    Future<void> Function()? reintentar,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: 22, height: 22, child: icono),
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: Text(
+              mensaje,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: AppColors.onSurface,
+              ),
+            ),
+          ),
+          if (reintentar != null)
+            TextButton(
+              onPressed: () => reintentar(),
+              child: const Text('Reintentar'),
+            ),
+        ],
+      ),
+    );
+  }
 
-    final Map<String, dynamic> modelo =
-        vehiculo['modelos_vehiculo'] is Map<String, dynamic>
-        ? vehiculo['modelos_vehiculo'] as Map<String, dynamic>
+  Widget _buildVehicleTechnicalSheet(Map<String, dynamic> objetoInterno) {
+    if (_isLoadingSolicitud && !_tieneFichaTecnicaCompleta()) {
+      return _buildFichaTecnicaEstado(
+        const CircularProgressIndicator(strokeWidth: 2),
+        'Cargando ficha técnica del vehículo...',
+      );
+    }
+    if (_errorSolicitud != null && !_tieneFichaTecnicaCompleta()) {
+      return _buildFichaTecnicaEstado(
+        const Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+        _errorSolicitud!,
+        reintentar: _cargarSolicitudCompleta,
+      );
+    }
+
+    final rawVehiculo = objetoInterno['vehiculos_cliente'];
+    final Map<String, dynamic> vehiculo = rawVehiculo is Map
+        ? Map<String, dynamic>.from(rawVehiculo)
         : {};
 
-    final Map<String, dynamic> marca =
-        modelo['marcas_vehiculo'] is Map<String, dynamic>
-        ? modelo['marcas_vehiculo'] as Map<String, dynamic>
+    final rawModelo = vehiculo['modelos_vehiculo'];
+    final Map<String, dynamic> modelo = rawModelo is Map
+        ? Map<String, dynamic>.from(rawModelo)
+        : {};
+
+    final rawMarca = modelo['marcas_vehiculo'];
+    final Map<String, dynamic> marca = rawMarca is Map
+        ? Map<String, dynamic>.from(rawMarca)
         : {};
 
     final String marcaNombre = marca['nombre']?.toString() ?? 'No especificada';
@@ -726,7 +830,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         'No especificado';
 
     final String vin =
-        widget.solicitud['vin_busqueda']?.toString() ??
         objetoInterno['vin_busqueda']?.toString() ??
         vehiculo['vin']?.toString() ??
         '';
@@ -1040,10 +1143,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
   /// Es información núcleo para que el almacén valide la viabilidad operativa
   /// antes de cotizar (radio razonable, costos y tiempos de despacho).
   Widget _buildLogisticaDespachoSection() {
-    final Map<String, dynamic> objetoInterno =
-        widget.solicitud['solicitud'] is Map<String, dynamic>
-        ? widget.solicitud['solicitud'] as Map<String, dynamic>
-        : {};
+    final objetoInterno = _datosSolicitud();
 
     final Map<String, dynamic>? direccion =
         objetoInterno['direcciones_entrega'] is Map<String, dynamic>

@@ -19,10 +19,14 @@ class FakeSolicitudService extends SolicitudService {
   int solicitudesActivasCalls = 0;
   int misCotizacionesCalls = 0;
   int misOrdenesCalls = 0;
+  int obtenerSolicitudPorIdCalls = 0;
+  String? ultimaSolicitudConsultada;
   int cancelarSolicitudCalls = 0;
   String? ultimaSolicitudCancelada;
 
   Map<String, dynamic>? respuestaCrear;
+  Map<String, dynamic>? respuestaSolicitudPorId;
+  Object? falloAlObtenerSolicitudPorId;
   Object? falloAlCrear;
   Object? falloAlCrearCotizacion;
   Object? falloAlCancelar;
@@ -98,6 +102,16 @@ class FakeSolicitudService extends SolicitudService {
     idempotencyKeysCotizacion.add(idempotencyKey);
     if (falloAlCrearCotizacion != null) throw falloAlCrearCotizacion!;
     return {'id': 'cot-srv-1'};
+  }
+
+  @override
+  Future<Map<String, dynamic>> obtenerSolicitudPorId(String solicitudId) async {
+    obtenerSolicitudPorIdCalls++;
+    ultimaSolicitudConsultada = solicitudId;
+    if (falloAlObtenerSolicitudPorId != null) {
+      throw falloAlObtenerSolicitudPorId!;
+    }
+    return respuestaSolicitudPorId ?? {'id': solicitudId};
   }
 
   @override

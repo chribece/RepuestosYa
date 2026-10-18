@@ -278,8 +278,8 @@ class AppRouter {
             if (extra != null && extra.containsKey('solicitud')) {
               return CreateQuotationPage(solicitud: extra['solicitud']);
             }
-            // Si no hay extra, cargamos la solicitud (la página debería manejarlo si es null o pasar el ID)
-            // Por simplicidad en este paso, pasamos un map mínimo con el ID si no hay extra.
+            // La cotización carga el detalle completo (incluida la ficha del
+            // vehículo) usando este ID cuando el deep link no trae `extra`.
             return CreateQuotationPage(solicitud: {'id': solicitudId});
           },
         ),

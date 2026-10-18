@@ -400,7 +400,7 @@ class _HomePageState extends State<HomePage> {
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
           const SizedBox(width: AppSpacing.spacingXs),
-          Flexible(
+          Expanded(
             child: Text(
               'RepuestosYa',
               maxLines: 1,

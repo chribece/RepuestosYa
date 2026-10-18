@@ -1,5 +1,6 @@
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -245,6 +246,17 @@ void main() {
       expect(bell, findsOneWidget);
       expect(avatar, findsOneWidget);
       expect(title, findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(title).didExceedMaxLines,
+        isFalse,
+      );
+      final bellRect = tester.getRect(bell);
+      final avatarRect = tester.getRect(avatar);
+      expect(bellRect.right, lessThan(avatarRect.left));
+      expect(
+        avatarRect.right,
+        closeTo(appBarRect.right - AppSpacing.spacingMd, 1),
+      );
       for (final control in [bell, avatar, title]) {
         final rect = tester.getRect(control);
         expect(rect.left, greaterThanOrEqualTo(appBarRect.left));

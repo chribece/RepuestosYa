@@ -16,7 +16,7 @@ const {
  *
  * Devuelve `{ latitude, longitude, coordenadasFuente }` o lanza GeocodingError.
  */
-async function resolverCoordenadas({ callePrincipal, calleSecundaria, referencia, latitude, longitude, coordenadasFuente }) {
+async function resolverCoordenadas({ callePrincipal, ciudad, calleSecundaria, referencia, latitude, longitude, coordenadasFuente }) {
   const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
   const lon = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
 
@@ -30,7 +30,7 @@ async function resolverCoordenadas({ callePrincipal, calleSecundaria, referencia
 
   // Sin coordenadas del dispositivo: única vía de degradación controlada,
   // el backend geocodifica antes de aceptar el registro.
-  return geocodeDireccion({ callePrincipal, calleSecundaria, referencia }).then(
+  return geocodeDireccion({ callePrincipal, ciudad, calleSecundaria, referencia }).then(
     ({ latitude: geoLat, longitude: geoLon }) => ({
       latitude: geoLat,
       longitude: geoLon,
@@ -66,12 +66,14 @@ const createDireccion = async (req, res) => {
     const {
       alias,
       callePrincipal,
+      ciudad,
       calleSecundaria,
       referencia,
       latitude,
       longitude,
       coordenadasFuente
     } = req.body;
+    const ciudadNormalizada = typeof ciudad === 'string' ? ciudad.trim() : '';
 
     // 2. Validación de campos obligatorios según el nuevo diseño del formulario
     const errors = [];
@@ -94,6 +96,7 @@ const createDireccion = async (req, res) => {
     try {
       const coords = await resolverCoordenadas({
         callePrincipal: callePrincipal.trim(),
+        ciudad: ciudadNormalizada || undefined,
         calleSecundaria,
         referencia,
         latitude,
@@ -117,6 +120,7 @@ const createDireccion = async (req, res) => {
         cliente_id: req.user.id,
         alias: alias.trim(),
         calle_principal: callePrincipal.trim(),
+        ciudad: ciudadNormalizada || null,
         calle_secundaria: calleSecundaria && calleSecundaria.trim().length > 0 ? calleSecundaria.trim() : null,
         referencia: referencia && referencia.trim().length > 0 ? referencia.trim() : null,
         latitude: latitud,
@@ -145,17 +149,20 @@ const updateDireccion = async (req, res) => {
     const {
       alias,
       callePrincipal,
+      ciudad,
       calleSecundaria,
       referencia,
       latitude,
       longitude,
       coordenadasFuente
     } = req.body;
+    const ciudadNormalizada =
+      typeof ciudad === 'string' ? ciudad.trim() : ciudad;
 
     // Verificar pertenencia del registro (Seguridad)
     const { data: existing, error: checkError } = await supabase
       .from('direcciones_entrega')
-      .select('cliente_id, calle_principal, calle_secundaria, referencia, latitude, longitude')
+      .select('cliente_id, calle_principal, ciudad, calle_secundaria, referencia, latitude, longitude')
       .eq('id', id)
       .single();
 
@@ -181,6 +188,9 @@ const updateDireccion = async (req, res) => {
 
     if (alias) updateData.alias = alias.trim();
     if (callePrincipalFinal) updateData.calle_principal = callePrincipalFinal;
+    if (ciudad !== undefined) {
+      updateData.ciudad = ciudadNormalizada || null;
+    }
     if (calleSecundariaFinal !== undefined) updateData.calle_secundaria = calleSecundariaFinal;
     if (referenciaFinal !== undefined) updateData.referencia = referenciaFinal;
 
@@ -196,12 +206,16 @@ const updateDireccion = async (req, res) => {
       updateData.coordenadas_fuente = coordenadasFuente === 'manual' ? 'manual' : 'gps';
     } else if (
       updateData.calle_principal ||
+      updateData.ciudad !== undefined ||
       updateData.calle_secundaria !== undefined ||
       updateData.referencia !== undefined
     ) {
       try {
         const coords = await resolverCoordenadas({
           callePrincipal: callePrincipalFinal || existing.calle_principal,
+          ciudad: updateData.ciudad !== undefined
+            ? updateData.ciudad
+            : existing.ciudad,
           calleSecundaria: calleSecundariaFinal !== undefined ? calleSecundariaFinal : existing.calle_secundaria,
           referencia: referenciaFinal !== undefined ? referenciaFinal : existing.referencia
         });

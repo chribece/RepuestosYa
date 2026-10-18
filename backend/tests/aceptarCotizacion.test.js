@@ -73,6 +73,27 @@ function crearSupabaseFalso({
         select: (cols) => ({
           eq: (col, val) => {
             operaciones.consultas.push({ tabla, cols, col, val });
+            if (cols === 'almacen_id') {
+              const consultaPerdedoras = {
+                eq: (nextColumn, nextValue) => {
+                  operaciones.consultas.push({
+                    tabla,
+                    cols,
+                    col: nextColumn,
+                    val: nextValue,
+                  });
+                  return consultaPerdedoras;
+                },
+                neq: async () => ({
+                  data: [
+                    { almacen_id: COTIZACION_PENDIENTE.almacen_id },
+                    { almacen_id: 'almacen-perdedor' },
+                  ],
+                  error: null,
+                }),
+              };
+              return consultaPerdedoras;
+            }
             const esConsultaContacto = String(cols).includes(
               'almacenes(nombre_comercial'
             );
@@ -87,6 +108,32 @@ function crearSupabaseFalso({
                   ? { data: cotizacion, error: null }
                   : { data: null, error: new Error('no row') };
               },
+            };
+          },
+        }),
+      };
+    }
+
+    if (tabla === 'almacenes') {
+      return {
+        select: (cols) => ({
+          eq: (col, val) => {
+            operaciones.consultas.push({ tabla, cols, col, val });
+            return {
+              maybeSingle: async () => ({
+                data: {
+                  id: COTIZACION_PENDIENTE.almacen_id,
+                  encargado_id: 'almacen-ganador-1',
+                },
+                error: null,
+              }),
+            };
+          },
+          in: async (col, vals) => {
+            operaciones.consultas.push({ tabla, cols, col, vals });
+            return {
+              data: [{ encargado_id: 'almacen-perdedor-1' }],
+              error: null,
             };
           },
         }),
@@ -132,11 +179,15 @@ function crearColaFalsa() {
 test('aceptar cotización pendiente del dueño → OK con contacto del almacén', async () => {
   const { supabase, operaciones } = crearSupabaseFalso();
   const cola = crearColaFalsa();
+  const notificaciones = [];
+  const notificacionService = {
+    crearNotificacion: async (notification) => notificaciones.push(notification),
+  };
 
   const resultado = await aceptarCotizacion(
     COTIZACION_PENDIENTE.id,
     'cliente-1',
-    { supabase, notificacionesQueue: cola }
+    { supabase, notificacionesQueue: cola, notificacionService }
   );
 
   assert.equal(operaciones.rpcCalls, 1);
@@ -154,6 +205,23 @@ test('aceptar cotización pendiente del dueño → OK con contacto del almacén'
   assert.equal(cola.jobs[0].name, 'notificar-almacen-ganador');
   assert.equal(cola.jobs[1].name, 'notificar-almacenes-perdedores');
   assert.equal(cola.jobs[2].name, 'notificar-cliente-aceptacion');
+  assert.equal(notificaciones.length, 3);
+  assert.deepEqual(notificaciones.map((notification) => notification.tipo), [
+    'orden_creada',
+    'cotizacion_ganada',
+    'cotizacion_perdida',
+  ]);
+  assert.deepEqual(notificaciones.map((notification) => notification.userId), [
+    'cliente-1',
+    'almacen-ganador-1',
+    'almacen-perdedor-1',
+  ]);
+  assert.deepEqual(notificaciones[0].payload, {
+    orden_id: 'orden-1',
+    solicitud_id: SOLICITUD.id,
+    cotizacion_id: COTIZACION_PENDIENTE.id,
+    ruta: '/mis-ordenes',
+  });
 });
 
 test('idempotencia: aceptar la misma cotización dos veces → replay sin RPC ni jobs', async () => {

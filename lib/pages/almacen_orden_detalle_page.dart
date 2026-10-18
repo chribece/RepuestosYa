@@ -11,6 +11,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/formato_fecha.dart';
+import '../utils/ry_snackbar.dart';
 
 class AlmacenOrdenDetallePage extends StatefulWidget {
   final String ordenId;
@@ -47,13 +48,10 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al cargar la orden: ${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     }
@@ -64,11 +62,9 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     try {
       await _ordenService.actualizarEstadoOrden(widget.ordenId, nuevoEstado);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Estado actualizado exitosamente'),
-            backgroundColor: AppColors.success,
-          ),
+        mostrarSnackbarExito(
+          context,
+          mensaje: 'Estado actualizado exitosamente',
         );
         setState(() => _isUpdating = false);
         await _cargarOrden();
@@ -76,14 +72,11 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUpdating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al actualizar el estado: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     }

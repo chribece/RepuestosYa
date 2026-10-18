@@ -1,5 +1,6 @@
 const { getOrdenDetalle, getOrdenDetalleParaAlmacen, updateOrdenEstado, NotFoundError, ForbiddenError, BadRequestError } = require('../services/ordenService');
 const supabase = require('../services/supabase');
+const { crearNotificacion } = require('../services/notificacionService');
 
 const getOrdenDetalleController = async (req, res) => {
   try {
@@ -85,6 +86,28 @@ const updateOrdenEstadoController = async (req, res) => {
     }
 
     const ordenActualizada = await updateOrdenEstado(id, estado, almacen.id);
+
+    if (
+      ordenActualizada.cliente_id &&
+      ['confirmada', 'entregada'].includes(ordenActualizada.estado)
+    ) {
+      await crearNotificacion({
+        userId: ordenActualizada.cliente_id,
+        tipo: 'orden_estado',
+        titulo: ordenActualizada.estado === 'confirmada'
+          ? 'Orden confirmada'
+          : 'Orden entregada',
+        mensaje: ordenActualizada.estado === 'confirmada'
+          ? 'El almacén confirmó tu orden y la está preparando.'
+          : 'Tu orden fue marcada como entregada.',
+        payload: {
+          orden_id: ordenActualizada.id,
+          solicitud_id: ordenActualizada.solicitud_id,
+          estado: ordenActualizada.estado,
+          ruta: `/orden/${ordenActualizada.id}`,
+        },
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -25,6 +25,7 @@ class DireccionService {
   Future<Map<String, dynamic>> createDireccion({
     required String alias,
     required String callePrincipal,
+    String? ciudad,
     String? calleSecundaria,
     String? referencia,
     double? latitude,
@@ -37,6 +38,9 @@ class DireccionService {
         'callePrincipal': callePrincipal,
       };
 
+      if (ciudad != null && ciudad.trim().isNotEmpty) {
+        data['ciudad'] = ciudad.trim();
+      }
       if (calleSecundaria != null && calleSecundaria.trim().isNotEmpty) {
         data['calleSecundaria'] = calleSecundaria;
       }
@@ -67,6 +71,7 @@ class DireccionService {
     required String id,
     String? alias,
     String? callePrincipal,
+    String? ciudad,
     String? calleSecundaria,
     String? referencia,
     double? latitude,
@@ -81,6 +86,9 @@ class DireccionService {
       }
       if (callePrincipal != null && callePrincipal.trim().isNotEmpty) {
         data['callePrincipal'] = callePrincipal.trim();
+      }
+      if (ciudad != null && ciudad.trim().isNotEmpty) {
+        data['ciudad'] = ciudad.trim();
       }
       if (calleSecundaria != null) {
         data['calleSecundaria'] = calleSecundaria.trim().isEmpty

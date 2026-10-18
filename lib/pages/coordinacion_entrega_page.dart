@@ -14,6 +14,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_state_container.dart';
 
@@ -215,25 +216,16 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
   }
 
   void _mostrarFalloApertura(String mensaje, String telefono) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Copiar',
-          textColor: AppColors.onSurface,
-          onPressed: () {
-            copiarAlPortapapeles(telefono);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Número copiado'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-        ),
+    mostrarSnackbarError(
+      context,
+      mensaje: mensaje,
+      accion: SnackBarAction(
+        label: 'Copiar',
+        textColor: AppColors.onSurface,
+        onPressed: () {
+          copiarAlPortapapeles(telefono);
+          mostrarSnackbarExito(context, mensaje: 'Número copiado');
+        },
       ),
     );
   }
@@ -241,13 +233,10 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
   Future<void> _copiar(String texto, String etiqueta) async {
     await copiarAlPortapapeles(texto);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$etiqueta copiado'),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
+    mostrarSnackbarExito(
+      context,
+      mensaje: '$etiqueta copiado',
+      duracion: const Duration(seconds: 2),
     );
   }
 
@@ -257,13 +246,7 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
     ContactLauncher.launch(uri).then((resultado) {
       if (!mounted) return;
       if (resultado != ContactLaunchResult.launched) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo abrir el correo'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        mostrarSnackbarError(context, mensaje: 'No se pudo abrir el correo');
       }
     });
   }

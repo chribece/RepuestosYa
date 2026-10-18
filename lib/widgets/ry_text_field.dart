@@ -29,10 +29,16 @@ class RyTextField extends StatefulWidget {
   final bool isDense;
   final int? maxLines;
 
-  /// Límite de líneas del [helperText]. Sin él, el InputDecorator recorta el
-  /// texto de ayuda a 1 línea con ellipsis en pantallas angostas; un valor
-  /// explícito permite que el helper haga wrap y se vea completo.
+  /// Límite de líneas del [helperText]. Por defecto admite 3 líneas para que
+  /// el texto de ayuda pueda envolver en pantallas angostas.
   final int? helperMaxLines;
+
+  /// Límite de líneas del placeholder. Si el hint es largo, define el máximo
+  /// necesario para evitar que InputDecorator lo corte.
+  final int? hintMaxLines;
+
+  /// Límite de líneas para errores de validación.
+  final int? errorMaxLines;
   final int? maxLength;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
@@ -59,7 +65,9 @@ class RyTextField extends StatefulWidget {
     this.isReadOnly = false,
     this.isDense = false,
     this.maxLines = 1,
-    this.helperMaxLines,
+    this.helperMaxLines = 3,
+    this.hintMaxLines,
+    this.errorMaxLines = 3,
     this.maxLength,
     this.keyboardType,
     this.inputFormatters,
@@ -215,9 +223,11 @@ class _RyTextFieldState extends State<RyTextField> {
         decoration: InputDecoration(
           labelText: widget.label,
           hintText: widget.hint,
+          hintMaxLines: widget.hintMaxLines,
           helperText: widget.helperText,
           helperMaxLines: widget.helperMaxLines,
           errorText: widget.errorText,
+          errorMaxLines: widget.errorMaxLines,
           isDense: widget.isDense,
           prefixIcon: widget.prefixWidget != null
               ? Padding(

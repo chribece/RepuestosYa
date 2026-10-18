@@ -9,6 +9,7 @@ import 'providers/cotizacion_provider.dart';
 import 'providers/create_request_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/solicitudes_provider.dart';
+import 'providers/notificaciones_provider.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/realtime_notification_service.dart';
@@ -133,6 +134,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: onboardingProvider),
         ChangeNotifierProvider(
           create: (_) => SolicitudesProvider(solicitudRepository),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => NotificacionesProvider()..initialize(),
         ),
       ],
       child: Consumer<UserRoleProvider>(

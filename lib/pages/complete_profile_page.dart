@@ -20,6 +20,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 /// Formulario de registro/completado del perfil de almacén.
@@ -199,11 +200,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
     // La ubicación en el mapa es obligatoria para un almacén comercial.
     if (!_ubicacionFijada) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ubica tu almacén en el mapa antes de continuar.'),
-          backgroundColor: AppColors.warning,
-        ),
+      mostrarSnackbarAdvertencia(
+        context,
+        mensaje: 'Ubica tu almacén en el mapa antes de continuar.',
       );
       return;
     }
@@ -238,12 +237,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         setState(() {
           _isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Perfil completado exitosamente!'),
-            backgroundColor: AppColors.primaryContainer,
-            duration: Duration(seconds: 3),
-          ),
+        mostrarSnackbarInfo(
+          context,
+          mensaje: '¡Perfil completado exitosamente!',
+          duracion: const Duration(seconds: 3),
         );
         // Navegar al dashboard
         context.goNamed(RouteNames.dashboard);
@@ -256,11 +253,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           _fieldErrors = validationErrors;
         });
         if (validationErrors.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(ApiErrorHandler.userMessage(e)),
-              backgroundColor: AppColors.error,
-            ),
+          mostrarSnackbarError(
+            context,
+            mensaje: ApiErrorHandler.userMessage(e),
           );
         }
       }

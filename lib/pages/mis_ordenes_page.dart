@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_notification_bell.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../theme/app_spacing.dart';
@@ -124,6 +125,7 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
         elevation: 0,
         title: const Text('Mis Órdenes', style: AppTextStyles.textStyleTitle),
         iconTheme: const IconThemeData(color: AppColors.onSurface),
+        actions: const [RyNotificationBell()],
         shape: const Border(
           bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
         ),

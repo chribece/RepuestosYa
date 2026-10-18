@@ -6,6 +6,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
@@ -63,12 +64,10 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         setState(() {
           _isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Registro exitoso! Ahora completa tu perfil.'),
-            backgroundColor: AppColors.primaryContainer,
-            duration: Duration(seconds: 2),
-          ),
+        mostrarSnackbarInfo(
+          context,
+          mensaje: '¡Registro exitoso! Ahora completa tu perfil.',
+          duracion: const Duration(seconds: 2),
         );
         // Navegar a la página de completar perfil
         context.goNamed(RouteNames.completeProfile);
@@ -83,12 +82,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         setState(() {
           _isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorHandler.userMessage(e)),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        mostrarSnackbarError(context, mensaje: ApiErrorHandler.userMessage(e));
       }
     }
   }
@@ -216,6 +210,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       prefixIcon: Icons.phone_android,
       helperText:
           'El cliente ganador lo usará para coordinar el pago y la entrega.',
+      helperMaxLines: 3,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'El teléfono es requerido';

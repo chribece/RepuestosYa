@@ -1,9 +1,8 @@
 /**
  * Utilidades de geolocalización para el flujo obligatorio de ubicación.
  *
- * ALCANCE ACTUAL: SOLO QUITO. Cuando se expanda a otras ciudades, agregar
- * campo `ciudad` al formulario de direcciones y parametrizar el viewbox por
- * ciudad.
+ * ALCANCE ACTUAL: SOLO QUITO. El campo opcional `ciudad` ayuda a precisar la
+ * búsqueda textual, pero el resultado sigue restringido al viewbox de Quito.
  *
  * - geocodeDireccion: geocodifica server-side la dirección textual del
  *   cliente vía Nominatim (OpenStreetMap) cuando el GPS del dispositivo está
@@ -120,11 +119,11 @@ function estimarTiempoDespachoMin(distanciaKm) {
 
 /**
  * Construye el texto de búsqueda a partir de los campos de la dirección.
- * @param {{callePrincipal: string, calleSecundaria?: string, referencia?: string}} direccion
+ * @param {{callePrincipal: string, ciudad?: string, calleSecundaria?: string, referencia?: string}} direccion
  * @returns {string}
  */
-function formatearDireccionParaGeocoding({ callePrincipal, calleSecundaria, referencia }) {
-  const partes = [callePrincipal, calleSecundaria, referencia].filter(
+function formatearDireccionParaGeocoding({ callePrincipal, ciudad, calleSecundaria, referencia }) {
+  const partes = [callePrincipal, calleSecundaria, referencia, ciudad].filter(
     (p) => typeof p === 'string' && p.trim().length > 0
   );
   const pais = process.env.GEOCODING_COUNTRY || 'Ecuador';
@@ -198,7 +197,7 @@ async function buscarEnNominatim(query) {
  * Geocodifica una dirección textual contra Nominatim (OpenStreetMap),
  * restringida al Distrito Metropolitano de Quito.
  *
- * Estrategia de búsqueda (las direcciones del cliente no incluyen ciudad):
+ * Estrategia de búsqueda:
  * 1. Texto completo (calles + referencia + país), para capturar la precisión
  *    de la referencia cuando el buscador la entiende.
  * 2. Fallback a la calle principal + país, que es el formato más confiable
@@ -207,26 +206,30 @@ async function buscarEnNominatim(query) {
  * se valida en código dentro de la caja; fuera de ella se rechaza como
  * "no encontrado" (mismo mensaje de error).
  *
- * @param {{callePrincipal: string, calleSecundaria?: string, referencia?: string}} direccion
+ * @param {{callePrincipal: string, ciudad?: string, calleSecundaria?: string, referencia?: string}} direccion
  * @returns {Promise<{latitude: number, longitude: number, displayName: string}>}
  * @throws {GeocodingError} si la dirección no es resoluble (incluye fuera de
  *   Quito), el servicio falla o tarda demasiado.
  */
 async function geocodeDireccion(direccion) {
-  const { callePrincipal, calleSecundaria, referencia } = direccion;
+  const { callePrincipal, ciudad, calleSecundaria, referencia } = direccion;
   if (!callePrincipal || !callePrincipal.trim()) {
     throw new GeocodingError('La dirección está vacía y no se puede ubicar.');
   }
 
   const pais = process.env.GEOCODING_COUNTRY || 'Ecuador';
-  const partesCompletas = [callePrincipal.trim(), calleSecundaria && calleSecundaria.trim(), referencia && referencia.trim()]
+  const partesCompletas = [callePrincipal.trim(), calleSecundaria && calleSecundaria.trim(), referencia && referencia.trim(), ciudad && ciudad.trim()]
     .filter((p) => typeof p === 'string' && p.length > 0);
 
   const queries = [];
   if (partesCompletas.length > 1) {
     queries.push([...partesCompletas, pais].join(', '));
   }
-  queries.push(`${callePrincipal.trim()}, ${pais}`);
+  queries.push(
+    [callePrincipal.trim(), ciudad && ciudad.trim(), pais]
+      .filter(Boolean)
+      .join(', ')
+  );
 
   for (const query of queries) {
     const resultados = await buscarEnNominatim(query);

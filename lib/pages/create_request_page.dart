@@ -34,6 +34,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/business_rules.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 import '../providers/create_request_provider.dart';
 
@@ -442,30 +443,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   // ========== IMAGEN ==========
 
   void _showToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: SemanticColors.colorSuccess),
-            const SizedBox(width: AppSpacing.spacingSm),
-            Expanded(
-              child: Text(
-                message,
-                style: AppTextStyles.textStyleBody.copyWith(
-                  color: AppColors.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-          side: const BorderSide(color: SemanticColors.colorSuccess),
-        ),
-        duration: const Duration(seconds: 5),
-      ),
+    mostrarSnackbarExito(
+      context,
+      mensaje: message,
+      duracion: const Duration(seconds: 5),
     );
   }
 
@@ -833,24 +814,19 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       if (!_isLoadingVehiculos && _vehiculos.isEmpty) {
         await _mostrarVehiculoRequerido();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+        mostrarSnackbarAdvertencia(
+          context,
+          mensaje:
               'Debes seleccionar un vehículo para asegurar la compatibilidad.',
-            ),
-            backgroundColor: AppColors.warning,
-          ),
         );
       }
       hasManualErrors = true;
     }
     if (!mounted) return;
     if (provider.selectedDireccionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Indica dónde deseas recibir el repuesto.'),
-          backgroundColor: AppColors.warning,
-        ),
+      mostrarSnackbarAdvertencia(
+        context,
+        mensaje: 'Indica dónde deseas recibir el repuesto.',
       );
       hasManualErrors = true;
     }
@@ -1023,12 +999,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       });
 
       if (_fieldErrors.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ApiErrorHandler.userMessage(e, context: ApiErrorContext.session),
-            ),
-            backgroundColor: AppColors.error,
+        mostrarSnackbarError(
+          context,
+          mensaje: ApiErrorHandler.userMessage(
+            e,
+            context: ApiErrorContext.session,
           ),
         );
       }
@@ -1102,12 +1077,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         // La categoría guardada ya no está en la lista (ej: eliminada del catálogo)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+            mostrarSnackbarInfo(
+              context,
+              mensaje:
                   'La categoría seleccionada ya no está disponible. Selecciona una nueva.',
-                ),
-              ),
             );
             provider.setSelectedCategoryId(null);
           }
@@ -1124,12 +1097,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         // El repuesto guardado ya no está en la lista
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+            mostrarSnackbarInfo(
+              context,
+              mensaje:
                   'El repuesto seleccionado ya no está disponible. Selecciona uno nuevo.',
-                ),
-              ),
             );
             provider.setSelectedPartId(null, null);
           }
@@ -1244,10 +1215,11 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               RyTextField(
                 label: 'Detalles adicionales',
                 initialValue: provider.descripcion,
-                // Hint corto: el placeholder largo se truncaba con ellipsis
-                // (el hint hereda el maxLines del campo). El ejemplo completo
-                // vive en helperText, que hace wrap sin truncar.
-                hint: 'Marca, modelo y año del repuesto',
+                hint:
+                    'Lado izquierdo/derecho, amperaje, número de pines o tamaño.',
+                // El máximo permite todos los wraps con fuentes fallback y no
+                // altera la altura si el texto real ocupa menos líneas.
+                hintMaxLines: 8,
                 helperText:
                     'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad',
                 helperMaxLines: 4,

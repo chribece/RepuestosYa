@@ -6,6 +6,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
@@ -57,14 +58,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
         });
 
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              '¡Cuenta creada exitosamente! Por favor verifica tu email.',
-            ),
-            backgroundColor: AppColors.primaryContainer,
-            duration: Duration(seconds: 3),
-          ),
+        mostrarSnackbarExito(
+          context,
+          mensaje: '¡Cuenta creada exitosamente! Por favor verifica tu email.',
+          duracion: const Duration(seconds: 3),
         );
 
         // Navigate back to login
@@ -83,12 +80,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
         });
 
         // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ApiErrorHandler.userMessage(e)),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 3),
-          ),
+        mostrarSnackbarError(
+          context,
+          mensaje: ApiErrorHandler.userMessage(e),
+          duracion: const Duration(seconds: 3),
         );
       }
     }
@@ -336,8 +331,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Widget _buildFooter() {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: AppSpacing.spacingMd,
+          runSpacing: AppSpacing.spacingXs,
           children: [
             Row(
               children: [
@@ -355,9 +352,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 ),
               ],
             ),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Container(width: 1, height: 16, color: AppColors.outlineVariant),
-            const SizedBox(width: AppSpacing.spacingMd),
             Row(
               children: [
                 const Icon(

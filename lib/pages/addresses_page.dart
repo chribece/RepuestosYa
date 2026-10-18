@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
+import '../widgets/ry_form_dialog.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -41,14 +43,11 @@ class _AddressesPageState extends State<AddressesPage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al cargar direcciones: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     } finally {
@@ -75,21 +74,19 @@ class _AddressesPageState extends State<AddressesPage> {
     try {
       await _direccionService.deleteDireccion(id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dirección eliminada correctamente')),
+        mostrarSnackbarExito(
+          context,
+          mensaje: 'Dirección eliminada correctamente',
         );
       }
       _cargarDirecciones();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al eliminar dirección: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     }
@@ -131,6 +128,7 @@ class _AddressesPageState extends State<AddressesPage> {
                 // Mapeo seguro con tipos explícitos usando snake_case de Supabase
                 final id = direccion['id'] as String;
                 final alias = direccion['alias'] as String? ?? 'Dirección';
+                final ciudad = direccion['ciudad'] as String? ?? '';
                 final callePrincipal =
                     direccion['calle_principal'] as String? ?? '';
                 final calleSecundaria =
@@ -244,6 +242,13 @@ class _AddressesPageState extends State<AddressesPage> {
                           color: AppColors.onSurfaceVariant,
                         ),
                       ),
+                      if (ciudad.isNotEmpty)
+                        Text(
+                          'Ciudad: $ciudad',
+                          style: AppTextStyles.textStyleCaption.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                        ),
                       if (calleSecundaria.isNotEmpty)
                         Text(
                           'Secundaria: $calleSecundaria',
@@ -277,8 +282,9 @@ class _AddressesPageState extends State<AddressesPage> {
 
 class AddressDialog extends StatefulWidget {
   final Map<String, dynamic>? direccion;
+  final DireccionService? direccionService;
 
-  const AddressDialog({super.key, this.direccion});
+  const AddressDialog({super.key, this.direccion, this.direccionService});
 
   @override
   State<AddressDialog> createState() => _AddressDialogState();
@@ -286,9 +292,11 @@ class AddressDialog extends StatefulWidget {
 
 class _AddressDialogState extends State<AddressDialog> {
   final _formKey = GlobalKey<FormState>();
-  final DireccionService _direccionService = DireccionService();
+  late final DireccionService _direccionService =
+      widget.direccionService ?? DireccionService();
 
   late TextEditingController _aliasController;
+  late TextEditingController _ciudadController;
   late TextEditingController _callePrincipalController;
   late TextEditingController _calleSecundariaController;
   late TextEditingController _referenciaController;
@@ -302,6 +310,9 @@ class _AddressDialogState extends State<AddressDialog> {
     // Asignación correcta desde las nuevas llaves en la base de datos
     _aliasController = TextEditingController(
       text: widget.direccion?['alias'] ?? '',
+    );
+    _ciudadController = TextEditingController(
+      text: widget.direccion?['ciudad'] ?? '',
     );
     _callePrincipalController = TextEditingController(
       text: widget.direccion?['calle_principal'] ?? '',
@@ -317,6 +328,7 @@ class _AddressDialogState extends State<AddressDialog> {
   @override
   void dispose() {
     _aliasController.dispose();
+    _ciudadController.dispose();
     _callePrincipalController.dispose();
     _calleSecundariaController.dispose();
     _referenciaController.dispose();
@@ -335,6 +347,7 @@ class _AddressDialogState extends State<AddressDialog> {
         // Crear dirección consumiendo el servicio estructurado camelCase
         await _direccionService.createDireccion(
           alias: _aliasController.text.trim(),
+          ciudad: _ciudadController.text.trim(),
           callePrincipal: _callePrincipalController.text.trim(),
           calleSecundaria: _calleSecundariaController.text.trim(),
           referencia: _referenciaController.text.trim(),
@@ -346,6 +359,9 @@ class _AddressDialogState extends State<AddressDialog> {
           alias: _aliasController.text.trim().isEmpty
               ? null
               : _aliasController.text.trim(),
+          ciudad: _ciudadController.text.trim().isEmpty
+              ? null
+              : _ciudadController.text.trim(),
           callePrincipal: _callePrincipalController.text.trim().isEmpty
               ? null
               : _callePrincipalController.text.trim(),
@@ -363,14 +379,11 @@ class _AddressDialogState extends State<AddressDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al guardar la dirección: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     } finally {
@@ -384,47 +397,62 @@ class _AddressDialogState extends State<AddressDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surfaceContainerHigh,
-      title: Text(
-        widget.direccion == null ? 'Agregar Dirección' : 'Editar Dirección',
-        style: AppTextStyles.textStyleTitle,
-      ),
-      content: SizedBox(
-        width: MediaQuery.of(context).size.width * 0.9,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RyTextField(
-                  label: 'Alias (Ej. Casa, Trabajo)',
-                  controller: _aliasController,
-                  isRequired: true,
-                  helperText: 'Mínimo 2 caracteres',
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Calle Principal',
-                  controller: _callePrincipalController,
-                  isRequired: true,
-                  helperText: 'Mínimo 5 caracteres',
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Calle Secundaria (Opcional)',
-                  controller: _calleSecundariaController,
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Referencia / Indicaciones (Opcional)',
-                  controller: _referenciaController,
-                  maxLines: 2,
-                ),
-              ],
+    return RyFormDialog(
+      title: widget.direccion == null
+          ? 'Agregar Dirección'
+          : 'Editar Dirección',
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RyTextField(
+              label: 'Alias (Ej. Casa, Trabajo)',
+              controller: _aliasController,
+              isRequired: true,
+              helperText: 'Mínimo 2 caracteres',
+              validator: (value) {
+                if (value == null || value.trim().length < 2) {
+                  return 'El alias debe tener al menos 2 caracteres';
+                }
+                return null;
+              },
             ),
-          ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Ciudad',
+              controller: _ciudadController,
+              isRequired: true,
+              helperText: 'Ciudad de entrega',
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'La ciudad es obligatoria'
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Calle Principal',
+              controller: _callePrincipalController,
+              isRequired: true,
+              helperText: 'Mínimo 5 caracteres',
+              validator: (value) {
+                if (value == null || value.trim().length < 5) {
+                  return 'La calle principal debe tener al menos 5 caracteres';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Calle Secundaria (Opcional)',
+              controller: _calleSecundariaController,
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Referencia / Indicaciones (Opcional)',
+              controller: _referenciaController,
+              maxLines: 2,
+            ),
+          ],
         ),
       ),
       actions: [

@@ -141,8 +141,10 @@ class RyButton extends StatelessWidget {
               style: AppTextStyles.textStyleButton.copyWith(
                 color: foregroundColor,
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+              overflow: variant == RyButtonVariant.text
+                  ? TextOverflow.visible
+                  : TextOverflow.ellipsis,
+              maxLines: variant == RyButtonVariant.text ? 2 : 1,
             ),
           ),
           if (trailingIcon != null) ...[
@@ -169,8 +171,10 @@ class RyButton extends StatelessWidget {
           child: Container(
             height: _getHeight(),
             width: isFullWidth ? double.infinity : null,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.spacingLg,
+            padding: EdgeInsets.symmetric(
+              horizontal: variant == RyButtonVariant.text
+                  ? AppSpacing.spacingXs
+                  : AppSpacing.spacingLg,
             ),
             decoration: BoxDecoration(
               border: borderSide != null

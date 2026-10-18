@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,6 +11,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/ry_snackbar.dart';
 import 'ry_button.dart';
 import 'ry_location_picker.dart';
 import 'ry_text_field.dart';
@@ -254,48 +256,56 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al guardar dirección: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      mostrarSnackbarError(context, mensaje: 'Error al guardar dirección: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottomInset = math.max(
+      media.viewInsets.bottom,
+      media.viewPadding.bottom,
+    );
+
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+        bottom: bottomInset,
         left: AppSpacing.spacingMd,
         right: AppSpacing.spacingMd,
         top: AppSpacing.spacingMd,
       ),
       child: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Agregar nueva dirección',
-                style: AppTextStyles.textStyleTitle.copyWith(
-                  color: AppColors.onSurface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Agregar nueva dirección',
+              style: AppTextStyles.textStyleTitle.copyWith(
+                color: AppColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            // El contenido scrollea; las acciones quedan en el área segura.
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSelectorUbicacion(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildCamposDireccion(),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppSpacing.spacingMd),
-              // Jerarquía visual: primero el selector de ubicación (mapa),
-              // después los campos prellenados para confirmación rápida.
-              _buildSelectorUbicacion(),
-              const SizedBox(height: AppSpacing.spacingMd),
-              _buildCamposDireccion(),
-              const SizedBox(height: AppSpacing.spacingLg),
-              _buildAcciones(),
-              const SizedBox(height: AppSpacing.spacingSm),
-            ],
-          ),
+            ),
+            const SizedBox(height: AppSpacing.spacingLg),
+            _buildAcciones(),
+            const SizedBox(height: AppSpacing.spacingSm),
+          ],
         ),
       ),
     );

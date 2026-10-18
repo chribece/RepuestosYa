@@ -19,6 +19,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class PerfilAlmacenPage extends StatefulWidget {
@@ -159,12 +160,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     if (almacenId.isEmpty) {
       AppLogger.error('ID del almacén está vacío', name: 'PerfilAlmacenPage');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error: ID del almacén no válido'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      mostrarSnackbarError(context, mensaje: 'Error: ID del almacén no válido');
       return;
     }
 
@@ -192,11 +188,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         _isSubmitting = false;
         _isEditing = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Perfil actualizado correctamente'),
-          backgroundColor: AppColors.success,
-        ),
+      mostrarSnackbarExito(
+        context,
+        mensaje: 'Perfil actualizado correctamente',
       );
       await _cargarAlmacen();
     } catch (e) {
@@ -212,13 +206,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         _fieldErrors = validationErrors;
       });
       if (validationErrors.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al actualizar perfil: ${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     }

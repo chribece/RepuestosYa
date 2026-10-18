@@ -10,12 +10,14 @@ import '../services/realtime_notification_service.dart';
 import '../providers/solicitudes_provider.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
+import '../widgets/ry_notification_bell.dart';
 import '../widgets/flujo_notificaciones.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class HomePage extends StatefulWidget {
@@ -77,26 +79,16 @@ class _HomePageState extends State<HomePage> {
       _wasOffline = isOffline;
 
       if (wasOffline && !isOffline) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              '¡Has vuelto a tener conexión! Actualizando solicitudes...',
-            ),
-            backgroundColor: AppColors.primaryContainer,
-            behavior: SnackBarBehavior.floating,
-          ),
+        mostrarSnackbarInfo(
+          context,
+          mensaje: '¡Has vuelto a tener conexión! Actualizando solicitudes...',
         );
         context.read<SolicitudesProvider>().refreshFromServer();
         _cargarEstadisticas();
       } else if (!wasOffline && isOffline) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Sin conexión. Se muestran los datos disponibles.',
-            ),
-            backgroundColor: AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-          ),
+        mostrarSnackbarAdvertencia(
+          context,
+          mensaje: 'Sin conexión. Se muestran los datos disponibles.',
         );
       }
     });
@@ -376,13 +368,9 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) Navigator.pop(context);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error al cerrar sesión: ${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
+        mostrarSnackbarError(
+          context,
+          mensaje: 'Error al cerrar sesión: ${ApiErrorHandler.userMessage(e)}',
         );
       }
     }
@@ -391,6 +379,7 @@ class _HomePageState extends State<HomePage> {
   // --- APPBAR SUPERIOR ---
   Widget _buildTopAppBar() {
     return Container(
+      key: const ValueKey('home-top-app-bar'),
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: BoxDecoration(
@@ -400,30 +389,31 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(
-                  Icons.menu_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-                tooltip: 'Abrir menú',
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
-              const SizedBox(width: AppSpacing.spacingXs),
-              Text(
-                'RepuestosYa',
-                style: AppTextStyles.textStyleTitle.copyWith(
-                  color: AppColors.primaryContainer,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
+          IconButton(
+            icon: const Icon(
+              Icons.menu_rounded,
+              color: AppColors.primary,
+              size: 24,
+            ),
+            tooltip: 'Abrir menú',
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Flexible(
+            child: Text(
+              'RepuestosYa',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.textStyleTitle.copyWith(
+                color: AppColors.primaryContainer,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          const RyNotificationBell(),
+          const SizedBox(width: AppSpacing.spacingXxs),
           InkWell(
             onTap: () {
               context.pushNamed(RouteNames.profile);

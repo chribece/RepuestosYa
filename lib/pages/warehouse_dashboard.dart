@@ -19,6 +19,7 @@ import '../widgets/ry_part_card.dart';
 import '../widgets/flujo_notificaciones.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
+import '../widgets/ry_notification_bell.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -26,6 +27,7 @@ import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/business_rules.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class WarehouseDashboard extends StatefulWidget {
@@ -171,14 +173,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         // en algunos dispositivos al salir del modo avión).
         context.read<SyncEngine>().procesarCola();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              '¡Has vuelto a tener conexión! Actualizando solicitudes...',
-            ),
-            backgroundColor: AppColors.primaryContainer,
-            behavior: SnackBarBehavior.floating,
-          ),
+        mostrarSnackbarInfo(
+          context,
+          mensaje: '¡Has vuelto a tener conexión! Actualizando solicitudes...',
         );
         _validateAndLoad();
 
@@ -188,14 +185,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           if (mounted) _validateAndLoad();
         });
       } else if (!wasOffline && isOffline) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Sin conexión. Se muestran los datos disponibles.',
-            ),
-            backgroundColor: AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-          ),
+        mostrarSnackbarAdvertencia(
+          context,
+          mensaje: 'Sin conexión. Se muestran los datos disponibles.',
         );
       }
     });
@@ -537,21 +529,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         // deberían spamear mensajes.
         if (isNetwork && !_hadNetworkError) {
           _hadNetworkError = true;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          mostrarSnackbarError(
+            context,
+            mensaje:
                 'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
-              ),
-            ),
           );
           _scheduleNetworkReload();
         } else if (!isNetwork) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          mostrarSnackbarError(
+            context,
+            mensaje:
                 'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
-              ),
-            ),
           );
         }
       }
@@ -589,14 +577,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         _approvalTimer?.cancel();
         _approvalTimer = null;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
+        mostrarSnackbarInfo(
+          context,
+          mensaje:
               '¡Tu almacén ha sido aprobado! Ya puedes ver y responder solicitudes.',
-            ),
-            backgroundColor: AppColors.primaryContainer,
-            behavior: SnackBarBehavior.floating,
-          ),
         );
 
         await _cargarSolicitudes();
@@ -928,8 +912,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   Widget _buildTopAppBar() {
     return Container(
+      key: const ValueKey('warehouse-top-app-bar'),
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXs),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(
@@ -947,21 +932,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             tooltip: 'Abrir menú',
             onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
-          const SizedBox(width: AppSpacing.spacingSm),
-          // Flexible: en móvil angosto el título sin wrap empujaba el chip
-          // "Abierto/Cerrado" fuera del viewport (overflow de 68px).
-          Flexible(
+          const SizedBox(width: AppSpacing.spacingXxs),
+          // Expanded reserva el espacio del chip y la campana a la derecha.
+          Expanded(
             child: Text(
               'REPUESTOSYA',
-              style: AppTextStyles.textStyleHeading.copyWith(
+              style: AppTextStyles.textStyleBody.copyWith(
                 color: AppColors.primaryContainer,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
           if (_isApproved)
             GestureDetector(
               onTap: () async {
@@ -983,18 +967,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   );
                   if (mounted) {
                     setState(() => _isOpen = !newStatus);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(ApiErrorHandler.userMessage(e)),
-                        backgroundColor: AppColors.error,
-                      ),
+                    mostrarSnackbarError(
+                      context,
+                      mensaje: ApiErrorHandler.userMessage(e),
                     );
                   }
                 }
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingSm,
+                  horizontal: AppSpacing.spacingXs,
                   vertical: AppSpacing.spacingXs - 2,
                 ),
                 decoration: BoxDecoration(
@@ -1012,7 +994,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.spacingSm),
+                    const SizedBox(width: AppSpacing.spacingXs),
                     Text(
                       _isOpen ? 'Abierto' : 'Cerrado',
                       style: AppTextStyles.textStyleSmall.copyWith(
@@ -1023,6 +1005,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                 ),
               ),
             ),
+          const SizedBox(width: AppSpacing.spacingXxs),
+          const RyNotificationBell(),
         ],
       ),
     );
@@ -1430,12 +1414,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       // la lista con su estado pendiente de envío.
       _cargarSolicitudes();
       _cargarCotizacionesEnviadas();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Cotización enviada exitosamente!'),
-          backgroundColor: AppColors.success,
-          duration: Duration(seconds: 2),
-        ),
+      mostrarSnackbarExito(
+        context,
+        mensaje: '¡Cotización enviada exitosamente!',
+        duracion: const Duration(seconds: 2),
       );
     }
   }
@@ -1903,25 +1885,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   void _mostrarFalloAperturaCliente(String mensaje, String telefono) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'Copiar',
-          textColor: AppColors.onSurface,
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: telefono));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Número copiado'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-        ),
+    mostrarSnackbarError(
+      context,
+      mensaje: mensaje,
+      accion: SnackBarAction(
+        label: 'Copiar',
+        textColor: AppColors.onSurface,
+        onPressed: () {
+          Clipboard.setData(ClipboardData(text: telefono));
+          mostrarSnackbarExito(context, mensaje: 'Número copiado');
+        },
       ),
     );
   }

@@ -1,6 +1,7 @@
 const supabase = require('../services/supabase');
 const { invalidatePattern, getOrSet } = require('../services/cache');
 const notificacionesQueue = require('../queues/notificaciones.queue');
+const { crearNotificacion } = require('../services/notificacionService');
 const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError, ConflictError } = require('../services/cotizacionService');
 const { validationError, validateImageUrl } = require('../utils/validation');
 const {
@@ -54,7 +55,7 @@ const createCotizacion = async (req, res) => {
     // entrega y la dirección por si el snapshot legacy es nulo)
     const { data: solicitud, error: solicitudError } = await supabase
       .from('solicitudes_repuesto')
-      .select('estado, latitud_entrega, longitud_entrega, direcciones_entrega(latitude, longitude)')
+      .select('estado, cliente_id, latitud_entrega, longitud_entrega, direcciones_entrega(latitude, longitude)')
       .eq('id', solicitud_id)
       .maybeSingle();
 
@@ -164,6 +165,20 @@ const createCotizacion = async (req, res) => {
 
     // Invalidar caché de solicitudes activas
     await invalidatePattern('solicitudes:activas:*');
+
+    // El historial persistente se escribe solo después de guardar la
+    // cotización; el servicio absorbe sus propios fallos para no revertirla.
+    await crearNotificacion({
+      userId: solicitud.cliente_id,
+      tipo: 'cotizacion_recibida',
+      titulo: 'Recibiste una cotización',
+      mensaje: 'Un almacén respondió a tu solicitud.',
+      payload: {
+        solicitud_id,
+        cotizacion_id: cotizacion.id,
+        ruta: `/solicitudes/${solicitud_id}`,
+      },
+    });
 
     // Encolar job de notificación (no espera a que se procese)
     try {

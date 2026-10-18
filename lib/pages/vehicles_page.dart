@@ -7,11 +7,13 @@ import '../services/marca_service.dart';
 import '../services/modelo_service.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
+import '../widgets/ry_form_dialog.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 
 class VehiclesPage extends StatefulWidget {
   const VehiclesPage({super.key});
@@ -114,23 +116,15 @@ class _VehiclesPageState extends State<VehiclesPage> {
         await _vehiculoService.deleteVehiculo(id);
         _cargarVehiculos();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vehículo eliminado'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          mostrarSnackbarExito(context, mensaje: 'Vehículo eliminado');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          mostrarSnackbarError(
+            context,
+            mensaje:
                 'Error al eliminar vehículo: '
                 '${ApiErrorHandler.userMessage(e)}',
-              ),
-              backgroundColor: AppColors.error,
-            ),
           );
         }
       }
@@ -293,8 +287,18 @@ class _VehiclesPageState extends State<VehiclesPage> {
 class VehicleFormDialog extends StatefulWidget {
   final Map<String, dynamic>? vehiculo;
   final VoidCallback onSave;
+  final MarcaService? marcaService;
+  final ModeloService? modeloService;
+  final VehiculoService? vehiculoService;
 
-  const VehicleFormDialog({super.key, this.vehiculo, required this.onSave});
+  const VehicleFormDialog({
+    super.key,
+    this.vehiculo,
+    required this.onSave,
+    this.marcaService,
+    this.modeloService,
+    this.vehiculoService,
+  });
 
   @override
   State<VehicleFormDialog> createState() => _VehicleFormDialogState();
@@ -302,17 +306,22 @@ class VehicleFormDialog extends StatefulWidget {
 
 class _VehicleFormDialogState extends State<VehicleFormDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _selectionFieldKey = GlobalKey<FormFieldState<int>>();
   final _vinController = TextEditingController();
   final _anioController = TextEditingController();
   final _patenteController = TextEditingController();
 
-  final MarcaService _marcaService = MarcaService();
-  final ModeloService _modeloService = ModeloService();
+  late final MarcaService _marcaService = widget.marcaService ?? MarcaService();
+  late final ModeloService _modeloService =
+      widget.modeloService ?? ModeloService();
+  late final VehiculoService _vehiculoService =
+      widget.vehiculoService ?? VehiculoService();
 
   List<Map<String, dynamic>> _marcas = [];
   List<Map<String, dynamic>> _modelos = [];
   int? _selectedMarcaId;
   int? _selectedModeloId;
+  int? _initialModeloId;
   bool _isLoadingMarcas = false;
   bool _isLoadingModelos = false;
 
@@ -333,7 +342,8 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         if (modelo != null) {
           final modeloId = modelo['id'];
           if (modeloId != null) {
-            _selectedModeloId = int.tryParse(modeloId.toString());
+            _initialModeloId = int.tryParse(modeloId.toString());
+            _selectedModeloId = _initialModeloId;
           }
           final marca = modelo['marcas_vehiculo'] as Map<String, dynamic>?;
           if (marca != null) {
@@ -342,7 +352,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
               final marcaIdInt = int.tryParse(marcaId.toString());
               _selectedMarcaId = marcaIdInt;
               if (marcaIdInt != null) {
-                _cargarModelos(marcaIdInt);
+                _cargarModelos(marcaIdInt, modeloInicial: _initialModeloId);
               }
             }
           }
@@ -372,6 +382,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
 
     try {
       final marcas = await _marcaService.getMarcas();
+      if (!mounted) return;
       setState(() {
         _marcas = marcas;
       });
@@ -382,34 +393,36 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         error: e,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al cargar marcas: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     } finally {
-      setState(() {
-        _isLoadingMarcas = false;
-      });
+      if (mounted) setState(() => _isLoadingMarcas = false);
     }
   }
 
-  Future<void> _cargarModelos(int marcaId) async {
+  Future<void> _cargarModelos(int marcaId, {int? modeloInicial}) async {
     setState(() {
       _isLoadingModelos = true;
       _modelos = [];
-      _selectedModeloId = null; // Resetear modelo al cambiar marca
+      _selectedModeloId = null;
     });
 
     try {
       final modelos = await _modeloService.getModelosPorMarca(marcaId);
+      if (!mounted) return;
       setState(() {
         _modelos = modelos;
+        // A retired model stays unselected; the dropdown presents its hint.
+        _selectedModeloId =
+            modeloInicial != null &&
+                _modeloExisteParaMarca(modelos, modeloInicial, marcaId)
+            ? modeloInicial
+            : null;
       });
     } catch (e) {
       AppLogger.error(
@@ -418,41 +431,54 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         error: e,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al cargar modelos: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     } finally {
-      setState(() {
-        _isLoadingModelos = false;
-      });
+      if (mounted) setState(() => _isLoadingModelos = false);
     }
+  }
+
+  bool _modeloExisteParaMarca(
+    List<Map<String, dynamic>> modelos,
+    int modeloId,
+    int marcaId,
+  ) {
+    return modelos.any((modelo) {
+      final id = int.tryParse(modelo['id']?.toString() ?? '');
+      final marca = modelo['marcas_vehiculo'] as Map<String, dynamic>?;
+      final modeloMarcaId =
+          modelo['marca_id'] ?? modelo['marcaId'] ?? marca?['id'];
+      final perteneceMarca =
+          modeloMarcaId == null ||
+          int.tryParse(modeloMarcaId.toString()) == marcaId;
+      return id == modeloId && perteneceMarca;
+    });
+  }
+
+  bool get _seleccionMarcaModeloValida {
+    final marcaId = _selectedMarcaId;
+    final modeloId = _selectedModeloId;
+    if (marcaId == null ||
+        modeloId == null ||
+        !_marcas.any(
+          (marca) => int.tryParse(marca['id']?.toString() ?? '') == marcaId,
+        )) {
+      return false;
+    }
+    return _modeloExisteParaMarca(_modelos, modeloId, marcaId);
   }
 
   Future<void> _guardar() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedMarcaId == null || _selectedModeloId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Por favor selecciona marca y modelo'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        return;
-      }
-
       try {
-        final vehiculoService = VehiculoService();
-
         if (widget.vehiculo != null) {
           // Actualizar
-          await vehiculoService.updateVehiculo(
+          await _vehiculoService.updateVehiculo(
             id: widget.vehiculo!['id'],
             marcaId: _selectedMarcaId,
             modeloId: _selectedModeloId,
@@ -464,7 +490,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
           );
         } else {
           // Crear
-          await vehiculoService.createVehiculo(
+          await _vehiculoService.createVehiculo(
             marcaId: _selectedMarcaId!,
             modeloId: _selectedModeloId!,
             vin: _vinController.text.isNotEmpty ? _vinController.text : null,
@@ -478,24 +504,18 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         if (mounted) {
           Navigator.pop(context);
           widget.onSave();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                widget.vehiculo != null
-                    ? 'Vehículo actualizado'
-                    : 'Vehículo creado',
-              ),
-              backgroundColor: AppColors.success,
-            ),
+          mostrarSnackbarExito(
+            context,
+            mensaje: widget.vehiculo != null
+                ? 'Vehículo actualizado'
+                : 'Vehículo creado',
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(ApiErrorHandler.userMessage(e)),
-              backgroundColor: AppColors.error,
-            ),
+          mostrarSnackbarError(
+            context,
+            mensaje: ApiErrorHandler.userMessage(e),
           );
         }
       }
@@ -504,282 +524,294 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.surfaceContainerHigh,
-      title: Text(
-        widget.vehiculo != null ? 'Editar Vehículo' : 'Agregar Vehículo',
-        style: AppTextStyles.textStyleTitle,
-      ),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return RyFormDialog(
+      title: widget.vehiculo != null ? 'Editar Vehículo' : 'Agregar Vehículo',
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Dropdown de Marca
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Dropdown de Marca
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Marca',
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Marca',
+                        style: AppTextStyles.textStyleCaption.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' *',
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.requiredAsterisk,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingSm),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                    border: Border.all(color: AppColors.outlineVariant),
+                  ),
+                  child: _isLoadingMarcas
+                      ? const Padding(
+                          padding: EdgeInsets.all(AppSpacing.spacingMd),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryContainer,
+                              ),
+                            ),
+                          ),
+                        )
+                      : GFDropdown<int>(
+                          items: _marcas
+                              .where((marca) {
+                                final id = marca['id'];
+                                return id != null &&
+                                    int.tryParse(id.toString()) != null;
+                              })
+                              .map((marca) => int.parse(marca['id'].toString()))
+                              .toSet() // Deduplicar
+                              .map((id) {
+                                final marca = _marcas.firstWhere(
+                                  (m) => int.parse(m['id'].toString()) == id,
+                                );
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(
+                                    marca['nombre']?.toString() ?? '',
+                                  ),
+                                );
+                              })
+                              .toList(),
+                          value:
+                              _marcas.any(
+                                (m) =>
+                                    int.tryParse(m['id']?.toString() ?? '') ==
+                                    _selectedMarcaId,
+                              )
+                              ? _selectedMarcaId
+                              : null,
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedMarcaId = value;
+                              });
+                              if (_selectionFieldKey.currentState?.hasError ??
+                                  false) {
+                                _selectionFieldKey.currentState?.validate();
+                              }
+                              _cargarModelos(value);
+                            }
+                          },
+                          dropdownButtonColor: Colors.transparent,
+                          dropdownColor: AppColors.surfaceContainerHigh,
+                          border: BorderSide(color: Colors.transparent),
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.radiusSm,
+                          ),
+                          icon: const Icon(
+                            Icons.expand_more,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                          iconEnabledColor: AppColors.onSurfaceVariant,
+                          iconDisabledColor: AppColors.onSurfaceVariant,
+                          isExpanded: true,
+                          style: AppTextStyles.textStyleBody,
+                          hint: Text(
+                            'Selecciona una marca',
                             style: AppTextStyles.textStyleCaption.copyWith(
                               color: AppColors.onSurfaceVariant,
                             ),
                           ),
-                          TextSpan(
-                            text: ' *',
-                            style: AppTextStyles.textStyleSmall.copyWith(
-                              color: AppColors.requiredAsterisk,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          underline: const SizedBox.shrink(),
+                          itemHeight: 48,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.spacingSm,
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.spacingSm),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.onSurfaceVariant.withValues(
-                          alpha: 0.1,
                         ),
-                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-                        border: Border.all(color: AppColors.outlineVariant),
-                      ),
-                      child: _isLoadingMarcas
-                          ? const Padding(
-                              padding: EdgeInsets.all(AppSpacing.spacingMd),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primaryContainer,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : GFDropdown<int>(
-                              items: _marcas
-                                  .where((marca) {
-                                    final id = marca['id'];
-                                    return id != null &&
-                                        int.tryParse(id.toString()) != null;
-                                  })
-                                  .map(
-                                    (marca) =>
-                                        int.parse(marca['id'].toString()),
-                                  )
-                                  .toSet() // Deduplicar
-                                  .map((id) {
-                                    final marca = _marcas.firstWhere(
-                                      (m) =>
-                                          int.parse(m['id'].toString()) == id,
-                                    );
-                                    return DropdownMenuItem<int>(
-                                      value: id,
-                                      child: Text(
-                                        marca['nombre']?.toString() ?? '',
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
-                              value:
-                                  _marcas.any(
-                                    (m) =>
-                                        int.tryParse(
-                                          m['id']?.toString() ?? '',
-                                        ) ==
-                                        _selectedMarcaId,
-                                  )
-                                  ? _selectedMarcaId
-                                  : null,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _selectedMarcaId = value;
-                                  });
-                                  _cargarModelos(value);
-                                }
-                              },
-                              dropdownButtonColor: Colors.transparent,
-                              dropdownColor: AppColors.surfaceContainerHigh,
-                              border: BorderSide(color: Colors.transparent),
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.radiusSm,
-                              ),
-                              icon: const Icon(
-                                Icons.expand_more,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                              iconEnabledColor: AppColors.onSurfaceVariant,
-                              iconDisabledColor: AppColors.onSurfaceVariant,
-                              isExpanded: true,
-                              style: AppTextStyles.textStyleBody,
-                              hint: Text(
-                                'Selecciona una marca',
-                                style: AppTextStyles.textStyleCaption.copyWith(
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                              underline: const SizedBox.shrink(),
-                              itemHeight: 48,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.spacingSm,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-
-                // Dropdown de Modelo
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'Modelo',
-                            style: AppTextStyles.textStyleCaption.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' *',
-                            style: AppTextStyles.textStyleSmall.copyWith(
-                              color: AppColors.requiredAsterisk,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.spacingSm),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.onSurfaceVariant.withValues(
-                          alpha: 0.1,
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-                        border: Border.all(color: AppColors.outlineVariant),
-                      ),
-                      child: _isLoadingModelos
-                          ? const Padding(
-                              padding: EdgeInsets.all(AppSpacing.spacingMd),
-                              child: Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.primaryContainer,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : GFDropdown<int>(
-                              items: _modelos
-                                  .where((modelo) {
-                                    final id = modelo['id'];
-                                    return id != null &&
-                                        int.tryParse(id.toString()) != null;
-                                  })
-                                  .map(
-                                    (modelo) =>
-                                        int.parse(modelo['id'].toString()),
-                                  )
-                                  .toSet() // Deduplicar
-                                  .map((id) {
-                                    final modelo = _modelos.firstWhere(
-                                      (m) =>
-                                          int.parse(m['id'].toString()) == id,
-                                    );
-                                    return DropdownMenuItem<int>(
-                                      value: id,
-                                      child: Text(
-                                        modelo['nombre']?.toString() ?? '',
-                                      ),
-                                    );
-                                  })
-                                  .toList(),
-                              value:
-                                  _modelos.any(
-                                    (m) =>
-                                        int.tryParse(
-                                          m['id']?.toString() ?? '',
-                                        ) ==
-                                        _selectedModeloId,
-                                  )
-                                  ? _selectedModeloId
-                                  : null,
-                              onChanged: _selectedMarcaId == null
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        _selectedModeloId = value;
-                                      });
-                                    },
-                              dropdownButtonColor: Colors.transparent,
-                              dropdownColor: AppColors.surfaceContainerHigh,
-                              border: BorderSide(color: Colors.transparent),
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.radiusSm,
-                              ),
-                              icon: const Icon(
-                                Icons.expand_more,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                              iconEnabledColor: AppColors.onSurfaceVariant,
-                              iconDisabledColor: AppColors.onSurfaceVariant,
-                              isExpanded: true,
-                              style: AppTextStyles.textStyleBody,
-                              hint: Text(
-                                _selectedMarcaId == null
-                                    ? 'Selecciona primero una marca'
-                                    : 'Selecciona un modelo',
-                                style: AppTextStyles.textStyleCaption.copyWith(
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                              ),
-                              underline: const SizedBox.shrink(),
-                              itemHeight: 48,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.spacingSm,
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Número VIN (Chasis)',
-                  controller: _vinController,
-                  isRequired: true,
-                  helperText: 'Debe tener 17 caracteres',
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Año',
-                  controller: _anioController,
-                  type: RyTextFieldType.number,
-                  isRequired: true,
-                  helperText: 'Debe estar entre 1900 y el año actual + 1',
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Placa (opcional)',
-                  controller: _patenteController,
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: AppSpacing.spacingMd),
+
+            // Dropdown de Modelo
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Modelo',
+                        style: AppTextStyles.textStyleCaption.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' *',
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.requiredAsterisk,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingSm),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.onSurfaceVariant.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                    border: Border.all(color: AppColors.outlineVariant),
+                  ),
+                  child: _isLoadingModelos
+                      ? const Padding(
+                          padding: EdgeInsets.all(AppSpacing.spacingMd),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryContainer,
+                              ),
+                            ),
+                          ),
+                        )
+                      : GFDropdown<int>(
+                          items: _modelos
+                              .where((modelo) {
+                                final id = modelo['id'];
+                                return id != null &&
+                                    int.tryParse(id.toString()) != null;
+                              })
+                              .map(
+                                (modelo) => int.parse(modelo['id'].toString()),
+                              )
+                              .toSet() // Deduplicar
+                              .map((id) {
+                                final modelo = _modelos.firstWhere(
+                                  (m) => int.parse(m['id'].toString()) == id,
+                                );
+                                return DropdownMenuItem<int>(
+                                  value: id,
+                                  child: Text(
+                                    modelo['nombre']?.toString() ?? '',
+                                  ),
+                                );
+                              })
+                              .toList(),
+                          value: _seleccionMarcaModeloValida
+                              ? _selectedModeloId
+                              : null,
+                          onChanged: _selectedMarcaId == null
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _selectedModeloId = value;
+                                  });
+                                  if (_selectionFieldKey
+                                          .currentState
+                                          ?.hasError ??
+                                      false) {
+                                    _selectionFieldKey.currentState?.validate();
+                                  }
+                                },
+                          dropdownButtonColor: Colors.transparent,
+                          dropdownColor: AppColors.surfaceContainerHigh,
+                          border: BorderSide(color: Colors.transparent),
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.radiusSm,
+                          ),
+                          icon: const Icon(
+                            Icons.expand_more,
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                          iconEnabledColor: AppColors.onSurfaceVariant,
+                          iconDisabledColor: AppColors.onSurfaceVariant,
+                          isExpanded: true,
+                          style: AppTextStyles.textStyleBody,
+                          hint: Text(
+                            _selectedMarcaId == null
+                                ? 'Selecciona primero una marca'
+                                : 'Selecciona un modelo',
+                            style: AppTextStyles.textStyleCaption.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                          underline: const SizedBox.shrink(),
+                          itemHeight: 48,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.spacingSm,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+            FormField<int>(
+              key: _selectionFieldKey,
+              validator: (_) => !_seleccionMarcaModeloValida
+                  ? 'Por favor selecciona marca y modelo'
+                  : null,
+              builder: (field) => field.errorText == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.spacingXs),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          field.errorText!,
+                          style: AppTextStyles.textStyleCaption.copyWith(
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Número VIN (Chasis)',
+              controller: _vinController,
+              isRequired: true,
+              helperText: 'Debe tener 17 caracteres',
+              validator: (value) => value?.trim().length == 17
+                  ? null
+                  : 'Debe tener 17 caracteres',
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Año',
+              controller: _anioController,
+              type: RyTextFieldType.number,
+              isRequired: true,
+              helperText: 'Debe estar entre 1900 y el año actual + 1',
+              validator: (value) {
+                final year = int.tryParse(value?.trim() ?? '');
+                final latestAllowedYear = DateTime.now().year + 1;
+                return year != null && year >= 1900 && year <= latestAllowedYear
+                    ? null
+                    : 'Debe estar entre 1900 y el año actual + 1';
+              },
+            ),
+            const SizedBox(height: AppSpacing.spacingMd),
+            RyTextField(
+              label: 'Placa (opcional)',
+              controller: _patenteController,
+            ),
+          ],
         ),
       ),
       actions: [

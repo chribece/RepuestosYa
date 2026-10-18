@@ -1,6 +1,7 @@
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -36,8 +37,12 @@ void main() {
     AuthService().currentUserForTesting = null;
   });
 
-  Future<void> pumpForm(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(420, 900);
+  Future<void> pumpForm(
+    WidgetTester tester, {
+    double width = 420,
+    double height = 900,
+  }) async {
+    tester.view.physicalSize = Size(width, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -189,28 +194,36 @@ void main() {
   );
 
   testWidgets(
-    'Parte 2: el texto de ayuda de "Detalles adicionales" se ve completo '
-    '(helper con wrap, no truncado a 1 línea)',
+    'hint y helper de Detalles adicionales no se truncan a 420 y 800 px',
     (tester) async {
-      await pumpForm(tester);
-
+      const hint =
+          'Lado izquierdo/derecho, amperaje, número de pines o tamaño.';
       const helper =
           'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad';
-      final helperFinder = find.text(helper);
-      expect(
-        helperFinder,
-        findsOneWidget,
-        reason: 'El texto de ayuda completo debe existir en el árbol',
-      );
 
-      // El helper renderiza con wrap (más de una línea): si estuviera
-      // truncado a 1 línea mediría ~20px.
-      final alto = tester.getSize(helperFinder).height;
-      expect(
-        alto,
-        greaterThan(30),
-        reason: 'El helper debe hacer wrap (alto $alto px = 1 línea truncada)',
-      );
+      for (final width in [420.0, 800.0]) {
+        await pumpForm(tester, width: width, height: width == 420 ? 900 : 1600);
+
+        final hintFinder = find.text(hint);
+        expect(hintFinder, findsOneWidget);
+        final hintParagraph = tester.renderObject<RenderParagraph>(hintFinder);
+        debugPrint(
+          'DETAILS_HINT width=$width intrinsic='
+          '${hintParagraph.getMaxIntrinsicWidth(double.infinity).toStringAsFixed(1)} '
+          'available=${hintParagraph.constraints.maxWidth.toStringAsFixed(1)} '
+          'didExceedMaxLines=${hintParagraph.didExceedMaxLines}',
+        );
+        expect(hintParagraph.didExceedMaxLines, isFalse);
+
+        final helperFinder = find.text(helper);
+        expect(helperFinder, findsOneWidget);
+        final helperParagraph = tester.renderObject<RenderParagraph>(
+          helperFinder,
+        );
+        expect(helperParagraph.didExceedMaxLines, isFalse);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
     },
   );
 }

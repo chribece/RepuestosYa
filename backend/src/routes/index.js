@@ -15,6 +15,7 @@ const almacenController = require('../controllers/almacenController');
 const ordenController = require('../controllers/ordenController');
 const adminController = require('../controllers/adminController');
 const catalogoController = require('../controllers/catalogoController');
+const notificacionController = require('../controllers/notificacionController');
 
 // Auth routes (public)
 router.post('/auth/register', authController.register);
@@ -65,6 +66,12 @@ router.get('/requests/:id', auth, solicitudController.getSolicitudPorId);
 // con body { estado: 'cancelada' }. Solo el dueño; rechaza si ya fue
 // respondida por algún almacén (409) o no es cancelable.
 router.patch('/requests/:id/status', auth, solicitudController.updateSolicitudEstado);
+
+// Notificaciones del usuario autenticado
+router.get('/notificaciones/unread-count', auth, notificacionController.getUnreadCount);
+router.get('/notificaciones', auth, notificacionController.getNotificaciones);
+router.patch('/notificaciones/leer-todas', auth, notificacionController.patchMarcarTodasLeidas);
+router.patch('/notificaciones/:id/leer', auth, notificacionController.patchMarcarLeida);
 
 // Cotizacion routes (protected)
 router.post('/quotations', auth, requireRole('almacen'), cotizacionController.createCotizacion);

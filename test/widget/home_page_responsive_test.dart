@@ -7,6 +7,7 @@ import 'package:repuestosya/pages/home_page.dart';
 import 'package:repuestosya/providers/solicitudes_provider.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/theme/app_spacing.dart';
+import 'package:repuestosya/widgets/ry_notification_bell.dart';
 
 import '../helpers/fake_connectivity.dart';
 import '../helpers/fake_solicitud_repository.dart';
@@ -219,4 +220,40 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Home AppBar conserva campana y avatar a 420/800px', (
+    tester,
+  ) async {
+    for (final size in [const Size(420, 900), const Size(800, 1200)]) {
+      await pumpHome(tester, size: size);
+
+      final appBar = find.byKey(const ValueKey('home-top-app-bar'));
+      final appBarRect = tester.getRect(appBar);
+      final bell = find.descendant(
+        of: appBar,
+        matching: find.byType(RyNotificationBell),
+      );
+      final avatar = find.descendant(
+        of: appBar,
+        matching: find.byIcon(Icons.person),
+      );
+      final title = find.descendant(
+        of: appBar,
+        matching: find.text('RepuestosYa'),
+      );
+
+      expect(bell, findsOneWidget);
+      expect(avatar, findsOneWidget);
+      expect(title, findsOneWidget);
+      for (final control in [bell, avatar, title]) {
+        final rect = tester.getRect(control);
+        expect(rect.left, greaterThanOrEqualTo(appBarRect.left));
+        expect(rect.right, lessThanOrEqualTo(appBarRect.right));
+        expect(rect.top, greaterThanOrEqualTo(appBarRect.top));
+        expect(rect.bottom, lessThanOrEqualTo(appBarRect.bottom));
+      }
+      drenarExcepcionesAhem(tester);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
 }

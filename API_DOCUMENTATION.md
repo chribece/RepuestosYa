@@ -644,3 +644,69 @@ antes de la aceptación (necesario para cotizar).
 | `solicitudes_repuesto.estado` | `en_proceso` → `aceptada` (al elegir cotización) / `cerrada` (sin cotizaciones pendientes) / `cancelada` |
 | `ordenes_compra.estado` | `pendiente` (se crea al aceptar) → `pendiente_pago` / `confirmada` / `entregada` / `cancelada` |
 
+---
+
+## Notificaciones persistentes
+
+Todas las rutas requieren `Authorization: Bearer <JWT>` y operan solo sobre
+notificaciones cuyo `user_id` coincide con el usuario autenticado.
+
+### GET /api/notificaciones?page=1&limit=20
+
+Lista por `created_at` descendente. `page` es positivo y `limit` va de 1 a 50
+(por defecto 20).
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "tipo": "cotizacion_recibida",
+      "titulo": "Recibiste una cotización",
+      "mensaje": "Un almacén respondió a tu solicitud.",
+      "payload": { "solicitud_id": "uuid", "cotizacion_id": "uuid" },
+      "created_at": "2026-10-17T12:00:00.000Z",
+      "leido_en": null
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "hasMore": false
+}
+```
+
+### GET /api/notificaciones/unread-count
+
+```json
+{ "unreadCount": 3 }
+```
+
+### PATCH /api/notificaciones/:id/leer
+
+Marca como leída una notificación propia. Devuelve `404` si no existe o no
+pertenece al usuario.
+
+```json
+{ "id": "uuid", "leido_en": "2026-10-17T12:05:00.000Z" }
+```
+
+### PATCH /api/notificaciones/leer-todas
+
+```json
+{ "actualizadas": 3 }
+```
+
+### Tipos y `payload` de notificaciones
+
+El campo `payload.ruta` indica el destino sugerido al abrir la notificación.
+Los IDs del payload son los IDs de negocio de Supabase (UUID).
+
+| `tipo` | Destinatario | Campos de `payload` |
+|--------|--------------|---------------------|
+| `solicitud_nueva` | Encargados de almacenes aprobados | `solicitud_id`, `ruta` (`/cotizar/:solicitudId`) |
+| `cotizacion_recibida` | Cliente dueño de la solicitud | `solicitud_id`, `cotizacion_id`, `ruta` (`/solicitudes/:id`) |
+| `orden_creada` | Cliente que aceptó | `orden_id`, `solicitud_id`, `cotizacion_id`, `ruta` (`/mis-ordenes`) |
+| `cotizacion_ganada` | Almacén ganador | `orden_id`, `solicitud_id`, `cotizacion_id`, `ruta` (`/dashboard/orden/:id`, o `/dashboard` si aún no hay ID) |
+| `cotizacion_perdida` | Almacenes que cotizaron y no ganaron | `solicitud_id`, `cotizacion_ganadora_id`, `ruta` (`/dashboard`) |
+| `cotizacion_rechazada` | Almacén cuya cotización rechazó el cliente | `cotizacion_id`, `solicitud_id`, `ruta` (`/dashboard`) |
+| `orden_estado` | Cliente dueño de la orden | `orden_id`, `solicitud_id`, `estado`, `ruta` (`/orden/:id`) |

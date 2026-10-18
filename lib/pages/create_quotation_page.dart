@@ -26,6 +26,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/ry_snackbar.dart';
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
@@ -237,12 +238,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         final mensaje = fieldErrors.isNotEmpty
             ? fieldErrors.values.first
             : ApiErrorHandler.userMessage(e);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al procesar la cotización: $mensaje'),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-          ),
+        mostrarSnackbarError(
+          context,
+          mensaje: 'Error al procesar la cotización: $mensaje',
+          duracion: const Duration(seconds: 4),
         );
         return;
       }
@@ -259,15 +258,12 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
         setState(() {
           _isSubmitting = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al procesar la cotización: '
               '${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-          ),
+          duracion: const Duration(seconds: 4),
         );
       }
     }
@@ -835,12 +831,10 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                   GestureDetector(
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: vin.toUpperCase()));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('¡VIN copiado al portapapeles!'),
-                          backgroundColor: AppColors.success,
-                          duration: Duration(seconds: 2),
-                        ),
+                      mostrarSnackbarExito(
+                        context,
+                        mensaje: '¡VIN copiado al portapapeles!',
+                        duracion: const Duration(seconds: 2),
                       );
                     },
                     child: Container(

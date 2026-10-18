@@ -57,6 +57,7 @@ dependencies:
   getwidget: ^7.0.2
   flutter_slidable: ^4.0.3
   url_launcher: ^6.3.3
+  awesome_snackbar_content: ^0.1.8
 
 dev_dependencies:
   flutter_test:

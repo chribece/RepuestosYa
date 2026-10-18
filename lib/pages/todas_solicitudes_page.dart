@@ -18,6 +18,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class TodasSolicitudesPage extends StatefulWidget {
@@ -432,13 +433,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
   void _mostrarMensaje(String mensaje) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mensaje),
-        backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    mostrarSnackbarError(context, mensaje: mensaje);
   }
 
   String _getTimeAgo(DateTime? dateTime) {

@@ -7,6 +7,7 @@ import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 import '../providers/user_role_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
@@ -126,15 +127,12 @@ class _LoginPageState extends State<LoginPage> {
               name: 'LoginPage',
               error: e,
             );
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
+            mostrarSnackbarError(
+              context,
+              mensaje:
                   'No se pudo verificar tu perfil de almacén: '
                   '${ApiErrorHandler.userMessage(e)}',
-                ),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 4),
-              ),
+              duracion: const Duration(seconds: 4),
             );
             return;
           }

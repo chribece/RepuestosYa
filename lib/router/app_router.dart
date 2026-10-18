@@ -25,6 +25,7 @@ import '../pages/perfil_almacen_page.dart';
 import '../pages/addresses_page.dart';
 import '../pages/vehicles_page.dart';
 import '../pages/almacen_orden_detalle_page.dart';
+import '../pages/notificaciones_page.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../providers/user_role_provider.dart';
@@ -176,6 +177,11 @@ class AppRouter {
           path: '/profile',
           name: RouteNames.profile,
           builder: (context, state) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: '/notificaciones',
+          name: RouteNames.notifications,
+          builder: (context, state) => const NotificacionesPage(),
         ),
         GoRoute(
           path: '/profile/addresses',

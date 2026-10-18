@@ -12,6 +12,8 @@ const {
   validationErrors,
   validateImageUrl
 } = require('../utils/validation');
+const { crearNotificacion } = require('../services/notificacionService');
+const logger = require('../utils/logger');
 const {
   GeocodingError,
   validarCoordenadas,
@@ -481,6 +483,39 @@ const createSolicitud = async (req, res) => {
       }
 
       return res.status(400).json({ error: error.message });
+    }
+
+    // El evento Realtime de nueva solicitud solo existe mientras el almacén
+    // está conectado; persistirlo permite mostrarlo después en su historial.
+    try {
+      const { data: almacenes, error: almacenesError } = await supabase
+        .from('almacenes')
+        .select('encargado_id')
+        .eq('verification_status', 'approved');
+      if (almacenesError) throw almacenesError;
+
+      const userIds = [
+        ...new Set((almacenes || []).map((almacen) => almacen.encargado_id).filter(Boolean)),
+      ];
+      await Promise.all(
+        userIds.map((userId) =>
+          crearNotificacion({
+            userId,
+            tipo: 'solicitud_nueva',
+            titulo: 'Nueva solicitud de repuesto',
+            mensaje: 'Un cliente publicó una solicitud que puedes cotizar.',
+            payload: {
+              solicitud_id: solicitud.id,
+              ruta: `/cotizar/${solicitud.id}`,
+            },
+          }),
+        ),
+      );
+    } catch (notificationError) {
+      logger.error(
+        '[notificaciones] No se pudo guardar el aviso de nueva solicitud:',
+        notificationError,
+      );
     }
 
     // Invalidar caché de solicitudes activas

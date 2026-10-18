@@ -10,9 +10,11 @@ import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
+import '../widgets/ry_notification_bell.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -98,14 +100,13 @@ class _ProfilePageState extends State<ProfilePage> {
       });
 
       if (updated != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil actualizado correctamente')),
+        mostrarSnackbarExito(
+          context,
+          mensaje: 'Perfil actualizado correctamente',
         );
         _loadProfile();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al actualizar el perfil')),
-        );
+        mostrarSnackbarError(context, mensaje: 'Error al actualizar el perfil');
       }
     }
   }
@@ -283,6 +284,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildTopAppBar() {
     return Container(
+      key: const ValueKey('profile-top-app-bar'),
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
       decoration: const BoxDecoration(
@@ -310,11 +312,20 @@ class _ProfilePageState extends State<ProfilePage> {
               Text('Mi Perfil', style: AppTextStyles.textStyleTitle),
             ],
           ),
-          if (!_isLoading)
-            IconButton(
-              icon: const Icon(Icons.save, color: AppColors.primaryContainer),
-              onPressed: _saveProfile,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const RyNotificationBell(),
+              if (!_isLoading)
+                IconButton(
+                  icon: const Icon(
+                    Icons.save,
+                    color: AppColors.primaryContainer,
+                  ),
+                  onPressed: _saveProfile,
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -397,6 +408,7 @@ class _ProfilePageState extends State<ProfilePage> {
             helperText:
                 'Obligatorio: el almacén ganador lo usará para coordinar el '
                 'pago y la entrega de tu repuesto.',
+            helperMaxLines: 3,
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'El teléfono es requerido';
@@ -474,12 +486,10 @@ class _ProfilePageState extends State<ProfilePage> {
         stackTrace: StackTrace.current,
       ),
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
+    mostrarSnackbarInfo(
+      context,
+      mensaje:
           'Fallo de prueba enviado a Sentry (env=${AppConfig.environment}).',
-        ),
-      ),
     );
   }
 

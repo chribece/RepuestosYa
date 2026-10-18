@@ -6,6 +6,7 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/ry_snackbar.dart';
 
 class CotizacionesPage extends StatefulWidget {
   final String solicitudId;
@@ -42,18 +43,16 @@ class _CotizacionesPageState extends State<CotizacionesPage> {
           if (provider.errorMessage != null && !_hasShownErrorDialog) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(provider.errorMessage!),
-                    backgroundColor: AppColors.error,
-                    duration: const Duration(seconds: 3),
-                    action: SnackBarAction(
-                      label: 'OK',
-                      textColor: AppColors.onSurface,
-                      onPressed: () {
-                        provider.clearError();
-                      },
-                    ),
+                mostrarSnackbarError(
+                  context,
+                  mensaje: provider.errorMessage!,
+                  duracion: const Duration(seconds: 3),
+                  accion: SnackBarAction(
+                    label: 'OK',
+                    textColor: AppColors.onSurface,
+                    onPressed: () {
+                      provider.clearError();
+                    },
                   ),
                 );
               }

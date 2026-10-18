@@ -20,6 +20,7 @@ import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/business_rules.dart';
 import '../utils/contact_launcher.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class ReceivedQuotationsPage extends StatefulWidget {
@@ -256,14 +257,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     if (!mounted) return null;
 
     if (guardado != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+      mostrarSnackbarAdvertencia(
+        context,
+        mensaje:
             'Completa tu teléfono en tu perfil para poder aceptar la cotización.',
-          ),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-        ),
       );
       return null;
     }
@@ -274,14 +271,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     );
     if (actualizado == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'No se pudo guardar tu teléfono. Verifica tu conexión e intenta nuevamente.',
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
         );
       }
       return null;
@@ -301,15 +294,11 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final resultados = await Connectivity().checkConnectivity();
     if (resultados.contains(ConnectivityResult.none)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+      mostrarSnackbarError(
+        context,
+        mensaje:
             'No hay conexión a internet. La aceptación requiere confirmación '
             'del servidor; conéctate e intenta nuevamente.',
-          ),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
       );
       return;
     }
@@ -440,11 +429,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cotización aceptada correctamente'),
-          backgroundColor: AppColors.success,
-        ),
+      mostrarSnackbarExito(
+        context,
+        mensaje: 'Cotización aceptada correctamente',
       );
 
       // pushReplacement: "atrás" no regresa a la cotización ya aceptada.
@@ -466,13 +453,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         // para reflejar el estado real (el botón desaparece).
         _cargarCotizaciones();
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ApiErrorHandler.userMessage(e)),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarSnackbarError(context, mensaje: ApiErrorHandler.userMessage(e));
     } catch (e) {
       AppLogger.error(
         'Error al aceptar cotización',
@@ -480,13 +461,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         error: e,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al aceptar cotización: ${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     } finally {
@@ -520,12 +498,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       );
       await _solicitudService.rechazarCotizacion(cotizacionId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cotización rechazada'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
+        mostrarSnackbarAdvertencia(context, mensaje: 'Cotización rechazada');
         _cargarCotizaciones();
       }
     } catch (e) {
@@ -535,13 +508,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         error: e,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
+        mostrarSnackbarError(
+          context,
+          mensaje:
               'Error al rechazar cotización: ${ApiErrorHandler.userMessage(e)}',
-            ),
-            backgroundColor: AppColors.error,
-          ),
         );
       }
     }

@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'secure_storage_service.dart';
-import '../theme/app_colors.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/keys.dart';
+import '../utils/ry_snackbar.dart';
 import '../config/app_config.dart';
 
 class ApiClient {
@@ -139,13 +139,7 @@ class ApiClient {
     // Usamos el RyKeys.rootNavigatorKey para acceder al contexto global y mostrar SnackBar
     final context = RyKeys.rootNavigatorKey.currentContext;
     if (context != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarSnackbarError(context, mensaje: message);
     }
   }
 

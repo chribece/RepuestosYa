@@ -4,6 +4,7 @@ import 'package:repuestosya/services/direccion_service.dart';
 import 'package:repuestosya/services/geocoding_service.dart';
 import 'package:repuestosya/services/ubicacion_service.dart';
 import 'package:repuestosya/widgets/nueva_direccion_sheet.dart';
+import 'package:repuestosya/widgets/ry_button.dart';
 
 /// Pruebas del flujo UX del sheet "Nueva dirección": al usar el GPS o mover
 /// el pin, el reverse geocoding prellena los campos en segundo plano, y las
@@ -101,6 +102,178 @@ void main() {
     expect(find.text('Mi calle corregida'), findsOneWidget);
     expect(find.text('Av. 10 de Agosto'), findsNothing);
   });
+
+  testWidgets(
+    'a tamaño de teléfono (360x690): los botones Cancelar/Guardar quedan '
+    'SIEMPRE visibles al pie del sheet (no se recortan)',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 690);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // Mismo patrón de apertura que create_request_page (showModalBottomSheet
+      // con isScrollControlled).
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (sheetContext) => NuevaDireccionSheet(
+                      direccionService: DireccionService(),
+                      resolverUbicacion: () async =>
+                          const UbicacionResultado.ok(-0.1913664, -78.4930512),
+                    ),
+                  );
+                },
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      // Los botones están en el árbol Y dentro de la pantalla (no recortados).
+      expect(find.text('Cancelar'), findsOneWidget);
+      expect(find.text('Guardar'), findsOneWidget);
+      final rectGuardar = tester.getRect(find.text('Guardar'));
+      expect(rectGuardar.bottom, lessThanOrEqualTo(690));
+      final rectCancelar = tester.getRect(find.text('Cancelar'));
+      expect(rectCancelar.bottom, lessThanOrEqualTo(690));
+
+      // Son tocables sin necesidad de scrollear.
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cancelar'), findsNothing); // el sheet se cerró
+    },
+  );
+
+  testWidgets(
+    'al mostrar el mapa GPS a 420px, Cancelar/Guardar quedan sobre el inset',
+    (tester) async {
+      const screenHeight = 900.0;
+      const bottomInset = 24.0;
+      tester.view.physicalSize = const Size(420, screenHeight);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: bottomInset);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => NuevaDireccionSheet(
+                    direccionService: DireccionService(),
+                    resolverUbicacion: () async =>
+                        const UbicacionResultado.ok(-0.1913664, -78.4930512),
+                    geocodingService: _FakeGeocoding(),
+                  ),
+                ),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Usar mi ubicación actual'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump();
+
+      final cancelButton = find.ancestor(
+        of: find.text('Cancelar'),
+        matching: find.byType(RyButton),
+      );
+      final saveButton = find.ancestor(
+        of: find.text('Guardar'),
+        matching: find.byType(RyButton),
+      );
+      final cancelRect = tester.getRect(cancelButton);
+      final saveRect = tester.getRect(saveButton);
+      debugPrint(
+        'GPS_SHEET cancel=$cancelRect save=$saveRect '
+        'safeBottom=${screenHeight - bottomInset}',
+      );
+      expect(cancelRect.bottom, lessThanOrEqualTo(screenHeight - bottomInset));
+      expect(saveRect.bottom, lessThanOrEqualTo(screenHeight - bottomInset));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'con el teclado abierto, las acciones quedan sobre el teclado y el inset',
+    (tester) async {
+      const screenHeight = 900.0;
+      const keyboardInset = 280.0;
+      const bottomInset = 24.0;
+      tester.view.physicalSize = const Size(420, screenHeight);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: bottomInset);
+      tester.view.viewInsets = const FakeViewPadding(bottom: keyboardInset);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => NuevaDireccionSheet(
+                    direccionService: DireccionService(),
+                    resolverUbicacion: () async =>
+                        const UbicacionResultado.ok(-0.1913664, -78.4930512),
+                    geocodingService: _FakeGeocoding(),
+                  ),
+                ),
+                child: const Text('abrir'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Usar mi ubicación actual'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump();
+
+      final cancelButton = find.ancestor(
+        of: find.text('Cancelar'),
+        matching: find.byType(RyButton),
+      );
+      final saveButton = find.ancestor(
+        of: find.text('Guardar'),
+        matching: find.byType(RyButton),
+      );
+      final cancelRect = tester.getRect(cancelButton);
+      final saveRect = tester.getRect(saveButton);
+      debugPrint(
+        'GPS_SHEET_KEYBOARD cancel=$cancelRect save=$saveRect '
+        'keyboardTop=${screenHeight - keyboardInset}',
+      );
+      expect(
+        cancelRect.bottom,
+        lessThanOrEqualTo(screenHeight - keyboardInset),
+      );
+      expect(saveRect.bottom, lessThanOrEqualTo(screenHeight - keyboardInset));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _FakeGeocoding extends GeocodingService {

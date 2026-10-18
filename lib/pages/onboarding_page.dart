@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/onboarding_provider.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_section_card.dart';
 import '../widgets/ry_state_container.dart';
@@ -49,7 +50,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
       builder: (context, onboarding, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Comienza con RepuestosYa'),
+            title: const Text(
+              'Comienza con RepuestosYa',
+              style: AppTextStyles.textStyleCaption,
+              maxLines: 2,
+              overflow: TextOverflow.visible,
+              softWrap: true,
+            ),
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.spacingXs),

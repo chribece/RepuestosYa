@@ -18,6 +18,37 @@ const obtenerNotificacionesQueue = () => {
   return _notificacionesQueue;
 };
 
+const obtenerNotificacionService = (opciones) =>
+  opciones.notificacionService || require('./notificacionService');
+
+const guardarNotificacionSinAfectarNegocio = async (
+  notificacionService,
+  db,
+  datos,
+) => {
+  try {
+    await notificacionService.crearNotificacion(datos, { supabase: db });
+  } catch (error) {
+    console.warn('[notificaciones] No se pudo guardar el aviso:', error.message);
+  }
+};
+
+const obtenerUsuarioAlmacen = async (db, almacenId) => {
+  if (!almacenId) return null;
+  try {
+    const { data, error } = await db
+      .from('almacenes')
+      .select('id, encargado_id')
+      .eq('id', almacenId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.encargado_id || null;
+  } catch (error) {
+    console.warn('[notificaciones] No se pudo resolver el usuario del almacén:', error.message);
+    return null;
+  }
+};
+
 class NotFoundError extends Error {
   constructor(message) {
     super(message);
@@ -105,6 +136,25 @@ const aceptarCotizacion = async (cotizacionId, clienteAutenticadoId, opciones = 
       throw new ConflictError('Esta solicitud ya tiene una cotización aceptada');
     }
 
+    // Guardar antes del RPC qué ofertas aún estaban pendientes: tras aceptar,
+    // el RPC las convierte en rechazadas y perderíamos esa distinción.
+    let cotizacionesPendientesPerdedoras = [];
+    try {
+      const { data, error } = await db
+        .from('cotizaciones')
+        .select('almacen_id')
+        .eq('solicitud_id', cotizacion.solicitud_id)
+        .eq('estado', 'pendiente')
+        .neq('id', cotizacionId);
+      if (error) throw error;
+      cotizacionesPendientesPerdedoras = data || [];
+    } catch (error) {
+      console.warn(
+        '[notificaciones] No se pudieron cargar las ofertas pendientes:',
+        error.message,
+      );
+    }
+
     // e) Ejecutar RPC aceptar_cotizacion (transacción atómica + idempotente)
     const { data: rpcResult, error: rpcError } = await db.rpc('aceptar_cotizacion', {
       p_cotizacion_id: cotizacionId,
@@ -123,6 +173,88 @@ const aceptarCotizacion = async (cotizacionId, clienteAutenticadoId, opciones = 
       }
       console.error('RPC Error:', rpcError);
       throw new BadRequestError(mensajeRpc || 'Error al procesar la aceptación de cotización');
+    }
+
+    const notificaciones = obtenerNotificacionService(opciones);
+    await guardarNotificacionSinAfectarNegocio(notificaciones, db, {
+      userId: clienteAutenticadoId,
+      tipo: 'orden_creada',
+      titulo: 'Orden creada',
+      mensaje: 'Tu cotización fue aceptada y se creó una orden de compra.',
+      payload: {
+        orden_id: rpcResult?.orden_id || null,
+        solicitud_id: cotizacion.solicitud_id,
+        cotizacion_id: cotizacionId,
+        ruta: '/mis-ordenes',
+      },
+    });
+
+    const usuarioAlmacenGanador = await obtenerUsuarioAlmacen(
+      db,
+      cotizacion.almacen_id,
+    );
+    if (usuarioAlmacenGanador) {
+      await guardarNotificacionSinAfectarNegocio(notificaciones, db, {
+        userId: usuarioAlmacenGanador,
+        tipo: 'cotizacion_ganada',
+        titulo: 'Cotización aceptada',
+        mensaje: 'Un cliente aceptó tu cotización.',
+        payload: {
+          orden_id: rpcResult?.orden_id || null,
+          solicitud_id: cotizacion.solicitud_id,
+          cotizacion_id: cotizacionId,
+          ruta: rpcResult?.orden_id
+            ? `/dashboard/orden/${rpcResult.orden_id}`
+            : '/dashboard',
+        },
+      });
+    }
+
+    // El RPC ya marcó como rechazadas las cotizaciones competidoras; se
+    // notifica a sus almacenes para que el feed no deje la decisión invisible.
+    try {
+      const almacenIds = [
+        ...new Set(
+          cotizacionesPendientesPerdedoras
+            .map((fila) => fila.almacen_id)
+            .filter((id) => id && id !== cotizacion.almacen_id),
+        ),
+      ];
+      if (almacenIds.length > 0) {
+        const { data: almacenesPerdedores, error: errorAlmacenes } = await db
+          .from('almacenes')
+          .select('encargado_id')
+          .in('id', almacenIds);
+        if (errorAlmacenes) throw errorAlmacenes;
+
+        const usuarioIds = [
+          ...new Set(
+            (almacenesPerdedores || [])
+              .map((almacen) => almacen.encargado_id)
+              .filter(Boolean),
+          ),
+        ];
+        await Promise.all(
+          usuarioIds.map((userId) =>
+            guardarNotificacionSinAfectarNegocio(notificaciones, db, {
+              userId,
+              tipo: 'cotizacion_perdida',
+              titulo: 'Cotización no seleccionada',
+              mensaje: 'El cliente eligió otra cotización para esta solicitud.',
+              payload: {
+                solicitud_id: cotizacion.solicitud_id,
+                cotizacion_ganadora_id: cotizacionId,
+                ruta: '/dashboard',
+              },
+            }),
+          ),
+        );
+      }
+    } catch (error) {
+      console.warn(
+        '[notificaciones] No se pudo avisar a los almacenes perdedores:',
+        error.message,
+      );
     }
 
     // f) Si el RPC es exitoso, encolar 3 jobs en BullMQ
@@ -286,6 +418,24 @@ const rechazarCotizacion = async (cotizacionId, clienteAutenticadoId, opciones =
     if (updateError) {
       console.error('[Service] Update Error en rechazar:', updateError);
       throw new BadRequestError('Error al actualizar el estado de la cotización');
+    }
+
+    if (updateData && updateData.length > 0) {
+      const notificaciones = obtenerNotificacionService(opciones);
+      const userId = await obtenerUsuarioAlmacen(db, cotizacion.almacen_id);
+      if (userId) {
+        await guardarNotificacionSinAfectarNegocio(notificaciones, db, {
+          userId,
+          tipo: 'cotizacion_rechazada',
+          titulo: 'Cotización rechazada',
+          mensaje: 'El cliente rechazó tu cotización.',
+          payload: {
+            cotizacion_id: cotizacionId,
+            solicitud_id: cotizacion.solicitud_id,
+            ruta: '/dashboard',
+          },
+        });
+      }
     }
 
     // DIAGNÓSTICO: Si no hay error, pero updateData está vacío, ¡RLS lo está bloqueando!

@@ -10,6 +10,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/formato_fecha.dart';
+import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class OrdenCompraPage extends StatefulWidget {
@@ -61,18 +62,16 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
             if (provider.errorMessage != null && !_hasShownErrorDialog) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(provider.errorMessage!),
-                      backgroundColor: AppColors.error,
-                      duration: const Duration(seconds: 3),
-                      action: SnackBarAction(
-                        label: 'OK',
-                        textColor: AppColors.onSurface,
-                        onPressed: () {
-                          provider.clearError();
-                        },
-                      ),
+                  mostrarSnackbarError(
+                    context,
+                    mensaje: provider.errorMessage!,
+                    duracion: const Duration(seconds: 3),
+                    accion: SnackBarAction(
+                      label: 'OK',
+                      textColor: AppColors.onSurface,
+                      onPressed: () {
+                        provider.clearError();
+                      },
                     ),
                   );
                 }

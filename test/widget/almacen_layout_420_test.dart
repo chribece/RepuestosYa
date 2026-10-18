@@ -1,6 +1,7 @@
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/orden_compra_repository.dart';
 import 'package:repuestosya/theme/app_text_styles.dart';
 import 'package:repuestosya/theme/app_theme.dart';
+import 'package:repuestosya/widgets/ry_notification_bell.dart';
 
 import '../helpers/fake_connectivity.dart';
 import '../helpers/fake_services.dart';
@@ -168,6 +170,42 @@ void main() {
       isEmpty,
       reason: 'Overflows a 420px:\n${errores.join('\n')}',
     );
+    expect(find.byType(RyNotificationBell), findsOneWidget);
+    final header = tester.getRect(
+      find.byKey(const ValueKey('warehouse-top-app-bar')),
+    );
+    final bell = tester.getRect(find.byType(RyNotificationBell));
+    final estado = tester.getRect(find.text('Abierto'));
+    final titulo = tester.renderObject<RenderParagraph>(
+      find.text('REPUESTOSYA'),
+    );
+    expect(bell.left, greaterThanOrEqualTo(estado.right));
+    expect(bell.right, lessThanOrEqualTo(header.right));
+    expect(titulo.didExceedMaxLines, isFalse);
+  });
+
+  testWidgets('AppBar de almacén conserva chip y campana a 800px', (
+    tester,
+  ) async {
+    await montarDashboard(
+      tester,
+      almacen: almacenAprobado(),
+      solicitud: solicitudConDatos(),
+      size: const Size(800, 1200),
+    );
+
+    final header = tester.getRect(
+      find.byKey(const ValueKey('warehouse-top-app-bar')),
+    );
+    final bell = tester.getRect(find.byType(RyNotificationBell));
+    final estado = tester.getRect(find.text('Abierto'));
+    final titulo = tester.renderObject<RenderParagraph>(
+      find.text('REPUESTOSYA'),
+    );
+    expect(bell.left, greaterThanOrEqualTo(estado.right));
+    expect(bell.right, lessThanOrEqualTo(header.right));
+    expect(bell.height, 48);
+    expect(titulo.didExceedMaxLines, isFalse);
   });
 
   testWidgets('cotizaciones enviadas: pull-to-refresh dispara el fetch real', (

@@ -10,6 +10,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_logger.dart';
+import '../utils/ry_snackbar.dart';
 
 enum RyImagePickerMode { single, multiple }
 
@@ -283,9 +284,7 @@ class RyImagePicker extends StatelessWidget {
 
   void _showError(BuildContext context, String message) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
+    mostrarSnackbarError(context, mensaje: message);
   }
 
   void _showPickerOptions(BuildContext context) {

@@ -470,6 +470,10 @@ class RyPartCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (customActions != null) ...[
+              const SizedBox(width: AppSpacing.spacingSm),
+              customActions!,
+            ],
           ],
         ),
         if ((description != null && description!.trim().isNotEmpty) ||

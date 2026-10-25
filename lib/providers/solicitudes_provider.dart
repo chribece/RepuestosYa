@@ -10,6 +10,7 @@ class SolicitudesProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isOffline = false;
   DateTime? _lastSync;
+  int _successfulSyncCount = 0;
 
   /// Evita refrescos concurrentes: el listener de conectividad, el Home y el
   /// listado pueden disparar [refreshFromServer] casi a la vez; solo el
@@ -28,6 +29,7 @@ class SolicitudesProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isOffline => _isOffline;
   DateTime? get lastSync => _lastSync;
+  int get successfulSyncCount => _successfulSyncCount;
 
   void _init() {
     // 1. Escuchar la base de datos local (Reactividad)
@@ -120,6 +122,7 @@ class SolicitudesProvider with ChangeNotifier {
         );
 
         _lastSync = await _repository.ultimaSincronizacion();
+        _successfulSyncCount++;
       } catch (e) {
         AppLogger.error(
           'SINC-PROV: ERROR CRÍTICO: $e',

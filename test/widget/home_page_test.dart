@@ -5,12 +5,14 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import 'package:repuestosya/pages/home_page.dart';
+import 'package:repuestosya/providers/create_request_provider.dart';
 import 'package:repuestosya/providers/solicitudes_provider.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
 import 'package:repuestosya/widgets/ry_part_card.dart';
 
 import '../helpers/fake_connectivity.dart';
+import '../helpers/fake_services.dart';
 import '../helpers/fake_solicitud_repository.dart';
 
 /// Los 4 estados de la sección "Mis Solicitudes" del Home del cliente
@@ -37,12 +39,21 @@ void main() {
     addTearDown(tester.view.reset);
 
     final provider = SolicitudesProvider(fake);
+    final createRequestProvider = CreateRequestProvider();
+    addTearDown(createRequestProvider.dispose);
     addTearDown(provider.dispose);
+    final catalogService = FakeCatalogService()
+      ..respuestaCategorias = categoriasRepuestosDePrueba();
 
     await tester.pumpWidget(
-      ChangeNotifierProvider<SolicitudesProvider>.value(
-        value: provider,
-        child: const MaterialApp(home: HomePage()),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SolicitudesProvider>.value(value: provider),
+          ChangeNotifierProvider<CreateRequestProvider>.value(
+            value: createRequestProvider,
+          ),
+        ],
+        child: MaterialApp(home: HomePage(catalogService: catalogService)),
       ),
     );
     // Primer frame + post-frame del Home (dispara refreshFromServer).
@@ -94,9 +105,14 @@ void main() {
     expect(find.text('Cargando solicitudes...'), findsNothing);
     expect(find.text('Sin solicitudes'), findsNothing);
 
-    // Las estadísticas locales derivan de la lista (2 activas → '02' en las
-    // dos tarjetas que las cuentan: Activas y En Proceso).
-    expect(find.text('02'), findsNWidgets(2));
+    // La métrica activa muestra el total calculado desde las solicitudes.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('stat-card-Solicitudes Activas')),
+        matching: find.text('02'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('estado VACÍA: mensaje real de estado vacío con CTA', (

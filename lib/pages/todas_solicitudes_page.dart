@@ -20,6 +20,9 @@ import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
 import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
+import '../widgets/client_bottom_navigation_bar.dart';
+
+enum _SolicitudFilter { todas, enProceso, finalizadas }
 
 class TodasSolicitudesPage extends StatefulWidget {
   const TodasSolicitudesPage({super.key, this.solicitudService});
@@ -39,6 +42,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
       widget.solicitudService ?? SolicitudService();
   Timer? _refreshTimer;
   Future<List<OutboxData>>? _errorItemsFuture;
+  _SolicitudFilter _selectedFilter = _SolicitudFilter.todas;
 
   @override
   void initState() {
@@ -273,24 +277,25 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     );
   }
 
-  /// Acción de swipe "Ver detalle" con los tokens del Design System
-  /// (fondo `secondaryContainer`, texto `onSurface`, `textStyleSmall`).
+  /// Acción de swipe de detalle en superficie neutra, con acento coral.
   Widget _buildVerDetalleAction(VoidCallback onPressed) {
     return CustomSlidableAction(
       onPressed: (_) => onPressed(),
-      backgroundColor: AppColors.secondaryContainer,
-      foregroundColor: AppColors.onSurface,
+      backgroundColor: AppColors.surfaceContainerHigh,
+      foregroundColor: AppColors.primary,
       borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.visibility_outlined, size: 22),
+          const Icon(Icons.visibility_outlined, size: 20),
           const SizedBox(height: AppSpacing.spacingXxs),
           Text(
             'Detalle',
             style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurface,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -298,26 +303,31 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     );
   }
 
-  /// Acción de swipe "Cancelar" con los tokens del Design System (fondo
-  /// `error`, texto blanco `onErrorText`, `textStyleSmall`). Se revela en el
-  /// panel IZQUIERDO (deslizar el contenido hacia la DERECHA), es decir el
-  /// `startActionPane` del Slidable.
+  /// Acción destructiva en vino oscuro; conserva contraste y evita un bloque
+  /// rojo saturado dentro de la tarjeta.
   Widget _buildCancelarAction(VoidCallback onPressed) {
+    final cancelSurface = Color.alphaBlend(
+      AppColors.error.withValues(alpha: 0.32),
+      AppColors.surfaceContainerHigh,
+    );
+
     return CustomSlidableAction(
       onPressed: (_) => onPressed(),
-      backgroundColor: AppColors.error,
-      foregroundColor: SemanticColors.colorOnErrorText,
+      backgroundColor: cancelSurface,
+      foregroundColor: SemanticColors.colorErrorText,
       borderRadius: BorderRadius.circular(AppRadius.radiusMd),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXxs),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.close, size: 22),
+          const Icon(Icons.close, size: 20),
           const SizedBox(height: AppSpacing.spacingXxs),
           Text(
             'Cancelar',
             style: AppTextStyles.textStyleSmall.copyWith(
-              color: SemanticColors.colorOnErrorText,
+              color: SemanticColors.colorErrorText,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -436,13 +446,300 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     mostrarSnackbarError(context, mensaje: mensaje);
   }
 
-  String _getTimeAgo(DateTime? dateTime) {
-    if (dateTime == null) return 'nunca';
-    final diff = DateTime.now().difference(dateTime);
-    if (diff.inMinutes < 1) return 'ahora';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'hace ${diff.inHours} horas';
-    return 'hace ${diff.inDays} días';
+  bool _matchesFilter(SolicitudLocal solicitud) {
+    final estado = solicitud.estado.toLowerCase();
+    switch (_selectedFilter) {
+      case _SolicitudFilter.todas:
+        return true;
+      case _SolicitudFilter.enProceso:
+        return const {
+          'pendiente',
+          'en_proceso',
+          'in_progress',
+          'enviado',
+          'sent',
+          'cotizado',
+          'quoted',
+        }.contains(estado);
+      case _SolicitudFilter.finalizadas:
+        return const {
+          'completado',
+          'completada',
+          'completed',
+          'entregado',
+          'entregada',
+          'delivered',
+          'cancelado',
+          'cancelada',
+          'cancelled',
+          'rechazado',
+          'rejected',
+        }.contains(estado);
+    }
+  }
+
+  Widget _buildFilterChip({
+    required _SolicitudFilter filter,
+    required String label,
+  }) {
+    final selected = _selectedFilter == filter;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      backgroundColor: AppColors.surfaceContainerHigh,
+      selectedColor: AppColors.primaryContainer,
+      side: BorderSide(
+        color: selected ? AppColors.primaryContainer : AppColors.outlineVariant,
+      ),
+      labelStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: selected
+            ? AppColors.onPrimaryContainer
+            : AppColors.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
+      onSelected: (value) {
+        if (value) setState(() => _selectedFilter = filter);
+      },
+    );
+  }
+
+  Widget _buildStatusFilters() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingMd,
+        vertical: AppSpacing.spacingSm,
+      ),
+      child: Row(
+        children: [
+          _buildFilterChip(filter: _SolicitudFilter.todas, label: 'Todas'),
+          const SizedBox(width: AppSpacing.spacingSm),
+          _buildFilterChip(
+            filter: _SolicitudFilter.enProceso,
+            label: 'En proceso',
+          ),
+          const SizedBox(width: AppSpacing.spacingSm),
+          _buildFilterChip(
+            filter: _SolicitudFilter.finalizadas,
+            label: 'Finalizadas',
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<SolicitudLocal> _filteredRequests(List<SolicitudLocal> requests) =>
+      requests.where(_matchesFilter).toList(growable: false);
+
+  Widget _buildRequestCard(
+    BuildContext context,
+    SolicitudLocal solicitudLocal,
+    bool isOffline,
+  ) {
+    final tarjeta = RyPartCard(
+      partName: solicitudLocal.piezaNombre,
+      imageUrl: solicitudLocal.fotoUrl,
+      vehicleInfo: null,
+      description: solicitudLocal.descripcion,
+      status: solicitudLocal.estado,
+      createdAt: solicitudLocal.updatedAt,
+      isSynced: solicitudLocal.synced,
+      variant: RyPartCardVariant.client,
+      customActions: solicitudLocal.synced
+          ? const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.onSurfaceVariant,
+              size: 22,
+            )
+          : null,
+      onTap: () => _abrirDetalleSolicitud(context, solicitudLocal),
+    );
+    final puedeCancelar = _puedeCancelar(solicitudLocal);
+    final tarjetaConMenu = puedeCancelar
+        ? Stack(
+            children: [
+              tarjeta,
+              Positioned(
+                top: 0,
+                right: 0,
+                child: _buildCardMenu(solicitudLocal),
+              ),
+            ],
+          )
+        : tarjeta;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+      child: solicitudLocal.synced
+          ? Slidable(
+              key: ValueKey('solicitud-${solicitudLocal.id}'),
+              endActionPane: ActionPane(
+                motion: const DrawerMotion(),
+                extentRatio: 0.34,
+                children: [
+                  _buildVerDetalleAction(
+                    () => _abrirDetalleSolicitud(context, solicitudLocal),
+                  ),
+                ],
+              ),
+              startActionPane: puedeCancelar && !isOffline
+                  ? ActionPane(
+                      motion: const DrawerMotion(),
+                      extentRatio: 0.34,
+                      children: [
+                        _buildCancelarAction(
+                          () => _cancelarSolicitud(solicitudLocal),
+                        ),
+                      ],
+                    )
+                  : null,
+              child: tarjetaConMenu,
+            )
+          : tarjeta,
+    );
+  }
+
+  Widget _buildRequestList(
+    SolicitudesProvider provider,
+    List<SolicitudLocal> solicitudes,
+    List<SolicitudLocal> filteredRequests,
+  ) {
+    if (provider.isLoading && solicitudes.isEmpty) {
+      return _buildScrollableState(
+        const RyStateContainer(
+          title: 'Cargando solicitudes...',
+          type: RyStateType.loading,
+        ),
+      );
+    }
+
+    if (solicitudes.isEmpty) {
+      return _buildScrollableState(
+        RyStateContainer(
+          title: 'Sin solicitudes',
+          subtitle: 'No tienes solicitudes registradas',
+          type: RyStateType.empty,
+          actionLabel: 'Sincronizar ahora',
+          onAction: () => provider.refreshFromServer(),
+        ),
+      );
+    }
+
+    if (filteredRequests.isEmpty) {
+      return _buildScrollableState(
+        RyStateContainer(
+          title: 'No hay solicitudes en este filtro',
+          subtitle: 'Prueba otro estado para ver tus solicitudes.',
+          type: RyStateType.empty,
+          actionLabel: 'Ver todas',
+          onAction: () => setState(() {
+            _selectedFilter = _SolicitudFilter.todas;
+          }),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      key: const ValueKey('todas-solicitudes-list'),
+      controller: _scrollController,
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.spacingMd,
+        AppSpacing.spacingSm,
+        AppSpacing.spacingMd,
+        AppSpacing.spacingXl,
+      ),
+      itemCount: filteredRequests.length,
+      itemBuilder: (context, index) => _buildRequestCard(
+        context,
+        filteredRequests[index],
+        provider.isOffline,
+      ),
+    );
+  }
+
+  Future<void> _recargarConFeedback(SolicitudesProvider provider) async {
+    final previousSuccessfulSync = provider.successfulSyncCount;
+    await provider.refreshFromServer();
+    if (!mounted) return;
+
+    final synced = provider.successfulSyncCount > previousSuccessfulSync;
+    final message = synced
+        ? 'Sincronizado correctamente'
+        : provider.isOffline
+        ? 'Sin conexión. Se muestran los datos guardados.'
+        : 'No se pudo sincronizar. Inténtalo nuevamente.';
+    final messageColor = synced
+        ? AppColors.success
+        : provider.isOffline
+        ? AppColors.warning
+        : SemanticColors.colorErrorText;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppColors.surfaceContainerHigh,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            side: BorderSide(color: messageColor.withValues(alpha: 0.45)),
+          ),
+          content: Row(
+            children: [
+              Icon(
+                synced
+                    ? Icons.check_circle_outline
+                    : provider.isOffline
+                    ? Icons.cloud_off_outlined
+                    : Icons.sync_problem_outlined,
+                color: messageColor,
+                size: 18,
+              ),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+  }
+
+  Widget _buildScrollableState(RyStateContainer state) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stateHeight =
+            constraints.maxHeight.isFinite && constraints.maxHeight > 320
+            ? constraints.maxHeight
+            : 320.0;
+        return ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingMd,
+            vertical: AppSpacing.spacingLg,
+          ),
+          children: [
+            SizedBox(
+              height: stateHeight,
+              child: Center(child: state),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -450,83 +747,14 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     return Consumer<SolicitudesProvider>(
       builder: (context, provider, child) {
         final solicitudes = provider.solicitudes;
-        final isLoading = provider.isLoading;
-        final isOffline = provider.isOffline;
+        final filteredRequests = _filteredRequests(solicitudes);
 
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
             backgroundColor: AppColors.background,
             elevation: 0,
-            title: Text(
-              'Todas mis Solicitudes',
-              style: AppTextStyles.textStyleTitle,
-            ),
-            actions: [
-              if (provider.lastSync != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.spacingMd),
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.spacingMd,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: isOffline
-                              ? [
-                                  SemanticColors.colorSecondaryButton,
-                                  AppColors.primaryContainer,
-                                ]
-                              : [
-                                  SemanticColors.colorSuccess,
-                                  AppColors.success,
-                                ],
-                        ),
-                        borderRadius: BorderRadius.circular(
-                          AppRadius.radiusFull,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color:
-                                (isOffline
-                                        ? AppColors.primary
-                                        : AppColors.success)
-                                    .withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isOffline
-                                ? Icons.sync_rounded
-                                : Icons.check_circle_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _getTimeAgo(provider.lastSync),
-                            style: AppTextStyles.textStyleCaption.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+            title: Text('Mis Solicitudes', style: AppTextStyles.textStyleTitle),
             iconTheme: const IconThemeData(color: AppColors.onSurface),
             shape: const Border(
               bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
@@ -534,127 +762,22 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
           ),
           body: Column(
             children: [
+              _buildStatusFilters(),
               _buildSyncBanner(provider),
               _buildOutboxErrors(),
               Expanded(
-                child: isLoading && solicitudes.isEmpty
-                    ? const RyStateContainer(
-                        title: 'Cargando solicitudes...',
-                        type: RyStateType.loading,
-                      )
-                    : solicitudes.isEmpty
-                    ? RyStateContainer(
-                        title: 'Sin solicitudes',
-                        subtitle: 'No tienes solicitudes registradas',
-                        type: RyStateType.empty,
-                        actionLabel: 'Sincronizar ahora',
-                        onAction: () => provider.refreshFromServer(),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => provider.refreshFromServer(),
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(AppSpacing.spacingMd),
-                          itemCount: solicitudes.length,
-                          itemBuilder: (context, index) {
-                            final solicitudLocal = solicitudes[index];
-                            final estado = solicitudLocal.estado;
-
-                            // Mapeo a objeto Solicitud para compatibilidad si es necesario
-                            // Pero aquí usamos directamente los campos de SolicitudLocal
-
-                            final tarjeta = RyPartCard(
-                              partName: solicitudLocal.piezaNombre,
-                              imageUrl: solicitudLocal.fotoUrl,
-                              vehicleInfo: null,
-                              description: solicitudLocal.descripcion,
-                              status: estado,
-                              createdAt: solicitudLocal
-                                  .updatedAt, // Marca temporal del SERVIDOR
-                              isSynced: solicitudLocal.synced,
-                              variant: RyPartCardVariant.client,
-                              onTap: () => _abrirDetalleSolicitud(
-                                context,
-                                solicitudLocal,
-                              ),
-                            );
-
-                            // Mapeo de gestos del Slidable (regla de la fase):
-                            // - deslizar a la IZQUIERDA (contenido se corre a la
-                            //   izquierda → se revela el panel DERECHO) =
-                            //   endActionPane = "Detalle".
-                            // - deslizar a la DERECHA (contenido se corre a la
-                            //   derecha → se revela el panel IZQUIERDO) =
-                            //   startActionPane = "Cancelar".
-                            // El swipe "Ver detalle" replica la navegación del
-                            // tap. Los items sin sincronizar (Outbox pendiente)
-                            // no llevan swipe, igual que su tap deshabilitado:
-                            // no se puede navegar a un detalle que no existe en
-                            // el servidor todavía.
-                            // "Cancelar" solo se ofrece si la solicitud está
-                            // activa y hay conexión (sin conexión no se encola
-                            // en el Outbox; el aviso llega por el menú "⋮").
-                            final puedeCancelar = _puedeCancelar(
-                              solicitudLocal,
-                            );
-                            final tarjetaConMenu = puedeCancelar
-                                ? Stack(
-                                    children: [
-                                      tarjeta,
-                                      Positioned(
-                                        top: 0,
-                                        right: 0,
-                                        child: _buildCardMenu(solicitudLocal),
-                                      ),
-                                    ],
-                                  )
-                                : tarjeta;
-
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.spacingMd,
-                              ),
-                              child: solicitudLocal.synced
-                                  ? Slidable(
-                                      key: ValueKey(
-                                        'solicitud-${solicitudLocal.id}',
-                                      ),
-                                      endActionPane: ActionPane(
-                                        motion: const DrawerMotion(),
-                                        extentRatio: 0.34,
-                                        children: [
-                                          _buildVerDetalleAction(
-                                            () => _abrirDetalleSolicitud(
-                                              context,
-                                              solicitudLocal,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      startActionPane:
-                                          puedeCancelar && !isOffline
-                                          ? ActionPane(
-                                              motion: const DrawerMotion(),
-                                              extentRatio: 0.34,
-                                              children: [
-                                                _buildCancelarAction(
-                                                  () => _cancelarSolicitud(
-                                                    solicitudLocal,
-                                                  ),
-                                                ),
-                                              ],
-                                            )
-                                          : null,
-                                      child: tarjetaConMenu,
-                                    )
-                                  : tarjeta,
-                            );
-                          },
-                        ),
-                      ),
+                child: RefreshIndicator(
+                  onRefresh: () => _recargarConFeedback(provider),
+                  child: _buildRequestList(
+                    provider,
+                    solicitudes,
+                    filteredRequests,
+                  ),
+                ),
               ),
             ],
           ),
+          bottomNavigationBar: const ClientBottomNavigationBar(currentIndex: 1),
         );
       },
     );

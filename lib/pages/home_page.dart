@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../models/part_catalog.dart';
 import '../theme/app_colors.dart';
+import '../services/catalog_service.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
+import '../providers/create_request_provider.dart';
 import '../providers/solicitudes_provider.dart';
+import '../widgets/client_bottom_navigation_bar.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_notification_bell.dart';
@@ -21,14 +25,25 @@ import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.catalogService});
+
+  final CatalogService? catalogService;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
+  int _currentMetricPage = 0;
+  final PageController _metricPageController = PageController(
+    initialPage: 0,
+    keepPage: false,
+  );
+  int _currentTrendingCategoryPage = 0;
+  final PageController _trendingCategoryPageController = PageController(
+    initialPage: 0,
+    keepPage: false,
+  );
   Map<String, dynamic> _estadisticas = {};
   Timer? _refreshTimer;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -37,6 +52,11 @@ class _HomePageState extends State<HomePage> {
   /// online y avisar/recargar solo cuando realmente vuelve la red.
   bool _wasOffline = false;
 
+  List<PartCategory> _trendingCategories = [];
+  bool _isLoadingTrendingCategories = true;
+
+  late final CatalogService _catalogService =
+      widget.catalogService ?? CatalogService();
   final SolicitudService _solicitudService = SolicitudService();
   final AuthService _authService = AuthService();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -45,6 +65,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _cargarEstadisticas();
+    _cargarCategoriasTrending();
     _suscribirANotificaciones();
     _initConnectivityWatcher();
 
@@ -58,6 +79,65 @@ class _HomePageState extends State<HomePage> {
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _cargarCategoriasTrending() async {
+    var categories = <PartCategory>[];
+    try {
+      categories = await _catalogService.getPartCategories();
+    } catch (error) {
+      AppLogger.warning(
+        'No se pudieron cargar las categorías populares: $error',
+        name: 'HomePage',
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _trendingCategories = categories
+          .where((category) => category.id.isNotEmpty)
+          .toList(growable: false);
+      _isLoadingTrendingCategories = false;
+    });
+  }
+
+  IconData _iconForTrendingCategory(PartCategory category) {
+    final categoryKey = '${category.slug} ${category.nombre}'.toLowerCase();
+    if (categoryKey.contains('elect')) {
+      return Icons.battery_charging_full_rounded;
+    }
+    if (categoryKey.contains('filtro')) {
+      return Icons.filter_alt_rounded;
+    }
+    if (categoryKey.contains('motor')) {
+      return Icons.settings_rounded;
+    }
+    if (categoryKey.contains('carrocer')) {
+      return Icons.car_crash_rounded;
+    }
+    if (categoryKey.contains('freno')) {
+      return Icons.build_rounded;
+    }
+    if (categoryKey.contains('suspension')) {
+      return Icons.tune_rounded;
+    }
+    if (categoryKey.contains('lubricante') || categoryKey.contains('fluido')) {
+      return Icons.opacity_rounded;
+    }
+    if (categoryKey.contains('transmision')) {
+      return Icons.sync_alt_rounded;
+    }
+    return Icons.category_outlined;
+  }
+
+  void _openTrendingCategory(PartCategory category) {
+    context.read<CreateRequestProvider>().prepareNewRequestForCategory(
+      category.id,
+    );
+    context.pushNamed(
+      RouteNames.createRequest,
+      queryParameters: {'categoryId': category.id},
+    );
   }
 
   /// Escucha los cambios de conectividad. Al volver la red (offline → online)
@@ -167,6 +247,8 @@ class _HomePageState extends State<HomePage> {
     _refreshTimer?.cancel();
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
+    _metricPageController.dispose();
+    _trendingCategoryPageController.dispose();
     RealtimeNotificationService().unsubscribe();
     RealtimeNotificationService().unsubscribeMultiple();
     super.dispose();
@@ -184,10 +266,13 @@ class _HomePageState extends State<HomePage> {
             _buildTopAppBar(),
             Expanded(
               child: SingleChildScrollView(
+                key: const ValueKey('home-main-scroll'),
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingMd,
-                  vertical: AppSpacing.spacingSm,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.spacingMd,
+                  AppSpacing.spacingSm,
+                  AppSpacing.spacingMd,
+                  100,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,10 +283,8 @@ class _HomePageState extends State<HomePage> {
                     _buildStatsRow(),
                     const SizedBox(height: AppSpacing.spacingLg),
                     _buildRequestsSection(),
-                    const SizedBox(height: AppSpacing.spacingLg),
-                    _buildTrendingSection(),
-                    // 40 estaba a la misma distancia de 32 y 48: se toma spacingXl
                     const SizedBox(height: AppSpacing.spacingXl),
+                    _buildTrendingSection(),
                   ],
                 ),
               ),
@@ -209,7 +292,7 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      bottomNavigationBar: const ClientBottomNavigationBar(currentIndex: 0),
     );
   }
 
@@ -540,7 +623,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // --- FILA DE ESTADÍSTICAS (BENTO GRID) ---
+  // --- MÉTRICAS COMPACTAS DESLIZABLES ---
   Widget _buildStatsRow() {
     return Consumer<SolicitudesProvider>(
       builder: (context, provider, child) {
@@ -566,67 +649,109 @@ class _HomePageState extends State<HomePage> {
         final String buscandoTxt = buscandoCount.toString().padLeft(2, '0');
         final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
         final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
+        final metrics =
+            <({String title, String value, IconData icon, Color color})>[
+              (
+                title: 'Solicitudes Activas',
+                value: buscandoTxt,
+                icon: Icons.history_rounded,
+                color: AppColors.primaryContainer,
+              ),
+              (
+                title: 'Cotizaciones Recibidas',
+                value: cotizadasTxt,
+                icon: Icons.request_quote_rounded,
+                color: AppColors.secondaryContainer,
+              ),
+              (
+                title: 'En Proceso',
+                value: enProcesoTxt,
+                icon: Icons.pending_rounded,
+                color: AppColors.tertiaryContainer,
+              ),
+              (
+                title: 'Órdenes Realizadas',
+                value:
+                    (_estadisticas['ordenes_realizadas']?.toString().padLeft(
+                      2,
+                      '0',
+                    ) ??
+                    '00'),
+                icon: Icons.shopping_cart_rounded,
+                color: AppColors.success,
+              ),
+            ];
+        final cardsPerPage = MediaQuery.sizeOf(context).width >= 720 ? 4 : 2;
+        final pageCount = (metrics.length + cardsPerPage - 1) ~/ cardsPerPage;
 
-        // Cada fila va en IntrinsicHeight con CrossAxisAlignment.stretch para
-        // que las dos tarjetas compartan SIEMPRE la misma altura real, aunque
-        // el contenido (títulos que hacen wrap en pantallas angostas) difiera
-        // entre celdas. Además _buildStatCard reserva un alto fijo para el
-        // título (2 líneas), así número e ícono quedan alineados entre las 4.
         return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Solicitudes Activas',
-                      value: buscandoTxt,
-                      icon: Icons.history_rounded,
-                      color: AppColors.primaryContainer,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.spacingSm),
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Cotizaciones Recibidas',
-                      value: cotizadasTxt,
-                      icon: Icons.request_quote_rounded,
-                      color: AppColors.secondaryContainer,
-                    ),
-                  ),
-                ],
+            SizedBox(
+              width: double.infinity,
+              height: 96,
+              child: PageView.builder(
+                key: const ValueKey('home-stats-carousel'),
+                controller: _metricPageController,
+                padEnds: false,
+                physics: const BouncingScrollPhysics(
+                  parent: PageScrollPhysics(),
+                ),
+                itemCount: pageCount,
+                onPageChanged: (index) {
+                  setState(() => _currentMetricPage = index);
+                },
+                itemBuilder: (context, index) {
+                  final pageMetrics = metrics
+                      .skip(index * cardsPerPage)
+                      .take(cardsPerPage)
+                      .toList(growable: false);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (
+                        var metricIndex = 0;
+                        metricIndex < pageMetrics.length;
+                        metricIndex++
+                      ) ...[
+                        if (metricIndex > 0)
+                          const SizedBox(width: AppSpacing.spacingSm),
+                        Expanded(
+                          child: _buildStatCard(
+                            title: pageMetrics[metricIndex].title,
+                            value: pageMetrics[metricIndex].value,
+                            icon: pageMetrics[metricIndex].icon,
+                            color: pageMetrics[metricIndex].color,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
             ),
-            const SizedBox(height: AppSpacing.spacingSm),
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'En Proceso',
-                      value: enProcesoTxt,
-                      icon: Icons.pending_rounded,
-                      color: AppColors.tertiaryContainer,
+            if (pageCount > 1) ...[
+              const SizedBox(height: AppSpacing.spacingXs),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  pageCount,
+                  (index) => AnimatedContainer(
+                    key: ValueKey('home-stats-dot-$index'),
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: index == _currentMetricPage ? 16 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: index == _currentMetricPage
+                          ? AppColors.primaryContainer
+                          : AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.spacingSm),
-                  Expanded(
-                    child: _buildStatCard(
-                      title: 'Órdenes Realizadas',
-                      value:
-                          (_estadisticas['ordenes_realizadas']
-                              ?.toString()
-                              .padLeft(2, '0') ??
-                          '00'),
-                      icon: Icons.shopping_cart_rounded,
-                      color: AppColors.success,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -639,58 +764,55 @@ class _HomePageState extends State<HomePage> {
     required IconData icon,
     required Color color,
   }) {
-    // El título reserva SIEMPRE el alto de dos líneas del token
-    // textStyleCaption: la fila número+ícono queda a la misma altura en las
-    // 4 tarjetas sin importar si el título ocupa 1 o 2 líneas (móvil angosto).
-    // Los títulos que no caben se recortan con ellipsis, no desbordan.
-    final double tituloAlto =
-        AppTextStyles.textStyleCaption.fontSize! *
-        AppTextStyles.textStyleCaption.height! *
-        2;
-
     return Container(
       key: ValueKey('stat-card-$title'),
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingMd,
+        vertical: AppSpacing.spacingXs,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         border: Border.all(color: AppColors.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          SizedBox(
-            height: tituloAlto,
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.textStyleCaption.copyWith(
-                color: AppColors.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingXxs),
+                Text(
+                  value,
+                  style: AppTextStyles.textStyleTitle.copyWith(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.spacingSm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                value,
-                style: AppTextStyles.textStyleHeading.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.spacingXs),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-            ],
+          const SizedBox(width: AppSpacing.spacingXs),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+            ),
+            child: Icon(icon, color: color, size: 18),
           ),
         ],
       ),
@@ -865,168 +987,157 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: AppSpacing.spacingSm),
-        SizedBox(
-          height: 96,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            children: [
-              _buildTrendingItem(
-                icon: Icons.tire_repair_rounded,
-                label: 'Neumáticos',
+        if (_isLoadingTrendingCategories)
+          const SizedBox(
+            height: 96,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primaryContainer,
+                ),
               ),
-              const SizedBox(width: AppSpacing.spacingSm),
-              _buildTrendingItem(
-                icon: Icons.battery_charging_full_rounded,
-                label: 'Baterías',
+            ),
+          )
+        else if (_trendingCategories.isEmpty)
+          SizedBox(
+            height: 96,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Categorías no disponibles',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(width: AppSpacing.spacingSm),
-              _buildTrendingItem(
-                icon: Icons.car_crash_rounded,
-                label: 'Carrocería',
-              ),
-            ],
+            ),
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardsPerPage = constraints.maxWidth >= 720 ? 4 : 2;
+              final pageCount =
+                  (_trendingCategories.length + cardsPerPage - 1) ~/
+                  cardsPerPage;
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 96,
+                    child: PageView.builder(
+                      key: const ValueKey('home-trending-categories'),
+                      controller: _trendingCategoryPageController,
+                      padEnds: false,
+                      physics: const BouncingScrollPhysics(
+                        parent: PageScrollPhysics(),
+                      ),
+                      itemCount: pageCount,
+                      onPageChanged: (index) {
+                        setState(() => _currentTrendingCategoryPage = index);
+                      },
+                      itemBuilder: (context, pageIndex) {
+                        final pageCategories = _trendingCategories
+                            .skip(pageIndex * cardsPerPage)
+                            .take(cardsPerPage)
+                            .toList(growable: false);
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (
+                              var categoryIndex = 0;
+                              categoryIndex < pageCategories.length;
+                              categoryIndex++
+                            ) ...[
+                              if (categoryIndex > 0)
+                                const SizedBox(width: AppSpacing.spacingSm),
+                              Expanded(
+                                child: _buildTrendingItem(
+                                  icon: _iconForTrendingCategory(
+                                    pageCategories[categoryIndex],
+                                  ),
+                                  label: pageCategories[categoryIndex].nombre,
+                                  onTap: () => _openTrendingCategory(
+                                    pageCategories[categoryIndex],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  if (pageCount > 1) ...[
+                    const SizedBox(height: AppSpacing.spacingXs),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        pageCount,
+                        (index) => AnimatedContainer(
+                          key: ValueKey('home-trending-dot-$index'),
+                          duration: const Duration(milliseconds: 180),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: index == _currentTrendingCategoryPage ? 16 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: index == _currentTrendingCategoryPage
+                                ? AppColors.primaryContainer
+                                : AppColors.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
-        ),
       ],
     );
   }
 
-  Widget _buildTrendingItem({required IconData icon, required String label}) {
-    return Container(
-      width: 130,
-      padding: const EdgeInsets.all(AppSpacing.spacingSm),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
+  Widget _buildTrendingItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      key: ValueKey('home-trending-item-$label'),
+      color: AppColors.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
+        side: const BorderSide(color: AppColors.outlineVariant),
       ),
-      // FittedBox: escala el contenido si el texto crece (accesibilidad /
-      // fuentes grandes) en lugar de desbordar el contenedor.
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.spacingSm),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: AppColors.primary, size: 28),
+              Icon(icon, color: AppColors.primary, size: 26),
               const SizedBox(height: AppSpacing.spacingXs),
               Text(
                 label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.textStyleCaption.copyWith(
                   color: AppColors.onSurface,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
                 ),
                 textAlign: TextAlign.center,
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --- BARRA DE NAVEGACIÓN INFERIOR ---
-  Widget _buildBottomNavBar() {
-    return Container(
-      key: const ValueKey('bottom-nav-bar'),
-      // El fondo (surfaceContainerHigh) cubre también el área de gestos del
-      // sistema; SafeArea(bottom) eleva los ítems por encima de la barra de
-      // gestos/notch inferior del teléfono. El borde superior va DENTRO de
-      // los 64 de la barra (como antes), así el total sigue siendo 64 (+ inset
-      // en teléfono; 0 en tablet).
-      color: AppColors.surfaceContainerHigh,
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppColors.outlineVariant, width: 1),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  isSelected: _selectedIndex == 0,
-                  onTap: () => setState(() => _selectedIndex = 0),
-                ),
-                _buildNavItem(
-                  icon: Icons.search_rounded,
-                  label: 'Search',
-                  isSelected: _selectedIndex == 1,
-                  onTap: () => setState(() => _selectedIndex = 1),
-                ),
-                _buildNavItem(
-                  icon: Icons.shopping_cart_rounded,
-                  label: 'Orders',
-                  isSelected: _selectedIndex == 2,
-                  onTap: () {
-                    setState(() => _selectedIndex = 2);
-                    context.pushNamed(RouteNames.misOrdenes);
-                  },
-                ),
-                _buildNavItem(
-                  icon: Icons.person_rounded,
-                  label: 'Profile',
-                  isSelected: _selectedIndex == 3,
-                  onTap: () {
-                    context.pushNamed(RouteNames.profile);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      // Garantiza área táctil de 48×48 dp mínimo WCAG 2.5.5 (antes la
-      // Column medía ~46 dp de alto y el ancho dependía del contenido).
-      height: 48,
-      width: 64,
-      child: InkWell(
-        onTap: onTap,
-        // FittedBox: si el label crece (accesibilidad/fuentes grandes) se
-        // escala en vez de desbordar el área táctil de 48 dp.
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected
-                      ? AppColors.primaryContainer
-                      : AppColors.onSurfaceVariant,
-                  size: 22,
-                ),
-                // ajuste fino intencional: separación mínima icono/label en la barra inferior
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: isSelected
-                        ? AppColors.primaryContainer
-                        : AppColors.onSurfaceVariant,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

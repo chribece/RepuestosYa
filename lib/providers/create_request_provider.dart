@@ -79,6 +79,18 @@ class CreateRequestProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void prepareNewRequestForCategory(String categoryId) {
+    piezaNombre = '';
+    descripcion = '';
+    selectedImage = null;
+    selectedPrioridad = 'estándar';
+    selectedCategoryId = categoryId;
+    selectedPartId = null;
+    partNameSnapshot = null;
+    _additionalParts.clear();
+    notifyListeners();
+  }
+
   void setSelectedCategoryId(String? id) {
     if (selectedCategoryId != id) {
       selectedCategoryId = id;

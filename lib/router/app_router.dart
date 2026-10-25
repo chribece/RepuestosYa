@@ -211,6 +211,7 @@ class AppRouter {
           builder: (context, state) => CreateRequestPage(
             isOnboardingFlow:
                 state.uri.queryParameters['source'] == 'onboarding',
+            initialCategoryId: state.uri.queryParameters['categoryId'],
           ),
         ),
         GoRoute(

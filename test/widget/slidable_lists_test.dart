@@ -17,6 +17,7 @@ import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/outbox.dart';
 import 'package:repuestosya/services/solicitud_repository.dart';
 import 'package:repuestosya/services/sync_engine.dart';
+import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
 import 'package:repuestosya/widgets/ry_part_card.dart';
 
@@ -460,6 +461,91 @@ void main() {
     return provider;
   }
 
+  testWidgets('TodasSolicitudes usa AppBar limpia y filtra por estado', (
+    tester,
+  ) async {
+    final fake = FakeSolicitudRepository();
+    await pumpTodasSolicitudes(
+      tester,
+      fake: fake,
+      servicio: FakeSolicitudService(),
+      servidor: [
+        {
+          'id': 'srv-pendiente',
+          'pieza_nombre': 'Filtro pendiente',
+          'estado': 'pendiente',
+          'created_at': '2026-09-20T10:00:00.000Z',
+        },
+        {
+          'id': 'srv-proceso',
+          'pieza_nombre': 'Bujías en proceso',
+          'estado': 'en_proceso',
+          'created_at': '2026-09-21T10:00:00.000Z',
+        },
+        {
+          'id': 'srv-finalizado',
+          'pieza_nombre': 'Motor finalizado',
+          'estado': 'completado',
+          'created_at': '2026-09-22T10:00:00.000Z',
+        },
+      ],
+    );
+
+    expect(find.text('Mis Solicitudes'), findsOneWidget);
+    expect(find.text('Todas mis Solicitudes'), findsNothing);
+    expect(find.text('ahora'), findsNothing);
+    expect(find.text('Filtro pendiente'), findsOneWidget);
+    expect(find.text('Bujías en proceso'), findsOneWidget);
+    expect(find.text('Motor finalizado'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'En proceso'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtro pendiente'), findsOneWidget);
+    expect(find.text('Bujías en proceso'), findsOneWidget);
+    expect(find.text('Motor finalizado'), findsNothing);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Finalizadas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtro pendiente'), findsNothing);
+    expect(find.text('Bujías en proceso'), findsNothing);
+    expect(find.text('Motor finalizado'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Todas'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtro pendiente'), findsOneWidget);
+    expect(find.text('Bujías en proceso'), findsOneWidget);
+    expect(find.text('Motor finalizado'), findsOneWidget);
+  });
+
+  testWidgets('pull-to-refresh sincroniza localmente y confirma al usuario', (
+    tester,
+  ) async {
+    final fake = FakeSolicitudRepository();
+    await pumpTodasSolicitudes(
+      tester,
+      fake: fake,
+      servicio: FakeSolicitudService(),
+      servidor: [
+        {
+          'id': 'srv-1',
+          'pieza_nombre': 'Filtro de aceite',
+          'estado': 'pendiente',
+          'created_at': '2026-09-20T10:00:00.000Z',
+        },
+      ],
+    );
+    final llamadasAntes = fake.llamadasObtener;
+
+    await tester.drag(
+      find.byKey(const ValueKey('todas-solicitudes-list')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(fake.llamadasObtener, greaterThan(llamadasAntes));
+    expect(find.text('Sincronizado correctamente'), findsOneWidget);
+  });
+
   testWidgets(
     'todas_solicitudes: swipe a la IZQUIERDA revela "Detalle" (endActionPane) '
     'y navega; swipe a la DERECHA revela "Cancelar" (startActionPane)',
@@ -486,6 +572,21 @@ void main() {
       final slidable = tester.widget<Slidable>(find.byType(Slidable));
       expect(slidable.endActionPane, isNotNull);
       expect(slidable.startActionPane, isNotNull);
+
+      final detalleAction =
+          slidable.endActionPane!.children.single as CustomSlidableAction;
+      final cancelarAction =
+          slidable.startActionPane!.children.single as CustomSlidableAction;
+      expect(detalleAction.backgroundColor, AppColors.surfaceContainerHigh);
+      expect(detalleAction.foregroundColor, AppColors.primary);
+      expect(
+        cancelarAction.backgroundColor,
+        Color.alphaBlend(
+          AppColors.error.withValues(alpha: 0.32),
+          AppColors.surfaceContainerHigh,
+        ),
+      );
+      expect(cancelarAction.foregroundColor, SemanticColors.colorErrorText);
 
       // Gesto A: deslizar a la IZQUIERDA (contenido se corre a la izquierda →
       // panel derecho) revela "Detalle" y navega a las cotizaciones recibidas.

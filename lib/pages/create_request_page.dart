@@ -46,6 +46,7 @@ class CreateRequestPage extends StatefulWidget {
     this.catalogService,
     this.ubicacionService,
     this.isOnboardingFlow = false,
+    this.initialCategoryId,
   });
 
   /// Servicios inyectables para widget tests (Fase 2 de docs/TESTING.md):
@@ -56,6 +57,7 @@ class CreateRequestPage extends StatefulWidget {
   final CatalogService? catalogService;
   final UbicacionService? ubicacionService;
   final bool isOnboardingFlow;
+  final String? initialCategoryId;
 
   @override
   State<CreateRequestPage> createState() => _CreateRequestPageState();
@@ -114,6 +116,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     // Restaurar categoría/repuestos si ya hay una seleccionada en el provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<CreateRequestProvider>();
+      final initialCategoryId = widget.initialCategoryId;
+      if (initialCategoryId != null && initialCategoryId.isNotEmpty) {
+        provider.prepareNewRequestForCategory(initialCategoryId);
+      }
       if (provider.selectedCategoryId != null) {
         _cargarRepuestos(provider.selectedCategoryId!);
       }

@@ -8,6 +8,7 @@ import '../widgets/ry_button.dart';
 import '../widgets/ry_notification_bell.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
+import '../widgets/client_bottom_navigation_bar.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -197,6 +198,7 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
                 );
               },
             ),
+      bottomNavigationBar: const ClientBottomNavigationBar(currentIndex: 2),
     );
   }
 

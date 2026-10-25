@@ -190,6 +190,25 @@ class FakeCatalogService extends CatalogService {
   }
 }
 
+List<PartCategory> categoriasRepuestosDePrueba() => [
+  PartCategory(id: 'cat-carroceria', nombre: 'Carrocería', slug: 'carroceria'),
+  PartCategory(id: 'cat-electrico', nombre: 'Eléctrico', slug: 'electrico'),
+  PartCategory(id: 'cat-filtros', nombre: 'Filtros', slug: 'filtros'),
+  PartCategory(id: 'cat-frenos', nombre: 'Frenos', slug: 'frenos'),
+  PartCategory(
+    id: 'cat-lubricantes',
+    nombre: 'Lubricantes y Fluidos',
+    slug: 'lubricantes-fluidos',
+  ),
+  PartCategory(id: 'cat-motor', nombre: 'Motor', slug: 'motor'),
+  PartCategory(id: 'cat-suspension', nombre: 'Suspensión', slug: 'suspension'),
+  PartCategory(
+    id: 'cat-transmision',
+    nombre: 'Transmisión',
+    slug: 'transmision',
+  ),
+];
+
 class FakeAlmacenService extends AlmacenService {
   FakeAlmacenService() : super(null);
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,14 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../router/route_names.dart';
 
+// Configurar con el Web OAuth client ID de Google mediante --dart-define.
+const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+
+final _googleSignIn = GoogleSignIn(
+  scopes: const ['email'],
+  serverClientId: _googleServerClientId.isEmpty ? null : _googleServerClientId,
+);
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -30,6 +39,7 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   bool _rememberMe = false;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   // Mensaje de error de inicio de sesión mostrado dentro del formulario,
   // debajo del campo contraseña. Se limpia automáticamente cuando el usuario
   // edita correo o contraseña.
@@ -172,40 +182,131 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _loginError = null;
+    });
+
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
+
+      final googleAuth = await googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      final accessToken = googleAuth.accessToken;
+      if (idToken == null || accessToken == null) {
+        throw const ApiException(
+          'No se obtuvo el token de Google. Verifica la configuración '
+          'GOOGLE_SERVER_CLIENT_ID.',
+        );
+      }
+
+      final authResponse = await _authService.signInWithGoogleIdToken(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+      if (!mounted) return;
+
+      final userRoleProvider = context.read<UserRoleProvider>();
+      userRoleProvider.setRoleFromString(authResponse.user.rol);
+      if (userRoleProvider.isUnknown) {
+        await userRoleProvider.loadUserRole(authResponse.user.id);
+      }
+      if (userRoleProvider.isUnknown) {
+        throw Exception(
+          'No se pudo determinar el rol del usuario. Contacte al administrador.',
+        );
+      }
+      if (!mounted) return;
+
+      if (userRoleProvider.isAlmacen) {
+        final hasProfile = await _almacenService.hasWarehouseProfile();
+        if (!mounted) return;
+        if (!hasProfile) {
+          context.goNamed(RouteNames.completeProfile);
+          return;
+        }
+      }
+
+      // El router conserva sus reglas de rol y onboarding para la ruta de inicio.
+      context.goNamed(RouteNames.inicio);
+    } catch (e) {
+      if (!mounted) return;
+      final friendly = ApiErrorHandler.userMessage(
+        e,
+        context: ApiErrorContext.auth,
+      );
+      AppLogger.error(
+        'Error en inicio de sesión con Google',
+        name: 'LoginPage',
+        error: e,
+      );
+      setState(() => _loginError = friendly);
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Container(
-        decoration: const BoxDecoration(color: AppColors.background),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.spacingMd),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLogoSection(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildLoginForm(),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildFooter(),
-              ],
-            ),
-          ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxHeight < 700;
+            final verticalPadding = compact ? 12.0 : 24.0;
+            return SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingMd,
+                vertical: verticalPadding,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (constraints.maxHeight - verticalPadding * 2)
+                      .clamp(0.0, constraints.maxHeight),
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildLogoSection(compact: compact),
+                        SizedBox(
+                          height: compact
+                              ? AppSpacing.spacingMd
+                              : AppSpacing.spacingXl,
+                        ),
+                        _buildLoginForm(compact: compact),
+                        SizedBox(
+                          height: compact
+                              ? AppSpacing.spacingMd
+                              : AppSpacing.spacingXl,
+                        ),
+                        _buildFooter(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildLogoSection() {
+  Widget _buildLogoSection({required bool compact}) {
     return Column(
       children: [
-        const RyLogoBadge(),
-        const SizedBox(height: AppSpacing.spacingLg),
+        RyLogoBadge(size: compact ? 88 : 112),
+        SizedBox(height: compact ? AppSpacing.spacingSm : AppSpacing.spacingLg),
         Text('Bienvenido', style: AppTextStyles.textStyleHeading),
         const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Performance y precisión en cada pieza.',
+          'Repuestos y autopartes al instante en Ecuador',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -215,29 +316,37 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildLoginForm() {
+  Widget _buildLoginForm({required bool compact}) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
+        border: Border.all(color: Colors.white24),
       ),
-      padding: const EdgeInsets.all(AppSpacing.spacingLg),
+      padding: EdgeInsets.all(
+        compact ? AppSpacing.spacingMd : AppSpacing.spacingLg,
+      ),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildEmailField(),
-            const SizedBox(height: AppSpacing.spacingMd),
+            SizedBox(
+              height: compact ? AppSpacing.spacingXs : AppSpacing.spacingMd,
+            ),
             _buildPasswordField(),
             if (_loginError != null) ...[
               const SizedBox(height: AppSpacing.spacingSm),
               _buildLoginError(),
             ],
-            const SizedBox(height: AppSpacing.spacingMd),
+            SizedBox(
+              height: compact ? AppSpacing.spacingXs : AppSpacing.spacingMd,
+            ),
             _buildRememberMe(),
-            const SizedBox(height: AppSpacing.spacingLg),
+            SizedBox(
+              height: compact ? AppSpacing.spacingMd : AppSpacing.spacingLg,
+            ),
             _buildActionButtons(),
           ],
         ),
@@ -387,10 +496,15 @@ class _LoginPageState extends State<LoginPage> {
           variant: RyButtonVariant.primary,
           size: RyButtonSize.large,
           isLoading: _isLoading,
+          isDisabled: _isGoogleLoading,
           isFullWidth: true,
           onPressed: _handleLogin,
         ),
-        const SizedBox(height: AppSpacing.spacingMd),
+        const SizedBox(height: AppSpacing.spacingSm),
+        _buildGoogleDivider(),
+        const SizedBox(height: AppSpacing.spacingSm),
+        _buildGoogleButton(),
+        const SizedBox(height: AppSpacing.spacingSm),
         // El label completo en un botón de texto se truncaba con ellipsis en
         // móvil angosto (el RyButton limita a 1 línea): se muestra como texto
         // + enlace, con wrap completo si no cabe. SizedBox(infinite) hace que
@@ -431,6 +545,75 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildGoogleDivider() {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Colors.white24, height: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
+          child: Text(
+            'o',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: Colors.white24, height: 1)),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton(
+        onPressed: _isLoading || _isGoogleLoading ? null : _handleGoogleLogin,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E1E1E),
+          foregroundColor: AppColors.onSurface,
+          side: const BorderSide(color: Colors.white24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          ),
+        ),
+        child: _isGoogleLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.onSurface,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'G',
+                    style: TextStyle(
+                      color: Color(0xFF4285F4),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.spacingSm),
+                  Flexible(
+                    child: Text(
+                      'Continuar con Google',
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.textStyleButton.copyWith(
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 

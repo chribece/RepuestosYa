@@ -20,6 +20,7 @@ const notificacionController = require('../controllers/notificacionController');
 // Auth routes (public)
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
+router.post('/auth/google', authController.loginWithGoogle);
 router.post('/auth/refresh', authController.refresh);
 router.post('/auth/logout', auth, authController.logout);
 router.get('/auth/me', auth, authController.getMe);

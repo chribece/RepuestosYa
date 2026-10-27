@@ -213,6 +213,70 @@ class AuthService {
     }
   }
 
+  /// Autentica con Google en Supabase y traduce esa sesión al JWT que usa la
+  /// API de RepuestosYa para proteger sus endpoints.
+  Future<AuthResponse> signInWithGoogleIdToken({
+    required String idToken,
+    required String accessToken,
+  }) async {
+    try {
+      final authResponse = await supabase.Supabase.instance.client.auth
+          .signInWithIdToken(
+            provider: supabase.OAuthProvider.google,
+            idToken: idToken,
+            accessToken: accessToken,
+          );
+      final session = authResponse.session;
+      if (authResponse.user == null || session == null) {
+        throw const ApiException(
+          'No se pudo completar la autenticación con Google.',
+        );
+      }
+
+      final response = await _apiClient.post(
+        '/auth/google',
+        body: {
+          'accessToken': session.accessToken,
+          'refreshToken': session.refreshToken,
+        },
+        requireAuth: false,
+      );
+
+      final token = response['token'] as String?;
+      final refreshToken = response['refreshToken'] as String?;
+      final userData = response['user'] as Map<String, dynamic>?;
+      if (token == null || userData == null) {
+        throw const ApiException(
+          'La respuesta de autenticación no contiene un perfil válido.',
+        );
+      }
+
+      _currentUser = User.fromJson(userData);
+      _syncSentryUser();
+      await _apiClient.setToken(token);
+      await _secureStorage.saveToken(
+        token,
+        refreshToken: refreshToken ?? session.refreshToken,
+      );
+      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
+      _authStateController.add(AuthState(user: _currentUser));
+
+      return AuthResponse(user: _currentUser!, token: token);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      AppLogger.error(
+        'Error en login con Google',
+        name: 'AuthService',
+        error: e,
+      );
+      throw ApiException(
+        'No se pudo iniciar sesión con Google. Inténtalo nuevamente.',
+        technicalMessage: 'signInWithGoogleIdToken: $e',
+      );
+    }
+  }
+
   /// Renueva el JWT propio usando el refresh token de Supabase persistido.
   ///
   /// Se envía sin autenticación para evitar que un 401 del propio endpoint

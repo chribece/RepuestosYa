@@ -12,6 +12,7 @@ class RouteNames {
   static const String notifications = 'notifications';
   static const String onboarding = 'onboarding';
   static const String home = 'home'; // Cliente Home
+  static const String inicio = 'inicio'; // Alias de inicio solicitado por OAuth
   static const String dashboard = 'dashboard'; // Almacen Home
 
   // Solicitudes (Cliente)

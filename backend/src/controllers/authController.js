@@ -247,6 +247,60 @@ const login = async (req, res) => {
   }
 };
 
+// POST /auth/google - Intercambia una sesión Supabase verificada por el JWT de la API.
+const loginWithGoogle = async (req, res) => {
+  try {
+    const { accessToken, refreshToken } = req.body;
+    if (!accessToken || !refreshToken) {
+      return res.status(400).json({ error: 'Google session tokens are required' });
+    }
+
+    const authClient = createSupabaseAuthClient();
+    const { data: authData, error: authError } =
+      await authClient.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'La sesión de Google no es válida' });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, nombre_completo, rol, telefono')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Google profile fetch error:', profileError.message);
+      return res.status(500).json({ error: 'Error al obtener perfil de usuario' });
+    }
+    if (!profile) {
+      return res.status(404).json({ error: 'Perfil de usuario no encontrado' });
+    }
+
+    const userRole = profile.rol || 'cliente';
+    const token = jwt.sign(
+      { id: profile.id, email: profile.email, rol: userRole },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    return res.json({
+      success: true,
+      token,
+      refreshToken,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        nombre_completo: profile.nombre_completo,
+        rol: userRole,
+        telefono: profile.telefono || null
+      }
+    });
+  } catch (error) {
+    console.error('Google login error:', error.message);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 // POST /auth/refresh
 const refresh = async (req, res) => {
   const refreshToken = req.body?.refresh_token;
@@ -334,4 +388,4 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, getMe };
+module.exports = { register, login, loginWithGoogle, refresh, logout, getMe };

@@ -106,6 +106,7 @@ class AppRouter {
           }
         } else if (role == UserRole.almacen) {
           if (location.startsWith('/home') ||
+              location.startsWith('/inicio') ||
               location.startsWith('/onboarding') ||
               location.startsWith('/solicitudes') ||
               location.startsWith('/request/create')) {
@@ -203,6 +204,11 @@ class AppRouter {
         GoRoute(
           path: '/home',
           name: RouteNames.home,
+          builder: (context, state) => const HomePage(),
+        ),
+        GoRoute(
+          path: '/inicio',
+          name: RouteNames.inicio,
           builder: (context, state) => const HomePage(),
         ),
         GoRoute(

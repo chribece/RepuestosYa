@@ -2,6 +2,7 @@ class Almacen {
   final String id;
   final String nombreComercial;
   final String? direccionTexto;
+  final String? logoUrl;
   final double? latitude;
   final double? longitude;
   final String verificationStatus; // 'pending', 'approved', 'rejected'
@@ -19,6 +20,7 @@ class Almacen {
     required this.id,
     required this.nombreComercial,
     this.direccionTexto,
+    this.logoUrl,
     this.latitude,
     this.longitude,
     this.verificationStatus = 'pending',
@@ -34,6 +36,7 @@ class Almacen {
       nombreComercial:
           json['nombre_comercial']?.toString() ?? 'Almacén desconocido',
       direccionTexto: json['direccion_texto']?.toString(),
+      logoUrl: json['logo_url']?.toString(),
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       verificationStatus: json['verification_status']?.toString() ?? 'pending',
@@ -49,6 +52,7 @@ class Almacen {
       'id': id,
       'nombre_comercial': nombreComercial,
       'direccion_texto': direccionTexto,
+      'logo_url': logoUrl,
       'latitude': latitude,
       'longitude': longitude,
       'verification_status': verificationStatus,

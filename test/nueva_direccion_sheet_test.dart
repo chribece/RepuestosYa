@@ -10,7 +10,7 @@ import 'package:repuestosya/widgets/ry_button.dart';
 /// el pin, el reverse geocoding prellena los campos en segundo plano, y las
 /// ediciones del usuario no se pisan con autocompletados posteriores.
 void main() {
-  testWidgets('Guardar se habilita al completar alias y calle principal', (
+  testWidgets('Guardar requiere alias, ciudad y calle principal', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 800);
@@ -40,15 +40,58 @@ void main() {
     expect(tester.widget<RyButton>(saveButtonFinder).isDisabled, isTrue);
 
     await tester.enterText(
-      find.byType(TextFormField).at(1),
+      find.byType(TextFormField).at(2),
       'Av. 10 de Agosto',
     );
+    await tester.pump();
+    expect(tester.widget<RyButton>(saveButtonFinder).isDisabled, isTrue);
+
+    await tester.enterText(find.byType(TextFormField).at(1), 'Quito');
     await tester.pump();
 
     final enabledSaveButton = tester.widget<RyButton>(saveButtonFinder);
     expect(enabledSaveButton.isDisabled, isFalse);
     expect(enabledSaveButton.variant, RyButtonVariant.primary);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('si GPS no detecta una ciudad, se exige ingreso manual', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: DireccionService(),
+            resolverUbicacion: () async =>
+                const UbicacionResultado.ok(-0.18, -78.47),
+            geocodingService: _FakeGeocodingSinCiudad(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mi ubicación actual'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump();
+
+    final fields = find.byType(TextFormField);
+    expect(tester.widget<TextFormField>(fields.at(1)).controller!.text, '');
+    await tester.enterText(fields.at(0), 'Casa');
+    await tester.enterText(fields.at(2), 'Av. Amazonas');
+    await tester.pump();
+    final saveButton = find.widgetWithText(RyButton, 'Guardar');
+    expect(tester.widget<RyButton>(saveButton).isDisabled, isTrue);
+
+    await tester.enterText(fields.at(1), 'Quito');
+    await tester.pump();
+    expect(tester.widget<RyButton>(saveButton).isDisabled, isFalse);
   });
 
   testWidgets(
@@ -75,14 +118,21 @@ void main() {
       // Antes del GPS no hay autocompletado.
       expect(find.text('Av. 10 de Agosto'), findsNothing);
 
-      // Tocar "Usar mi ubicación actual": mapa + reverse geocoding (debounced).
-      await tester.tap(find.text('Usar mi ubicación actual'));
+      // Tocar "Mi ubicación actual": mapa + reverse geocoding (debounced).
+      await tester.tap(find.text('Mi ubicación actual'));
       await tester.pump(); // setState: mapa visible
-      await tester.pump(const Duration(milliseconds: 800)); // debounce
+      await tester.pump(const Duration(milliseconds: 1100)); // debounce
       await tester.pump(); // aplicar autocompletado
 
       expect(fakeGeo.llamadas, greaterThan(0));
       // Campos prellenados: calle principal y referencia.
+      expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).at(1))
+            .controller!
+            .text,
+        'Quito',
+      );
       expect(find.text('Av. 10 de Agosto'), findsOneWidget);
       expect(find.text('La Pradera'), findsOneWidget);
     },
@@ -110,15 +160,15 @@ void main() {
     );
 
     // GPS → autocompletado inicial.
-    await tester.tap(find.text('Usar mi ubicación actual'));
+    await tester.tap(find.text('Mi ubicación actual'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 1100));
     await tester.pump();
     expect(find.text('Av. 10 de Agosto'), findsOneWidget);
 
     // El usuario corrige la calle principal.
     await tester.enterText(
-      find.byType(TextFormField).at(1),
+      find.byType(TextFormField).at(2),
       'Mi calle corregida',
     );
     await tester.pump();
@@ -135,13 +185,53 @@ void main() {
     await tester.pump();
 
     final llamadasAntes = fakeGeo.llamadas;
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 1100));
     await tester.pump();
 
     // …hubo un nuevo intento de autocompletado, pero NO pisó la edición.
     expect(fakeGeo.llamadas, greaterThan(llamadasAntes));
     expect(find.text('Mi calle corregida'), findsOneWidget);
     expect(find.text('Av. 10 de Agosto'), findsNothing);
+  });
+
+  testWidgets('confirmar el pin solicita y rellena la vía transversal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final fakeGeo = _FakeGeocoding();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: DireccionService(),
+            resolverUbicacion: () async =>
+                const UbicacionResultado.ok(-0.1913664, -78.4930512),
+            geocodingService: fakeGeo,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Mi ubicación actual'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump();
+    expect(fakeGeo.busquedasDeCruce, [true]);
+
+    await tester.tap(find.text('Confirmar ubicación'));
+    await tester.pumpAndSettle();
+
+    expect(fakeGeo.busquedasDeCruce, [true, true]);
+    expect(
+      tester
+          .widget<TextFormField>(find.byType(TextFormField).at(3))
+          .controller!
+          .text,
+      'Calle transversal',
+    );
   });
 
   testWidgets(
@@ -228,9 +318,9 @@ void main() {
       );
       await tester.tap(find.text('abrir'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Usar mi ubicación actual'));
+      await tester.tap(find.text('Mi ubicación actual'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 1100));
       await tester.pump();
 
       final cancelButton = find.ancestor(
@@ -288,9 +378,9 @@ void main() {
       );
       await tester.tap(find.text('abrir'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Usar mi ubicación actual'));
+      await tester.tap(find.text('Mi ubicación actual'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 1100));
       await tester.pump();
 
       final cancelButton = find.ancestor(
@@ -315,20 +405,83 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('el título del sheet respeta el área segura superior', (
+    tester,
+  ) async {
+    const topInset = 28.0;
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = const FakeViewPadding(top: topInset, bottom: 24);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                useSafeArea: true,
+                builder: (_) => NuevaDireccionSheet(
+                  direccionService: DireccionService(),
+                  resolverUbicacion: () async => const UbicacionResultado(
+                    estado: UbicacionEstado.noDisponible,
+                  ),
+                ),
+              ),
+              child: const Text('abrir'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Agregar nueva dirección'), findsOneWidget);
+    expect(
+      tester.getRect(find.text('Agregar nueva dirección')).top,
+      greaterThanOrEqualTo(topInset),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _FakeGeocoding extends GeocodingService {
   int llamadas = 0;
+  final busquedasDeCruce = <bool>[];
 
   @override
   Future<DireccionAutocompletada?> reverseGeocode({
     required double lat,
     required double lng,
+    bool buscarCalleSecundariaCercana = false,
   }) async {
     llamadas++;
-    return const DireccionAutocompletada(
+    busquedasDeCruce.add(buscarCalleSecundariaCercana);
+    return DireccionAutocompletada(
+      ciudad: 'Quito',
       callePrincipal: 'Av. 10 de Agosto',
+      calleSecundaria: buscarCalleSecundariaCercana
+          ? 'Calle transversal'
+          : null,
       referencia: 'La Pradera',
+    );
+  }
+}
+
+class _FakeGeocodingSinCiudad extends GeocodingService {
+  @override
+  Future<DireccionAutocompletada?> reverseGeocode({
+    required double lat,
+    required double lng,
+    bool buscarCalleSecundariaCercana = false,
+  }) async {
+    return const DireccionAutocompletada(
+      callePrincipal: 'Av. Amazonas',
+      calleSecundaria: 'Calle transversal',
     );
   }
 }

@@ -22,7 +22,7 @@ import 'ry_text_field.dart';
 /// mover el pin.
 ///
 /// Flujo UX (evita reescribir texto cuando ya se seleccionó el pin):
-/// 1. "Usar mi ubicación actual" o arrastrar/tocar el pin → reverse geocoding
+/// 1. "Mi ubicación actual" o arrastrar/tocar el pin → reverse geocoding
 ///    automático (debounced) → "Calle principal" y "Referencia" se rellenan
 ///    en segundo plano con los datos recuperados.
 /// 2. El usuario solo hace una lectura rápida y corrige si la API falló o el
@@ -36,10 +36,12 @@ class NuevaDireccionSheet extends StatefulWidget {
     super.key,
     required this.direccionService,
     required this.resolverUbicacion,
+    this.direccion,
     this.geocodingService,
   });
 
   final DireccionService direccionService;
+  final Map<String, dynamic>? direccion;
 
   /// Reutiliza el flujo de GPS del formulario principal (`_flujoUbicacionGps`
   /// → `UbicacionService.resolveLocation()`), con sus diálogos de
@@ -57,6 +59,7 @@ class NuevaDireccionSheet extends StatefulWidget {
 class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   final _formKey = GlobalKey<FormState>();
   final _aliasController = TextEditingController();
+  final _ciudadController = TextEditingController();
   final _callePrincipalController = TextEditingController();
   final _calleSecundariaController = TextEditingController();
   final _referenciaController = TextEditingController();
@@ -71,13 +74,16 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   double? _pinLng;
   double? _coordsLat; // coordenadas confirmadas por el usuario
   double? _coordsLng;
+  String? _coordenadasFuente;
   bool _guardando = false;
 
   // Autocompletado por reverse geocoding
   Timer? _debounceTimer;
   int _autocompletarSeq = 0; // ignora respuestas obsoletas
   bool _aplicandoAutocompletado = false; // evita marcar edición del usuario
+  bool _ciudadEditadaPorUsuario = false;
   bool _calleEditadaPorUsuario = false;
+  bool _calleSecundariaEditadaPorUsuario = false;
   bool _referenciaEditadaPorUsuario = false;
   bool _autocompletando = false; // indicador en vivo
 
@@ -85,25 +91,61 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
 
   bool get _huboAutocompletado => _callePrincipalController.text.isNotEmpty;
 
-  /// GPS es opcional; el backend puede geocodificar la dirección manualmente.
-  /// Guardar se habilita cuando Alias y Calle principal tienen contenido.
+  /// Guardar requiere Alias, ciudad y calle principal.
   bool get _puedeGuardar =>
       _aliasController.text.trim().isNotEmpty &&
+      _ciudadController.text.trim().isNotEmpty &&
       _callePrincipalController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    final direccion = widget.direccion;
+    if (direccion != null) {
+      _aliasController.text = direccion['alias']?.toString() ?? '';
+      _ciudadController.text =
+          GeocodingService.ciudadEcuadorValida(
+            direccion['ciudad']?.toString(),
+          ) ??
+          '';
+      _callePrincipalController.text =
+          direccion['calle_principal']?.toString() ?? '';
+      final calleSecundariaGuardada = direccion['calle_secundaria']?.toString();
+      _calleSecundariaController.text =
+          GeocodingService.esCalleSecundariaValida(calleSecundariaGuardada)
+          ? calleSecundariaGuardada!.trim()
+          : '';
+      _referenciaController.text = direccion['referencia']?.toString() ?? '';
+      _coordsLat = double.tryParse(direccion['latitude']?.toString() ?? '');
+      _coordsLng = double.tryParse(direccion['longitude']?.toString() ?? '');
+      if (_coordsLat != null && _coordsLng != null) {
+        _pinLat = _coordsLat;
+        _pinLng = _coordsLng;
+        _coordenadasFuente =
+            direccion['coordenadas_fuente']?.toString() ?? 'gps';
+        _mapaVisible = true;
+      }
+    }
     _aliasController.addListener(_onTextoCambio);
+    _ciudadController.addListener(_onCiudadCambio);
     _callePrincipalController.addListener(_onCallePrincipalCambio);
-    _calleSecundariaController.addListener(_onTextoCambio);
+    _calleSecundariaController.addListener(_onCalleSecundariaCambio);
     _referenciaController.addListener(_onReferenciaCambio);
+
+    if (_mapaVisible && _pinLat != null && _pinLng != null) {
+      final calleSecundaria = _calleSecundariaController.text.trim();
+      if (calleSecundaria.isEmpty ||
+          calleSecundaria.toLowerCase().startsWith('sector ')) {
+        unawaited(_actualizarCalleSecundariaGuardada());
+      }
+    }
   }
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
     _aliasController.dispose();
+    _ciudadController.dispose();
     _callePrincipalController.dispose();
     _calleSecundariaController.dispose();
     _referenciaController.dispose();
@@ -111,6 +153,12 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   }
 
   void _onTextoCambio() {
+    if (mounted) setState(() {});
+  }
+
+  void _onCiudadCambio() {
+    if (_aplicandoAutocompletado) return;
+    _ciudadEditadaPorUsuario = _ciudadController.text.trim().isNotEmpty;
     if (mounted) setState(() {});
   }
 
@@ -122,6 +170,14 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     } else {
       _calleEditadaPorUsuario = true;
     }
+    if (mounted) setState(() {});
+  }
+
+  void _onCalleSecundariaCambio() {
+    if (_aplicandoAutocompletado) return;
+    _calleSecundariaEditadaPorUsuario = _calleSecundariaController.text
+        .trim()
+        .isNotEmpty;
     if (mounted) setState(() {});
   }
 
@@ -144,6 +200,9 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       if (resultado.disponible) {
         _pinLat = resultado.latitude;
         _pinLng = resultado.longitude;
+        _coordsLat = null;
+        _coordsLng = null;
+        _coordenadasFuente = null;
         _mapaVisible = true;
         _modoManual = false;
       } else {
@@ -158,22 +217,57 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   }
 
   /// Debounce del reverse geocoding: al arrastrar el pin se disparan muchos
-  /// eventos; solo se consulta tras 700ms de reposo (y una sola petición en
-  /// vuelo), respetando el límite de uso de Nominatim.
+  /// eventos; solo se consulta tras 1s de reposo para respetar el límite de uso.
   void _solicitarAutocompletado(double lat, double lng) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
-      const Duration(milliseconds: 700),
-      () => _autocompletar(lat, lng),
+      const Duration(seconds: 1),
+      () => _autocompletar(lat, lng, buscarCalleSecundariaCercana: true),
     );
   }
 
-  Future<void> _autocompletar(double lat, double lng) async {
+  Future<void> _actualizarCalleSecundariaGuardada() async {
+    final latitude = _pinLat;
+    final longitude = _pinLng;
+    if (latitude == null || longitude == null) return;
+
+    final resultado = await _geocodingService.reverseGeocode(
+      lat: latitude,
+      lng: longitude,
+      buscarCalleSecundariaCercana: true,
+    );
+    final calleSecundaria = resultado?.calleSecundaria;
+    if (!mounted ||
+        _pinLat != latitude ||
+        _pinLng != longitude ||
+        _calleSecundariaEditadaPorUsuario ||
+        !GeocodingService.esCalleSecundariaValida(calleSecundaria)) {
+      return;
+    }
+
+    final actual = _calleSecundariaController.text.trim();
+    if (actual.isNotEmpty && !actual.toLowerCase().startsWith('sector ')) {
+      return;
+    }
+
+    setState(() {
+      _aplicandoAutocompletado = true;
+      _calleSecundariaController.text = calleSecundaria!.trim();
+      _aplicandoAutocompletado = false;
+    });
+  }
+
+  Future<void> _autocompletar(
+    double lat,
+    double lng, {
+    bool buscarCalleSecundariaCercana = false,
+  }) async {
     final seq = ++_autocompletarSeq;
     if (mounted) setState(() => _autocompletando = true);
     final resultado = await _geocodingService.reverseGeocode(
       lat: lat,
       lng: lng,
+      buscarCalleSecundariaCercana: buscarCalleSecundariaCercana,
     );
     if (!mounted || seq != _autocompletarSeq) return;
 
@@ -182,10 +276,17 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       if (resultado == null) return; // degradación: escribir a mano
 
       _aplicandoAutocompletado = true;
+      if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
+        _ciudadController.text = resultado.ciudad!;
+      }
       if (!_calleEditadaPorUsuario &&
           resultado.callePrincipal != null &&
           resultado.callePrincipal!.isNotEmpty) {
         _callePrincipalController.text = resultado.callePrincipal!;
+      }
+      if (!_calleSecundariaEditadaPorUsuario &&
+          GeocodingService.esCalleSecundariaValida(resultado.calleSecundaria)) {
+        _calleSecundariaController.text = resultado.calleSecundaria!.trim();
       }
       if (!_referenciaEditadaPorUsuario &&
           resultado.referencia != null &&
@@ -200,22 +301,36 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     setState(() {
       _pinLat = latLng.latitude;
       _pinLng = latLng.longitude;
+      _coordsLat = null;
+      _coordsLng = null;
+      _coordenadasFuente = null;
     });
     // Reverse geocoding en vivo (debounced) para rellenar los campos.
     _solicitarAutocompletado(latLng.latitude, latLng.longitude);
   }
 
   void _confirmarUbicacion() {
+    final latitude = _pinLat;
+    final longitude = _pinLng;
     setState(() {
-      _coordsLat = _pinLat;
-      _coordsLng = _pinLng;
+      _coordsLat = latitude;
+      _coordsLng = longitude;
+      _coordenadasFuente = 'gps';
+      _mapaVisible = false;
     });
+    _debounceTimer?.cancel();
+    if (latitude != null && longitude != null) {
+      unawaited(
+        _autocompletar(latitude, longitude, buscarCalleSecundariaCercana: true),
+      );
+    }
   }
 
   void _editarUbicacion() {
     setState(() {
       _coordsLat = null;
       _coordsLng = null;
+      _coordenadasFuente = null;
       _mapaVisible = true; // reabrir mapa con el pin donde quedó
       _modoManual = false;
     });
@@ -228,6 +343,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       _modoManual = true;
       _coordsLat = null;
       _coordsLng = null;
+      _coordenadasFuente = null;
       _pinLat = null;
       _pinLng = null;
     });
@@ -237,18 +353,40 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     if (!_puedeGuardar || !_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
     try {
-      final nueva = await widget.direccionService.createDireccion(
-        alias: _aliasController.text.trim(),
-        callePrincipal: _callePrincipalController.text.trim(),
-        calleSecundaria: _calleSecundariaController.text.trim(),
-        referencia: _referenciaController.text.trim(),
-        // Mismos campos del contrato existente: latitude/longitude/
-        // coordenadasFuente='gps'. Sin coordenadas → camino manual, el
-        // backend geocodifica server-side antes de aceptar.
-        latitude: _coordsLat,
-        longitude: _coordsLng,
-        coordenadasFuente: _coordenadasConfirmadas ? 'gps' : null,
-      );
+      final direccionEditada =
+          widget.direccion != null &&
+          (_ciudadEditadaPorUsuario ||
+              _calleEditadaPorUsuario ||
+              _calleSecundariaEditadaPorUsuario ||
+              _referenciaEditadaPorUsuario);
+      final enviarCoordenadas = _coordenadasConfirmadas && !direccionEditada;
+      final nueva = widget.direccion == null
+          ? await widget.direccionService.createDireccion(
+              alias: _aliasController.text.trim(),
+              ciudad: _ciudadController.text.trim(),
+              callePrincipal: _callePrincipalController.text.trim(),
+              calleSecundaria: _calleSecundariaController.text.trim(),
+              referencia: _referenciaController.text.trim(),
+              // Sin coordenadas, el backend geocodifica la dirección manual.
+              latitude: enviarCoordenadas ? _coordsLat : null,
+              longitude: enviarCoordenadas ? _coordsLng : null,
+              coordenadasFuente: enviarCoordenadas
+                  ? _coordenadasFuente ?? 'gps'
+                  : null,
+            )
+          : await widget.direccionService.updateDireccion(
+              id: widget.direccion!['id']?.toString() ?? '',
+              alias: _aliasController.text.trim(),
+              ciudad: _ciudadController.text.trim(),
+              callePrincipal: _callePrincipalController.text.trim(),
+              calleSecundaria: _calleSecundariaController.text.trim(),
+              referencia: _referenciaController.text.trim(),
+              latitude: enviarCoordenadas ? _coordsLat : null,
+              longitude: enviarCoordenadas ? _coordsLng : null,
+              coordenadasFuente: enviarCoordenadas
+                  ? _coordenadasFuente ?? 'gps'
+                  : null,
+            );
       if (!mounted) return;
       Navigator.pop(context, nueva);
     } catch (e) {
@@ -265,45 +403,61 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       media.viewInsets.bottom,
       media.viewPadding.bottom,
     );
+    final explicitTopInset = media.padding.top > 0
+        ? 0.0
+        : media.viewPadding.top;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: bottomInset,
-        left: AppSpacing.spacingMd,
-        right: AppSpacing.spacingMd,
-        top: AppSpacing.spacingMd,
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Agregar nueva dirección',
-              style: AppTextStyles.textStyleTitle.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.spacingMd),
-            // El contenido scrollea; las acciones quedan en el área segura.
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSelectorUbicacion(),
-                    const SizedBox(height: AppSpacing.spacingMd),
-                    _buildCamposDireccion(),
-                  ],
+    return SafeArea(
+      top: true,
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: bottomInset,
+          left: AppSpacing.spacingMd,
+          right: AppSpacing.spacingMd,
+          top: AppSpacing.spacingMd + explicitTopInset,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingXs,
+                ),
+                child: Text(
+                  widget.direccion == null
+                      ? 'Agregar nueva dirección'
+                      : 'Editar dirección',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleTitle.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.spacingLg),
-            _buildAcciones(),
-            const SizedBox(height: AppSpacing.spacingSm),
-          ],
+              const SizedBox(height: AppSpacing.spacingMd),
+              // El contenido scrollea; las acciones quedan en el área segura.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSelectorUbicacion(),
+                      const SizedBox(height: AppSpacing.spacingMd),
+                      _buildCamposDireccion(),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.spacingLg),
+              _buildAcciones(),
+              const SizedBox(height: AppSpacing.spacingSm),
+            ],
+          ),
         ),
       ),
     );
@@ -323,6 +477,17 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
           isRequired: true,
           validator: (value) => (value == null || value.trim().isEmpty)
               ? 'Ingresa un alias'
+              : null,
+        ),
+        const SizedBox(height: AppSpacing.spacingSm),
+        RyTextField(
+          label: 'Ciudad',
+          hint: 'Ej: Quito',
+          controller: _ciudadController,
+          isRequired: true,
+          helperText: 'Si GPS no la detecta, ingrésala manualmente.',
+          validator: (_) => _ciudadController.text.trim().isEmpty
+              ? 'La ciudad es obligatoria'
               : null,
         ),
         const SizedBox(height: AppSpacing.spacingSm),
@@ -377,7 +542,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
             child: Text(
               _autocompletando
                   ? 'Obteniendo la calle desde el mapa…'
-                  : 'Campos autocompletados desde el mapa. Revisa y corrige si el nombre no es exacto.',
+                  : 'Calles y referencia sugeridas desde el mapa. Revisa y corrige si hace falta.',
               style: AppTextStyles.textStyleSmall.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
@@ -420,10 +585,10 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
             ],
           ),
           const SizedBox(height: AppSpacing.spacingSm),
-          if (_coordenadasConfirmadas)
-            _buildUbicacionConfirmada()
-          else if (_mapaVisible)
+          if (_mapaVisible)
             _buildMapaConPin()
+          else if (_coordenadasConfirmadas)
+            _buildUbicacionConfirmada()
           else
             _buildGpsInicial(),
         ],
@@ -445,10 +610,12 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         RyButton(
-          label: 'Usar mi ubicación actual',
+          label: 'Mi ubicación actual',
           icon: Icons.my_location,
           variant: RyButtonVariant.primary,
+          size: RyButtonSize.small,
           isFullWidth: true,
+          horizontalPadding: AppSpacing.spacingMd,
           onPressed: _usarUbicacionActual,
         ),
         if (_modoManual) ...[

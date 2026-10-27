@@ -9,7 +9,9 @@ import 'package:repuestosya/pages/received_quotations_page.dart';
 import 'package:repuestosya/router/route_names.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/solicitud_service.dart';
+import 'package:repuestosya/theme/app_radius.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
+import 'package:repuestosya/widgets/ry_button.dart';
 
 import '../helpers/fake_connectivity.dart';
 
@@ -17,7 +19,9 @@ import '../helpers/fake_connectivity.dart';
 /// de cotizaciones (sin red real).
 class _FakeSolicitudService extends SolicitudService {
   int aceptarCalls = 0;
+  int rechazarCalls = 0;
   Object? falloAlAceptar;
+  Object? falloAlRechazar;
 
   Map<String, dynamic> respuestaAceptar = {
     'ordenId': 'ord-1',
@@ -55,6 +59,13 @@ class _FakeSolicitudService extends SolicitudService {
     if (falloAlAceptar != null) throw falloAlAceptar!;
     return respuestaAceptar;
   }
+
+  @override
+  Future<Map<String, dynamic>> rechazarCotizacion(String cotizacionId) async {
+    rechazarCalls++;
+    if (falloAlRechazar != null) throw falloAlRechazar!;
+    return {'ok': true};
+  }
 }
 
 Map<String, dynamic> cotizacionPendiente({
@@ -75,6 +86,22 @@ Map<String, dynamic> cotizacionPendiente({
 void main() {
   late FakeConnectivityPlatform conectividad;
   late _FakeSolicitudService servicio;
+  final botonAceptarCotizacion = find.descendant(
+    of: find.byType(RyButton),
+    matching: find.text('Aceptar'),
+  );
+  final botonAceptarDialogo = find.descendant(
+    of: find.byType(AlertDialog),
+    matching: find.text('Aceptar'),
+  );
+  final botonRechazarCotizacion = find.descendant(
+    of: find.byType(RyButton),
+    matching: find.text('Rechazar'),
+  );
+  final botonRechazarDialogo = find.descendant(
+    of: find.byType(AlertDialog),
+    matching: find.text('Rechazar'),
+  );
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -128,40 +155,105 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
   }
 
+  testWidgets('el contador muestra solo las ofertas pendientes cargadas', (
+    tester,
+  ) async {
+    servicio.respuestaCotizaciones = [
+      cotizacionPendiente(),
+      {...cotizacionPendiente(id: 'c2'), 'estado': 'rechazada'},
+    ];
+
+    await pumpPagina(tester);
+
+    expect(find.text('1 oferta pendiente'), findsOneWidget);
+    expect(find.text('2.5 km de ti'), findsNothing);
+  });
+
   testWidgets(
-    'pulsar "Seleccionar y Aceptar" abre el AlertDialog de confirmación '
-    'con resumen y acciones Cancelar/Aceptar',
+    'la distancia se calcula con las coordenadas de cliente y almacén',
     (tester) async {
-      servicio.respuestaCotizaciones = [cotizacionPendiente()];
+      servicio.respuestaSolicitud = {
+        ...servicio.respuestaSolicitud,
+        'latitud_entrega': -0.18,
+        'longitud_entrega': -78.49,
+      };
+      servicio.respuestaCotizaciones = [
+        {
+          ...cotizacionPendiente(),
+          'distancia_km': 999,
+          'almacenes': {
+            'nombre_comercial': 'Repuestos Central',
+            'latitude': -0.19,
+            'longitude': -78.49,
+          },
+        },
+      ];
+
       await pumpPagina(tester);
 
-      expect(find.text('Seleccionar y Aceptar'), findsOneWidget);
-      await tester.tap(find.text('Seleccionar y Aceptar'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('¿Aceptar esta cotización?'), findsOneWidget);
-      // El resumen del diálogo (la tarjeta de la lista también muestra el
-      // nombre del almacén y el precio, así que se acota al AlertDialog).
-      final enDialogo = find.byType(AlertDialog);
-      expect(
-        find.descendant(
-          of: enDialogo,
-          matching: find.text('Repuestos Central'),
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: enDialogo,
-          matching: find.textContaining('\$45.50'),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Cancelar'), findsOneWidget);
-      expect(find.text('Aceptar'), findsOneWidget);
-      expect(servicio.aceptarCalls, 0);
+      expect(find.text('1.1 km de ti'), findsOneWidget);
+      expect(find.text('999.0 km de ti'), findsNothing);
     },
   );
+
+  testWidgets('pulsar "Aceptar" abre el AlertDialog de confirmación '
+      'con resumen y acciones Cancelar/Aceptar', (tester) async {
+    servicio.respuestaCotizaciones = [cotizacionPendiente()];
+    await pumpPagina(tester);
+
+    expect(find.text('Aceptar'), findsOneWidget);
+    await tester.tap(botonAceptarCotizacion);
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Aceptar esta cotización?'), findsOneWidget);
+    // El resumen del diálogo (la tarjeta de la lista también muestra el
+    // nombre del almacén y el precio, así que se acota al AlertDialog).
+    final enDialogo = find.byType(AlertDialog);
+    final dialog = tester.widget<AlertDialog>(enDialogo);
+    expect(dialog.backgroundColor, const Color(0xFF1E1E1E));
+    expect(dialog.shape, isA<RoundedRectangleBorder>());
+    expect(
+      (dialog.shape! as RoundedRectangleBorder).borderRadius,
+      BorderRadius.circular(AppRadius.radiusLg),
+    );
+    expect(
+      find.descendant(of: enDialogo, matching: find.text('Repuestos Central')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: enDialogo, matching: find.textContaining('\$45.50')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: enDialogo,
+        matching: find.text(
+          'Al confirmar, se seleccionará esta oferta y podrás acceder a '
+          'los datos de contacto del almacén para coordinar el pago y la '
+          'entrega.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    final cancelar = find.descendant(
+      of: enDialogo,
+      matching: find.widgetWithText(RyButton, 'Cancelar'),
+    );
+    final aceptar = find.descendant(
+      of: enDialogo,
+      matching: find.widgetWithText(RyButton, 'Aceptar'),
+    );
+    expect(cancelar, findsOneWidget);
+    expect(aceptar, findsOneWidget);
+    expect(tester.widget<RyButton>(cancelar).variant, RyButtonVariant.outline);
+    expect(tester.widget<RyButton>(aceptar).variant, RyButtonVariant.primary);
+    expect(
+      tester.getRect(find.text('Cancelar')).top,
+      closeTo(tester.getRect(find.text('Aceptar').last).top, 1),
+    );
+    expect(botonAceptarDialogo, findsOneWidget);
+    expect(servicio.aceptarCalls, 0);
+  });
 
   testWidgets('"Cancelar" cierra el diálogo y NO llama al servicio', (
     tester,
@@ -169,7 +261,7 @@ void main() {
     servicio.respuestaCotizaciones = [cotizacionPendiente()];
     await pumpPagina(tester);
 
-    await tester.tap(find.text('Seleccionar y Aceptar'));
+    await tester.tap(botonAceptarCotizacion);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancelar'));
     await tester.pumpAndSettle();
@@ -185,9 +277,9 @@ void main() {
       servicio.respuestaCotizaciones = [cotizacionPendiente()];
       await pumpPagina(tester);
 
-      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.tap(botonAceptarCotizacion);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Aceptar'));
+      await tester.tap(botonAceptarDialogo);
       await tester.pumpAndSettle();
 
       expect(servicio.aceptarCalls, 1);
@@ -196,7 +288,79 @@ void main() {
       expect(find.text('Repuestos Central'), findsOneWidget);
       expect(find.text('0991234567'), findsOneWidget);
       // "atrás" no regresa a la lista de cotizaciones: fue reemplazada.
-      expect(find.text('Seleccionar y Aceptar'), findsNothing);
+      expect(find.text('Aceptar'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'rechazo pide confirmación oscura y muestra notificación sobria',
+    (tester) async {
+      servicio.respuestaCotizaciones = [cotizacionPendiente()];
+      await pumpPagina(tester);
+
+      await tester.tap(botonRechazarCotizacion);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rechazar cotización'), findsOneWidget);
+      expect(
+        find.text(
+          'Esta oferta será descartada y dejará de estar disponible '
+          'para esta solicitud.',
+        ),
+        findsOneWidget,
+      );
+      final alertFinder = find.byType(AlertDialog);
+      final alert = tester.widget<AlertDialog>(alertFinder);
+      expect(alert.backgroundColor, const Color(0xFF1E1E1E));
+      expect(alert.shape, isA<RoundedRectangleBorder>());
+      expect(
+        find.descendant(
+          of: alertFinder,
+          matching: find.text('Repuestos Central'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: alertFinder,
+          matching: find.textContaining('\$45.50'),
+        ),
+        findsOneWidget,
+      );
+
+      final cancelar = find.descendant(
+        of: alertFinder,
+        matching: find.widgetWithText(RyButton, 'Cancelar'),
+      );
+      final rechazar = find.descendant(
+        of: alertFinder,
+        matching: find.widgetWithText(RyButton, 'Rechazar'),
+      );
+      expect(cancelar, findsOneWidget);
+      expect(rechazar, findsOneWidget);
+      expect(
+        tester.widget<RyButton>(cancelar).variant,
+        RyButtonVariant.outline,
+      );
+      expect(tester.widget<RyButton>(rechazar).variant, RyButtonVariant.danger);
+      expect(
+        tester.getRect(find.text('Cancelar')).top,
+        closeTo(tester.getRect(botonRechazarDialogo).top, 1),
+      );
+      await tester.tap(cancelar);
+      await tester.pumpAndSettle();
+      expect(servicio.rechazarCalls, 0);
+
+      await tester.tap(botonRechazarCotizacion);
+      await tester.pumpAndSettle();
+      await tester.tap(botonRechazarDialogo);
+      await tester.pumpAndSettle();
+
+      expect(servicio.rechazarCalls, 1);
+      expect(find.text('Cotización rechazada'), findsOneWidget);
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar).last);
+      expect(snackBar.backgroundColor, const Color(0xFF1E1E1E));
+      expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
     },
   );
 
@@ -209,9 +373,9 @@ void main() {
       servicio.respuestaAceptar = {'ordenId': 'ord-1'};
       await pumpPagina(tester);
 
-      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.tap(botonAceptarCotizacion);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Aceptar'));
+      await tester.tap(botonAceptarDialogo);
       await tester.pumpAndSettle();
 
       expect(servicio.aceptarCalls, 1);
@@ -230,7 +394,7 @@ void main() {
     conectividad.resultados = [ConnectivityResult.none];
     await pumpPagina(tester);
 
-    await tester.tap(find.text('Seleccionar y Aceptar'));
+    await tester.tap(botonAceptarCotizacion);
     await tester.pumpAndSettle();
 
     expect(find.text('¿Aceptar esta cotización?'), findsNothing);
@@ -250,9 +414,9 @@ void main() {
       );
       await pumpPagina(tester);
 
-      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.tap(botonAceptarCotizacion);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Aceptar'));
+      await tester.tap(botonAceptarDialogo);
       await tester.pumpAndSettle();
 
       expect(servicio.aceptarCalls, 1);
@@ -276,7 +440,7 @@ void main() {
     servicio.respuestaCotizaciones = [cotizacionPendiente()];
     await pumpPagina(tester);
 
-    await tester.tap(find.text('Seleccionar y Aceptar'));
+    await tester.tap(botonAceptarCotizacion);
     await tester.pumpAndSettle();
 
     // Aparece el diálogo del teléfono, NO el de confirmación.
@@ -306,7 +470,7 @@ void main() {
       servicio.respuestaCotizaciones = [cotizacionPendiente()];
       await pumpPagina(tester);
 
-      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.tap(botonAceptarCotizacion);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '123');
       await tester.tap(find.text('Guardar'));
@@ -336,7 +500,7 @@ void main() {
       servicio.respuestaCotizaciones = [cotizacionPendiente()];
       await pumpPagina(tester);
 
-      await tester.tap(find.text('Seleccionar y Aceptar'));
+      await tester.tap(botonAceptarCotizacion);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '0991234567');
       await tester.tap(find.text('Guardar'));

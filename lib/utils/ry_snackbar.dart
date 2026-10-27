@@ -2,6 +2,9 @@ import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
 /// Tipos de notificación estilizada (awesome_snackbar_content).
 enum RySnackbarTipo { exito, error, advertencia, info }
@@ -87,6 +90,102 @@ void mostrarSnackbarExito(
     duracion: duracion,
     accion: accion,
   );
+}
+
+/// Éxito flotante sobrio para flujos que deben seguir la paleta oscura.
+void mostrarSnackbarExitoSobrio(
+  BuildContext context, {
+  required String mensaje,
+  Duration duracion = const Duration(seconds: 3),
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E1E1E),
+        elevation: 0,
+        duration: duracion,
+        margin: const EdgeInsets.all(AppSpacing.spacingMd),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.spacingMd,
+          vertical: AppSpacing.spacingSm,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        content: Row(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF8BC9A8),
+              size: 22,
+            ),
+            const SizedBox(width: AppSpacing.spacingSm),
+            Expanded(
+              child: Text(
+                mensaje,
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+}
+
+/// Notificación informativa flotante para mantener el estilo oscuro sobrio.
+void mostrarSnackbarInfoSobrio(
+  BuildContext context, {
+  required String mensaje,
+  Duration duracion = const Duration(seconds: 3),
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF1E1E1E),
+        elevation: 0,
+        duration: duracion,
+        margin: const EdgeInsets.all(AppSpacing.spacingMd),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.spacingMd,
+          vertical: AppSpacing.spacingSm,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        content: Row(
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              color: AppColors.onSurfaceVariant,
+              size: 22,
+            ),
+            const SizedBox(width: AppSpacing.spacingSm),
+            Expanded(
+              child: Text(
+                mensaje,
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
 }
 
 /// Atajo: notificación de error.

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 /// Estado del intento de obtener la ubicación del dispositivo.
@@ -32,16 +33,21 @@ class UbicacionResultado {
     this.latitude,
     this.longitude,
     this.mensaje,
+    this.esUltimaUbicacionConocida = false,
   });
 
-  const UbicacionResultado.ok(this.latitude, this.longitude)
-    : estado = UbicacionEstado.ok,
-      mensaje = null;
+  const UbicacionResultado.ok(
+    this.latitude,
+    this.longitude, {
+    this.mensaje,
+    this.esUltimaUbicacionConocida = false,
+  }) : estado = UbicacionEstado.ok;
 
   final UbicacionEstado estado;
   final double? latitude;
   final double? longitude;
   final String? mensaje;
+  final bool esUltimaUbicacionConocida;
 
   bool get disponible =>
       estado == UbicacionEstado.ok && latitude != null && longitude != null;
@@ -51,24 +57,30 @@ class UbicacionResultado {
 
 /// Servicio de ubicación del dispositivo (GPS).
 ///
-/// Es el primer origen de coordenadas para la dirección de entrega. Cuando
-/// el GPS está inoperable (hardware roto, permiso permanentemente denegado
-/// tras agotar el flujo de reintento/Ajustes), el flujo degrada a la
-/// introducción manual de la dirección, que el backend geocodifica
-/// server-side antes de aceptar el registro: nunca se guarda sin
-/// coordenadas de algún origen.
+/// Obtiene una fijación precisa con un límite estricto y, si vence, intenta
+/// recuperar la última posición conocida antes de degradar a ingreso manual.
 class UbicacionService {
-  static const int maxIntentos = 2;
-  static const Duration _timeoutFijacion = Duration(seconds: 15);
+  static const int maxIntentos = 1;
+  static const Duration _timeoutFijacion = Duration(seconds: 8);
+  static const Duration _timeoutUltimaUbicacion = Duration(seconds: 2);
+  static const Duration _timeoutServicioUbicacion = Duration(seconds: 3);
 
-  /// Intenta obtener la posición actual con el flujo completo de permisos:
-  /// solicita el permiso si está denegado y reintenta la fijación hasta
-  /// [maxIntentos] veces.
+  /// Intenta obtener una posición actual precisa. Si vence el timeout, intenta
+  /// usar la última posición conocida; [intentos] se conserva por compatibilidad
+  /// y cualquier valor positivo ejecuta una sola fijación acotada.
   Future<UbicacionResultado> obtenerUbicacion({
     int intentos = maxIntentos,
   }) async {
+    if (intentos <= 0) {
+      return const UbicacionResultado(
+        estado: UbicacionEstado.noDisponible,
+        mensaje: 'Puedes ingresar la dirección manualmente.',
+      );
+    }
+
     try {
-      final servicioActivo = await Geolocator.isLocationServiceEnabled();
+      final servicioActivo = await Geolocator.isLocationServiceEnabled()
+          .timeout(_timeoutServicioUbicacion);
       if (!servicioActivo) {
         return const UbicacionResultado(
           estado: UbicacionEstado.gpsApagado,
@@ -110,8 +122,8 @@ class UbicacionService {
         );
       }
 
-      for (var i = 0; i < intentos; i++) {
-        try {
+      return await obtenerConFallbackUltimaUbicacion(
+        obtenerActual: () async {
           final position = await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.high,
@@ -119,25 +131,59 @@ class UbicacionService {
             ),
           );
           return UbicacionResultado.ok(position.latitude, position.longitude);
-        } on TimeoutException {
-          // Reintentar la fijación (sin señal o tardó demasiado).
-        }
-      }
-
-      return const UbicacionResultado(
-        estado: UbicacionEstado.noDisponible,
-        mensaje:
-            'No se pudo obtener una señal GPS. Verifica tu conexión o intenta en un lugar abierto.',
+        },
+        obtenerUltima: () async {
+          final position = await Geolocator.getLastKnownPosition().timeout(
+            _timeoutUltimaUbicacion,
+          );
+          if (position == null) return null;
+          return UbicacionResultado.ok(position.latitude, position.longitude);
+        },
       );
     } on LocationServiceDisabledException {
       return const UbicacionResultado(
         estado: UbicacionEstado.gpsApagado,
         mensaje: 'El GPS del dispositivo está apagado.',
       );
-    } catch (e) {
+    } catch (_) {
       return UbicacionResultado(
         estado: UbicacionEstado.noDisponible,
-        mensaje: 'No se pudo obtener la ubicación: $e',
+        mensaje:
+            'No se pudo obtener la ubicación. Puedes ingresarla manualmente.',
+      );
+    }
+  }
+
+  /// Limita la fijación precisa y, si tarda demasiado, intenta usar el último
+  /// punto conocido. El timeout de este fallback también está acotado.
+  @visibleForTesting
+  static Future<UbicacionResultado> obtenerConFallbackUltimaUbicacion({
+    required Future<UbicacionResultado> Function() obtenerActual,
+    required Future<UbicacionResultado?> Function() obtenerUltima,
+    Duration timeLimit = _timeoutFijacion,
+    Duration timeoutUltima = _timeoutUltimaUbicacion,
+  }) async {
+    try {
+      return await obtenerActual().timeout(timeLimit);
+    } on TimeoutException {
+      try {
+        final ultima = await obtenerUltima().timeout(timeoutUltima);
+        if (ultima?.disponible == true) {
+          return UbicacionResultado.ok(
+            ultima!.latitude!,
+            ultima.longitude!,
+            esUltimaUbicacionConocida: true,
+            mensaje:
+                'El GPS tardó en responder; usamos tu última ubicación conocida. Revisa el pin.',
+          );
+        }
+      } catch (_) {
+        // Si el último punto también tarda o falla, se degrada a manual.
+      }
+      return const UbicacionResultado(
+        estado: UbicacionEstado.noDisponible,
+        mensaje:
+            'No pudimos obtener tu ubicación. Puedes ingresar la dirección manualmente.',
       );
     }
   }

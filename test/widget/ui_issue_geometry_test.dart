@@ -20,10 +20,11 @@ import 'package:repuestosya/widgets/ry_button.dart';
 void main() {
   const registrationLink = '¿Ya tienes cuenta? Inicia sesión';
   const onboardingTitle = 'Comienza con RepuestosYa';
-  const vinError = 'El VIN debe tener 17 caracteres alfanuméricos.';
-  const vinHelper = '17 caracteres; busca en chasis o matrícula.';
-  final yearRangeMessage =
-      'Ingresa un año válido entre 1900 y ${DateTime.now().year + 1}.';
+  const vinError = 'VIN inválido: 17 caracteres, sin I, O ni Q.';
+  const vinHelper = '17 caracteres; sin I, O ni Q.';
+  final latestAllowedYear = DateTime.now().year + 1;
+  final yearRangeHint = 'Rango: 1900-$latestAllowedYear.';
+  final yearRangeMessage = 'Ingresa un año entre 1900 y $latestAllowedYear.';
 
   Future<void> setViewport(
     WidgetTester tester, {
@@ -457,8 +458,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final saveButton = tester.widget<GFButton>(
-        find.widgetWithText(GFButton, 'Guardar'),
+      final saveButton = tester.widget<RyButton>(
+        find.widgetWithText(RyButton, 'Guardar'),
       );
       expect(saveButton.onPressed, isNull);
       expect(tester.takeException(), isNull);
@@ -504,11 +505,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final saveButton = tester.widget<GFButton>(
-      find.widgetWithText(GFButton, 'Guardar'),
+    final saveButton = tester.widget<RyButton>(
+      find.widgetWithText(RyButton, 'Guardar'),
     );
     expect(saveButton.onPressed, isNotNull);
-    expect(saveButton.color, AppColors.primaryContainer);
+    expect(saveButton.variant, RyButtonVariant.primary);
     expect(tester.takeException(), isNull);
   });
 
@@ -530,7 +531,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final helper in [vinHelper, yearRangeMessage]) {
+    final vinCounter = find.text('0/17');
+    expect(vinCounter, findsOneWidget);
+    expect(
+      tester.widget<Text>(vinCounter).style?.color,
+      AppColors.onSurfaceVariant.withValues(alpha: 0.75),
+    );
+
+    for (final helper in [vinHelper, yearRangeHint]) {
       final finder = find.text(helper);
       expect(finder, findsOneWidget);
       await tester.ensureVisible(finder);
@@ -600,12 +608,18 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), '123');
     await tester.enterText(find.byType(TextFormField).at(1), '1800');
+    await tester.enterText(find.byType(TextFormField).at(2), 'ABC-12');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
     expect(find.text(vinError), findsOneWidget);
     expect(find.text(yearRangeMessage), findsOneWidget);
-    for (final message in [vinError, yearRangeMessage]) {
+    expect(find.text('Usa 3 letras y 3-4 números.'), findsOneWidget);
+    for (final message in [
+      vinError,
+      yearRangeMessage,
+      'Usa 3 letras y 3-4 números.',
+    ]) {
       expect(
         tester
             .renderObject<RenderParagraph>(find.text(message))
@@ -640,9 +654,26 @@ void main() {
     );
     await tester.tap(find.text('Abrir'));
     await tester.pumpAndSettle();
+
+    final dialog = tester.widget<Dialog>(find.byType(Dialog));
+    expect(dialog.backgroundColor, const Color(0xFF1E1E1E));
+    final cancelButton = find.widgetWithText(RyButton, 'Cancelar');
+    final saveButton = find.widgetWithText(RyButton, 'Guardar');
+    expect(
+      tester.getRect(cancelButton).top,
+      closeTo(tester.getRect(saveButton).top, 1),
+    );
+
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
+    expect(
+      tester
+          .widget<TextFormField>(find.byType(TextFormField).at(1))
+          .controller!
+          .text,
+      '',
+    );
     for (final message in [
       'El alias debe tener al menos 2 caracteres',
       'La ciudad es obligatoria',

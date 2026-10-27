@@ -6,6 +6,8 @@
 /// deterministas: se prueban con aserciones entrada → salida.
 library;
 
+import 'dart:math' as math;
+
 /// Parsea `precio_venta` (numeric de Postgres llega serializado como string
 /// en JSON o como num). Devuelve 0.0 si no se puede interpretar. Evita el
 /// `TypeError` de `as num` cuando el valor es String.
@@ -26,13 +28,53 @@ double? parseDistanciaKm(dynamic value) {
   return null;
 }
 
+/// Calcula la distancia geodésica entre dos puntos usando la fórmula de
+/// Haversine. Devuelve null si alguna coordenada no es válida.
+double? calcularDistanciaHaversineKm({
+  required double? latitudOrigen,
+  required double? longitudOrigen,
+  required double? latitudDestino,
+  required double? longitudDestino,
+}) {
+  if (latitudOrigen == null ||
+      longitudOrigen == null ||
+      latitudDestino == null ||
+      longitudDestino == null ||
+      latitudOrigen.abs() > 90 ||
+      latitudDestino.abs() > 90 ||
+      longitudOrigen.abs() > 180 ||
+      longitudDestino.abs() > 180 ||
+      (latitudOrigen == 0 && longitudOrigen == 0) ||
+      (latitudDestino == 0 && longitudDestino == 0)) {
+    return null;
+  }
+
+  const radioTierraKm = 6371.0;
+  const gradosARadianes = math.pi / 180;
+  final latitudOrigenRad = latitudOrigen * gradosARadianes;
+  final latitudDestinoRad = latitudDestino * gradosARadianes;
+  final diferenciaLatitud = (latitudDestino - latitudOrigen) * gradosARadianes;
+  final diferenciaLongitud =
+      (longitudDestino - longitudOrigen) * gradosARadianes;
+  final senoLatitud = math.sin(diferenciaLatitud / 2);
+  final senoLongitud = math.sin(diferenciaLongitud / 2);
+  final a =
+      senoLatitud * senoLatitud +
+      math.cos(latitudOrigenRad) *
+          math.cos(latitudDestinoRad) *
+          senoLongitud *
+          senoLongitud;
+  final angular = 2 * math.asin(math.sqrt(a.clamp(0.0, 1.0)));
+  return radioTierraKm * angular;
+}
+
 /// Ordenamiento/filtro de cotizaciones por tab de la pantalla de cotizaciones
 /// recibidas:
 /// - `0` ("Todas"): la lista sin tocar.
-/// - `1` ("Más baratas"): solo la(s) cotización(es) con el precio mínimo; si
-///   hay empate en el mínimo se muestran todas las empatadas.
-/// - `2` ("Más cercanas"): las que tienen `distancia_km` ordenadas ascendente
-///   y al final las que no la tienen.
+/// - `1` ("Más baratas"): ofertas pendientes con el precio mínimo; si hay
+///   empate se muestran todas las empatadas.
+/// - `2` ("Más cercanas"): ofertas pendientes ordenadas por distancia,
+///   dejando al final las que no tienen coordenadas disponibles.
 /// Cualquier otro índice devuelve la lista original.
 List<Map<String, dynamic>> ordenarCotizaciones(
   List<Map<String, dynamic>> cotizaciones,
@@ -42,31 +84,44 @@ List<Map<String, dynamic>> ordenarCotizaciones(
     case 0: // Todas
       return cotizaciones;
     case 1: // Más baratas
-      if (cotizaciones.isEmpty) return cotizaciones;
-      final precios = cotizaciones
+      final disponibles = _cotizacionesPendientes(cotizaciones);
+      if (disponibles.isEmpty) return disponibles;
+      final precios = disponibles
           .map((c) => parsePrecioVenta(c['precio_venta']))
           .toList();
       final minPrecio = precios.reduce((a, b) => a < b ? a : b);
-      return cotizaciones
+      return disponibles
           .where((c) => parsePrecioVenta(c['precio_venta']) == minPrecio)
           .toList();
     case 2: // Más cercanas
       final conDistancia =
-          cotizaciones
-              .where((c) => parseDistanciaKm(c['distancia_km']) != null)
-              .toList()
+          _cotizacionesPendientes(
+              cotizaciones,
+            ).where((c) => parseDistanciaKm(c['distancia_km']) != null).toList()
             ..sort(
               (a, b) => parseDistanciaKm(
                 a['distancia_km'],
               )!.compareTo(parseDistanciaKm(b['distancia_km'])!),
             );
-      final sinDistancia = cotizaciones
-          .where((c) => parseDistanciaKm(c['distancia_km']) == null)
-          .toList();
+      final sinDistancia = _cotizacionesPendientes(
+        cotizaciones,
+      ).where((c) => parseDistanciaKm(c['distancia_km']) == null).toList();
       return [...conDistancia, ...sinDistancia];
     default:
       return cotizaciones;
   }
+}
+
+List<Map<String, dynamic>> _cotizacionesPendientes(
+  List<Map<String, dynamic>> cotizaciones,
+) {
+  return cotizaciones
+      .where(
+        (cotizacion) =>
+            (cotizacion['estado']?.toString().toLowerCase() ?? 'pendiente') ==
+            'pendiente',
+      )
+      .toList();
 }
 
 /// Formato relativo de tiempo ("Hace un momento", "Hace 5 min", "Hace 2 h",

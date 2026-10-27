@@ -1,26 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import '../services/direccion_service.dart';
+import '../services/geocoding_service.dart';
+import '../services/ubicacion_service.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/ry_snackbar.dart';
+import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_form_dialog.dart';
+import '../widgets/nueva_direccion_sheet.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../widgets/ry_button.dart';
 
 class AddressesPage extends StatefulWidget {
-  const AddressesPage({super.key});
+  final DireccionService? direccionService;
+  final UbicacionService? ubicacionService;
+  final GeocodingService? geocodingService;
+  final Future<UbicacionResultado> Function()? resolverUbicacion;
+
+  const AddressesPage({
+    super.key,
+    this.direccionService,
+    this.ubicacionService,
+    this.geocodingService,
+    this.resolverUbicacion,
+  });
 
   @override
   State<AddressesPage> createState() => _AddressesPageState();
 }
 
 class _AddressesPageState extends State<AddressesPage> {
-  final DireccionService _direccionService = DireccionService();
+  late final DireccionService _direccionService =
+      widget.direccionService ?? DireccionService();
+  late final UbicacionService _ubicacionService =
+      widget.ubicacionService ?? UbicacionService();
 
   List<Map<String, dynamic>> _direcciones = [];
   bool _isLoading = false;
@@ -59,27 +77,46 @@ class _AddressesPageState extends State<AddressesPage> {
     }
   }
 
+  Future<UbicacionResultado> _resolverUbicacion() =>
+      widget.resolverUbicacion?.call() ??
+      flujoUbicacionGps(
+        context,
+        _ubicacionService,
+        mostrarSnackbarSiNoDisponible: true,
+      );
+
   void _mostrarFormulario([Map<String, dynamic>? direccion]) async {
-    final resultado = await showDialog<bool>(
+    final resultado = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AddressDialog(direccion: direccion),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.radiusXl),
+        ),
+      ),
+      builder: (_) => NuevaDireccionSheet(
+        direccion: direccion,
+        direccionService: _direccionService,
+        resolverUbicacion: _resolverUbicacion,
+        geocodingService: widget.geocodingService,
+      ),
     );
 
-    if (resultado == true) {
-      _cargarDirecciones();
-    }
+    if (resultado != null && mounted) _cargarDirecciones();
   }
 
   Future<void> _eliminarDireccion(String id) async {
     try {
       await _direccionService.deleteDireccion(id);
       if (mounted) {
-        mostrarSnackbarExito(
+        mostrarSnackbarExitoSobrio(
           context,
           mensaje: 'Dirección eliminada correctamente',
         );
       }
-      _cargarDirecciones();
+      if (mounted) _cargarDirecciones();
     } catch (e) {
       if (mounted) {
         mostrarSnackbarError(
@@ -89,6 +126,97 @@ class _AddressesPageState extends State<AddressesPage> {
               '${ApiErrorHandler.userMessage(e)}',
         );
       }
+    }
+  }
+
+  Future<void> _confirmarEliminarDireccion(
+    Map<String, dynamic> direccion,
+  ) async {
+    final id = direccion['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    final alias = direccion['alias']?.toString().trim();
+    final aliasVisible = alias == null || alias.isEmpty ? 'Dirección' : alias;
+    final colorDestructivo = Color.alphaBlend(
+      AppColors.error.withValues(alpha: 0.32),
+      AppColors.surfaceContainerHigh,
+    );
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        title: const Text(
+          'Eliminar dirección',
+          style: AppTextStyles.textStyleTitle,
+        ),
+        content: Text(
+          '¿Estás seguro de que deseas eliminar la dirección '
+          "'$aliasVisible'? Esta acción no se puede deshacer.",
+          style: AppTextStyles.textStyleBody.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.spacingMd,
+          AppSpacing.spacingXs,
+          AppSpacing.spacingMd,
+          AppSpacing.spacingMd,
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.onSurfaceVariant,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.spacingSm,
+                      ),
+                      side: BorderSide(color: AppColors.outlineVariant),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                      ),
+                    ),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: SemanticColors.colorErrorText,
+                      backgroundColor: colorDestructivo,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.spacingSm,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                      ),
+                    ),
+                    child: const Text('Eliminar'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar == true && mounted) {
+      await _eliminarDireccion(id);
     }
   }
 
@@ -120,13 +248,18 @@ class _AddressesPageState extends State<AddressesPage> {
               type: RyStateType.empty,
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.spacingMd),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.spacingMd,
+                AppSpacing.spacingMd,
+                AppSpacing.spacingMd,
+                AppSpacing.spacingXxxl +
+                    AppSpacing.spacingXl +
+                    AppSpacing.spacingXs,
+              ),
               itemCount: _direcciones.length,
               itemBuilder: (context, index) {
                 final direccion = _direcciones[index];
 
-                // Mapeo seguro con tipos explícitos usando snake_case de Supabase
-                final id = direccion['id'] as String;
                 final alias = direccion['alias'] as String? ?? 'Dirección';
                 final ciudad = direccion['ciudad'] as String? ?? '';
                 final callePrincipal =
@@ -155,7 +288,7 @@ class _AddressesPageState extends State<AddressesPage> {
                             children: [
                               IconButton(
                                 icon: const Icon(
-                                  Icons.edit,
+                                  Icons.edit_rounded,
                                   color: AppColors.primary,
                                 ),
                                 tooltip: 'Editar dirección',
@@ -163,73 +296,12 @@ class _AddressesPageState extends State<AddressesPage> {
                               ),
                               IconButton(
                                 icon: const Icon(
-                                  Icons.delete,
-                                  color: AppColors.error,
+                                  Icons.delete_outline_rounded,
+                                  color: SemanticColors.colorErrorText,
                                 ),
                                 tooltip: 'Eliminar dirección',
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      backgroundColor:
-                                          AppColors.surfaceContainerHigh,
-                                      title: const Text(
-                                        'Confirmar',
-                                        style: AppTextStyles.textStyleTitle,
-                                      ),
-                                      content: Text(
-                                        '¿Estás seguro de eliminar esta dirección?',
-                                        style: AppTextStyles.textStyleBody
-                                            .copyWith(
-                                              color: AppColors.onSurfaceVariant,
-                                            ),
-                                      ),
-                                      actions: [
-                                        GFButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          type: GFButtonType.transparent,
-                                          color: Colors.transparent,
-                                          textColor: AppColors.onSurfaceVariant,
-                                          size: 48,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: AppSpacing.spacingMd,
-                                            vertical: AppSpacing.spacingSm,
-                                          ),
-                                          child: Text(
-                                            'Cancelar',
-                                            style: AppTextStyles.textStyleButton
-                                                .copyWith(
-                                                  color: AppColors
-                                                      .onSurfaceVariant,
-                                                ),
-                                          ),
-                                        ),
-                                        GFButton(
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                            _eliminarDireccion(id);
-                                          },
-                                          type: GFButtonType.transparent,
-                                          color: Colors.transparent,
-                                          textColor: AppColors.error,
-                                          size: 48,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: AppSpacing.spacingMd,
-                                            vertical: AppSpacing.spacingSm,
-                                          ),
-                                          child: Text(
-                                            'Eliminar',
-                                            style: AppTextStyles.textStyleButton
-                                                .copyWith(
-                                                  color: AppColors.error,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
+                                onPressed: () =>
+                                    _confirmarEliminarDireccion(direccion),
                               ),
                             ],
                           ),
@@ -283,8 +355,18 @@ class _AddressesPageState extends State<AddressesPage> {
 class AddressDialog extends StatefulWidget {
   final Map<String, dynamic>? direccion;
   final DireccionService? direccionService;
+  final UbicacionService? ubicacionService;
+  final GeocodingService? geocodingService;
+  final Future<UbicacionResultado> Function()? resolverUbicacion;
 
-  const AddressDialog({super.key, this.direccion, this.direccionService});
+  const AddressDialog({
+    super.key,
+    this.direccion,
+    this.direccionService,
+    this.ubicacionService,
+    this.geocodingService,
+    this.resolverUbicacion,
+  });
 
   @override
   State<AddressDialog> createState() => _AddressDialogState();
@@ -294,6 +376,13 @@ class _AddressDialogState extends State<AddressDialog> {
   final _formKey = GlobalKey<FormState>();
   late final DireccionService _direccionService =
       widget.direccionService ?? DireccionService();
+  late final UbicacionService _ubicacionService =
+      widget.ubicacionService ?? UbicacionService();
+  late final GeocodingService _geocodingService =
+      widget.geocodingService ?? GeocodingService();
+  late final Future<UbicacionResultado> Function() _resolverUbicacion =
+      widget.resolverUbicacion ??
+      () => flujoUbicacionGps(context, _ubicacionService);
 
   late TextEditingController _aliasController;
   late TextEditingController _ciudadController;
@@ -302,6 +391,17 @@ class _AddressDialogState extends State<AddressDialog> {
   late TextEditingController _referenciaController;
 
   bool _isSaving = false;
+  bool _isLocating = false;
+  bool _aplicandoAutocompletado = false;
+  bool _ciudadEditadaPorUsuario = false;
+  bool _calleEditadaPorUsuario = false;
+  bool _calleSecundariaEditadaPorUsuario = false;
+  bool _referenciaEditadaPorUsuario = false;
+  bool _capturoGpsEnEstaEdicion = false;
+  String? _gpsStatus;
+  String? _coordenadasFuente;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
@@ -312,7 +412,11 @@ class _AddressDialogState extends State<AddressDialog> {
       text: widget.direccion?['alias'] ?? '',
     );
     _ciudadController = TextEditingController(
-      text: widget.direccion?['ciudad'] ?? '',
+      text:
+          GeocodingService.ciudadEcuadorValida(
+            widget.direccion?['ciudad']?.toString(),
+          ) ??
+          '',
     );
     _callePrincipalController = TextEditingController(
       text: widget.direccion?['calle_principal'] ?? '',
@@ -323,6 +427,13 @@ class _AddressDialogState extends State<AddressDialog> {
     _referenciaController = TextEditingController(
       text: widget.direccion?['referencia'] ?? '',
     );
+    _latitude = double.tryParse(
+      widget.direccion?['latitude']?.toString() ?? '',
+    );
+    _longitude = double.tryParse(
+      widget.direccion?['longitude']?.toString() ?? '',
+    );
+    _coordenadasFuente = widget.direccion?['coordenadas_fuente']?.toString();
   }
 
   @override
@@ -335,6 +446,63 @@ class _AddressDialogState extends State<AddressDialog> {
     super.dispose();
   }
 
+  Future<void> _usarUbicacionActual() async {
+    if (_isLocating || _isSaving) return;
+    setState(() => _isLocating = true);
+
+    try {
+      final ubicacion = await _resolverUbicacion();
+      if (!mounted) return;
+      if (!ubicacion.disponible) {
+        if (ubicacion.estado != UbicacionEstado.cancelado) {
+          setState(
+            () => _gpsStatus = 'Puedes escribir la dirección manualmente.',
+          );
+        }
+        return;
+      }
+
+      final latitude = ubicacion.latitude!;
+      final longitude = ubicacion.longitude!;
+      final reverse = await _geocodingService.reverseGeocode(
+        lat: latitude,
+        lng: longitude,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _latitude = latitude;
+        _longitude = longitude;
+        _coordenadasFuente = 'gps';
+        _capturoGpsEnEstaEdicion = true;
+        _gpsStatus = 'Ubicación actual capturada.';
+        _aplicandoAutocompletado = true;
+        final ciudad = GeocodingService.ciudadEcuadorValida(reverse?.ciudad);
+        if (!_ciudadEditadaPorUsuario && ciudad != null) {
+          _ciudadController.text = ciudad;
+        }
+        if (!_calleEditadaPorUsuario &&
+            reverse?.callePrincipal?.trim().isNotEmpty == true) {
+          _callePrincipalController.text = reverse!.callePrincipal!.trim();
+        }
+        if (!_referenciaEditadaPorUsuario &&
+            reverse?.referencia?.trim().isNotEmpty == true) {
+          _referenciaController.text = reverse!.referencia!.trim();
+        }
+        _aplicandoAutocompletado = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        mostrarSnackbarError(
+          context,
+          mensaje: 'No se pudo obtener la ubicación. Puedes escribirla.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
   void _guardar() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -343,6 +511,22 @@ class _AddressDialogState extends State<AddressDialog> {
     });
 
     try {
+      final conservarCoordenadasExistentes =
+          widget.direccion != null &&
+          !_ciudadEditadaPorUsuario &&
+          !_calleEditadaPorUsuario &&
+          !_calleSecundariaEditadaPorUsuario &&
+          !_referenciaEditadaPorUsuario &&
+          _latitude != null &&
+          _longitude != null;
+      final enviarCoordenadas =
+          _capturoGpsEnEstaEdicion || conservarCoordenadasExistentes;
+      final latitude = enviarCoordenadas ? _latitude : null;
+      final longitude = enviarCoordenadas ? _longitude : null;
+      final coordenadasFuente = _capturoGpsEnEstaEdicion
+          ? 'gps'
+          : _coordenadasFuente;
+
       if (widget.direccion == null) {
         // Crear dirección consumiendo el servicio estructurado camelCase
         await _direccionService.createDireccion(
@@ -351,6 +535,9 @@ class _AddressDialogState extends State<AddressDialog> {
           callePrincipal: _callePrincipalController.text.trim(),
           calleSecundaria: _calleSecundariaController.text.trim(),
           referencia: _referenciaController.text.trim(),
+          latitude: latitude,
+          longitude: longitude,
+          coordenadasFuente: coordenadasFuente,
         );
       } else {
         // Actualizar dirección pasando el ID correspondiente
@@ -371,6 +558,9 @@ class _AddressDialogState extends State<AddressDialog> {
           referencia: _referenciaController.text.trim().isEmpty
               ? null
               : _referenciaController.text.trim(),
+          latitude: latitude,
+          longitude: longitude,
+          coordenadasFuente: coordenadasFuente,
         );
       }
 
@@ -401,11 +591,14 @@ class _AddressDialogState extends State<AddressDialog> {
       title: widget.direccion == null
           ? 'Agregar Dirección'
           : 'Editar Dirección',
+      backgroundColor: const Color(0xFF1E1E1E),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            _buildGpsSection(),
+            const SizedBox(height: AppSpacing.spacingMd),
             RyTextField(
               label: 'Alias (Ej. Casa, Trabajo)',
               controller: _aliasController,
@@ -423,7 +616,13 @@ class _AddressDialogState extends State<AddressDialog> {
               label: 'Ciudad',
               controller: _ciudadController,
               isRequired: true,
-              helperText: 'Ciudad de entrega',
+              hint: 'Ej: Quito',
+              helperText: 'Si GPS no la detecta, ingrésala manualmente.',
+              onChanged: (_) {
+                if (!_aplicandoAutocompletado) {
+                  _ciudadEditadaPorUsuario = true;
+                }
+              },
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'La ciudad es obligatoria'
                   : null,
@@ -434,6 +633,11 @@ class _AddressDialogState extends State<AddressDialog> {
               controller: _callePrincipalController,
               isRequired: true,
               helperText: 'Mínimo 5 caracteres',
+              onChanged: (_) {
+                if (!_aplicandoAutocompletado) {
+                  _calleEditadaPorUsuario = true;
+                }
+              },
               validator: (value) {
                 if (value == null || value.trim().length < 5) {
                   return 'La calle principal debe tener al menos 5 caracteres';
@@ -445,64 +649,110 @@ class _AddressDialogState extends State<AddressDialog> {
             RyTextField(
               label: 'Calle Secundaria (Opcional)',
               controller: _calleSecundariaController,
+              onChanged: (_) {
+                if (!_aplicandoAutocompletado) {
+                  _calleSecundariaEditadaPorUsuario = true;
+                }
+              },
             ),
             const SizedBox(height: AppSpacing.spacingMd),
             RyTextField(
               label: 'Referencia / Indicaciones (Opcional)',
               controller: _referenciaController,
               maxLines: 2,
+              onChanged: (_) {
+                if (!_aplicandoAutocompletado) {
+                  _referenciaEditadaPorUsuario = true;
+                }
+              },
             ),
           ],
         ),
       ),
       actions: [
-        GFButton(
-          onPressed: () => Navigator.pop(context),
-          type: GFButtonType.transparent,
-          color: Colors.transparent,
-          textColor: AppColors.onSurfaceVariant,
-          size: 48,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.spacingMd,
-            vertical: AppSpacing.spacingSm,
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            children: [
+              Expanded(
+                child: RyButton(
+                  label: 'Cancelar',
+                  variant: RyButtonVariant.outline,
+                  size: RyButtonSize.small,
+                  isFullWidth: true,
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Expanded(
+                child: RyButton(
+                  label: 'Guardar',
+                  variant: RyButtonVariant.primary,
+                  size: RyButtonSize.small,
+                  isFullWidth: true,
+                  isLoading: _isSaving,
+                  isDisabled: _isSaving,
+                  onPressed: _isSaving ? null : _guardar,
+                ),
+              ),
+            ],
           ),
-          child: Text(
-            'Cancelar',
-            style: AppTextStyles.textStyleButton.copyWith(
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGpsSection() {
+    final hasLocation = _latitude != null && _longitude != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(
+          color: AppColors.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.my_location_rounded,
+                color: AppColors.primaryContainer,
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Text('Ubicación (GPS)', style: AppTextStyles.textStyleBody),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.spacingXs),
+          Text(
+            _gpsStatus ??
+                (hasLocation
+                    ? 'Ubicación registrada. Puedes actualizarla.'
+                    : 'Completa la dirección con tu ubicación actual.'),
+            style: AppTextStyles.textStyleSmall.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
           ),
-        ),
-        GFButton(
-          onPressed: _isSaving ? null : _guardar,
-          type: GFButtonType.solid,
-          color: AppColors.primaryContainer,
-          textColor: AppColors.onPrimaryContainer,
-          textStyle: AppTextStyles.textStyleButton.copyWith(
-            color: AppColors.onPrimaryContainer,
+          const SizedBox(height: AppSpacing.spacingSm),
+          RyButton(
+            label: 'Mi ubicación actual',
+            icon: Icons.my_location_rounded,
+            variant: RyButtonVariant.primary,
+            size: RyButtonSize.small,
+            isFullWidth: true,
+            horizontalPadding: AppSpacing.spacingMd,
+            isLoading: _isLocating,
+            isDisabled: _isLocating || _isSaving,
+            onPressed: _isLocating || _isSaving ? null : _usarUbicacionActual,
           ),
-          disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
-          disabledTextColor: AppColors.onPrimaryContainer,
-          size: 48,
-          borderShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.spacingLg,
-            vertical: AppSpacing.spacingSm,
-          ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: AppColors.onSurface,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text('Guardar'),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -62,54 +62,104 @@ class _VehiclesPageState extends State<VehiclesPage> {
     }
   }
 
-  Future<void> _eliminarVehiculo(String id) async {
+  Future<void> _eliminarVehiculo(Map<String, dynamic> vehiculo) async {
+    final id = vehiculo['id']?.toString();
+    if (id == null || id.isEmpty) return;
+
+    final modelo = vehiculo['modelos_vehiculo'] as Map<String, dynamic>?;
+    final marca = modelo?['marcas_vehiculo'] as Map<String, dynamic>?;
+    final vehicleLabel = [marca?['nombre'], modelo?['nombre'], vehiculo['anio']]
+        .where((value) => value != null && value.toString().trim().isNotEmpty)
+        .join(' ');
+    final destructiveSurface = Color.alphaBlend(
+      AppColors.error.withValues(alpha: 0.32),
+      AppColors.surfaceContainerHigh,
+    );
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
         title: const Text(
           'Eliminar vehículo',
           style: AppTextStyles.textStyleTitle,
         ),
-        content: Text(
-          '¿Estás seguro de que deseas eliminar este vehículo?',
-          style: AppTextStyles.textStyleBody.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        actions: [
-          GFButton(
-            onPressed: () => Navigator.pop(context, false),
-            type: GFButtonType.transparent,
-            color: Colors.transparent,
-            textColor: AppColors.onSurfaceVariant,
-            size: 48,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.spacingMd,
-              vertical: AppSpacing.spacingSm,
-            ),
-            child: Text(
-              'Cancelar',
-              style: AppTextStyles.textStyleButton.copyWith(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (vehicleLabel.isNotEmpty) ...[
+              Text(
+                vehicleLabel,
+                style: AppTextStyles.textStyleBody.copyWith(
+                  color: AppColors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.spacingSm),
+            ],
+            Text(
+              '¿Estás seguro de que deseas eliminar este vehículo? '
+              'Esta acción no se puede deshacer.',
+              style: AppTextStyles.textStyleBody.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
             ),
-          ),
-          GFButton(
-            onPressed: () => Navigator.pop(context, true),
-            type: GFButtonType.transparent,
-            color: Colors.transparent,
-            textColor: AppColors.error,
-            size: 48,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.spacingMd,
-              vertical: AppSpacing.spacingSm,
-            ),
-            child: Text(
-              'Eliminar',
-              style: AppTextStyles.textStyleButton.copyWith(
-                color: AppColors.error,
-              ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.spacingMd,
+          AppSpacing.spacingXs,
+          AppSpacing.spacingMd,
+          AppSpacing.spacingMd,
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.onSurfaceVariant,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.spacingSm,
+                      ),
+                      side: BorderSide(color: AppColors.outlineVariant),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                      ),
+                    ),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: TextButton.styleFrom(
+                      foregroundColor: SemanticColors.colorErrorText,
+                      backgroundColor: destructiveSurface,
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.spacingSm,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                      ),
+                    ),
+                    child: const Text('Eliminar'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -121,7 +171,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
         await _vehiculoService.deleteVehiculo(id);
         _cargarVehiculos();
         if (mounted) {
-          mostrarSnackbarExito(context, mensaje: 'Vehículo eliminado');
+          mostrarSnackbarExitoSobrio(context, mensaje: 'Vehículo eliminado');
         }
       } catch (e) {
         if (mounted) {
@@ -274,7 +324,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                         children: [
                           IconButton(
                             icon: const Icon(
-                              Icons.edit,
+                              Icons.edit_rounded,
                               color: AppColors.primary,
                             ),
                             tooltip: 'Editar vehículo',
@@ -283,11 +333,11 @@ class _VehiclesPageState extends State<VehiclesPage> {
                           ),
                           IconButton(
                             icon: const Icon(
-                              Icons.delete,
-                              color: AppColors.error,
+                              Icons.delete_outline_rounded,
+                              color: SemanticColors.colorErrorText,
                             ),
                             tooltip: 'Eliminar vehículo',
-                            onPressed: () => _eliminarVehiculo(vehiculo['id']),
+                            onPressed: () => _eliminarVehiculo(vehiculo),
                           ),
                         ],
                       ),
@@ -323,7 +373,8 @@ class VehicleFormDialog extends StatefulWidget {
 class _VehicleFormDialogState extends State<VehicleFormDialog> {
   static final RegExp _vinPattern = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$');
   static const String _vinValidationMessage =
-      'El VIN debe tener 17 caracteres alfanuméricos.';
+      'VIN inválido: 17 caracteres, sin I, O ni Q.';
+  static final RegExp _platePattern = RegExp(r'^[A-Z]{3}-?\d{3,4}$');
 
   final _formKey = GlobalKey<FormState>();
   final _selectionFieldKey = GlobalKey<FormFieldState<int>>();
@@ -346,8 +397,16 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
   bool _isLoadingModelos = false;
   int _modelosLoadSequence = 0;
 
+  int get _latestAllowedYear => DateTime.now().year + 1;
+  String get _yearRangeHint => 'Rango: 1900-$_latestAllowedYear.';
   String get _yearRangeMessage =>
-      'Ingresa un año válido entre 1900 y ${DateTime.now().year + 1}.';
+      'Ingresa un año entre 1900 y $_latestAllowedYear.';
+
+  String? _validarPlaca(String? value) {
+    final plate = value?.trim().toUpperCase() ?? '';
+    if (plate.isEmpty || _platePattern.hasMatch(plate)) return null;
+    return 'Usa 3 letras y 3-4 números.';
+  }
 
   @override
   void initState() {
@@ -546,7 +605,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
         if (mounted) {
           Navigator.pop(context);
           widget.onSave();
-          mostrarSnackbarExito(
+          mostrarSnackbarExitoSobrio(
             context,
             mensaje: widget.vehiculo != null
                 ? 'Vehículo actualizado'
@@ -820,7 +879,7 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
                         child: Text(
                           field.errorText!,
                           style: AppTextStyles.textStyleCaption.copyWith(
-                            color: AppColors.error,
+                            color: SemanticColors.colorErrorText,
                           ),
                         ),
                       ),
@@ -845,11 +904,14 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
               keyboardType: TextInputType.text,
               isRequired: true,
               maxLength: 17,
-              helperText: '17 caracteres; busca en chasis o matrícula.',
+              helperText: '17 caracteres; sin I, O ni Q.',
               helperStyle: AppTextStyles.textStyleCaption.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
-              helperMaxLines: 4,
+              helperMaxLines: 2,
+              counterStyle: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant.withValues(alpha: 0.75),
+              ),
               onChanged: (_) => setState(() {}),
               validator: (value) =>
                   _vinPattern.hasMatch(value?.trim().toUpperCase() ?? '')
@@ -863,12 +925,13 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
               type: RyTextFieldType.number,
               keyboardType: TextInputType.number,
               isRequired: true,
-              helperText: _yearRangeMessage,
+              helperText: _yearRangeHint,
               onChanged: (_) => setState(() {}),
               validator: (value) {
                 final year = int.tryParse(value?.trim() ?? '');
-                final latestAllowedYear = DateTime.now().year + 1;
-                return year != null && year >= 1900 && year <= latestAllowedYear
+                return year != null &&
+                        year >= 1900 &&
+                        year <= _latestAllowedYear
                     ? null
                     : _yearRangeMessage;
               },
@@ -878,53 +941,34 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
               label: 'Placa (opcional)',
               hint: 'Ej: ABC-1234',
               controller: _patenteController,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9-]')),
+                LengthLimitingTextInputFormatter(8),
+                TextInputFormatter.withFunction(
+                  (oldValue, newValue) => newValue.copyWith(
+                    text: newValue.text.toUpperCase(),
+                    composing: TextRange.empty,
+                  ),
+                ),
+              ],
+              validator: _validarPlaca,
             ),
           ],
         ),
       ),
       actions: [
-        GFButton(
+        RyButton(
+          label: 'Cancelar',
+          variant: RyButtonVariant.outline,
+          size: RyButtonSize.small,
           onPressed: () => Navigator.pop(context),
-          type: GFButtonType.transparent,
-          color: Colors.transparent,
-          textColor: AppColors.onSurfaceVariant,
-          size: 48,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.spacingMd,
-            vertical: AppSpacing.spacingSm,
-          ),
-          child: Text(
-            'Cancelar',
-            style: AppTextStyles.textStyleButton.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
         ),
-        GFButton(
+        RyButton(
+          label: 'Guardar',
+          variant: RyButtonVariant.primary,
+          size: RyButtonSize.small,
+          isDisabled: !_requiredFieldsValid,
           onPressed: _requiredFieldsValid ? _guardar : null,
-          type: GFButtonType.solid,
-          color: _requiredFieldsValid
-              ? AppColors.primaryContainer
-              : AppColors.surfaceVariant,
-          textColor: _requiredFieldsValid
-              ? AppColors.onPrimaryContainer
-              : AppColors.onSurfaceVariant,
-          disabledColor: AppColors.surfaceVariant,
-          disabledTextColor: AppColors.onSurfaceVariant,
-          textStyle: AppTextStyles.textStyleButton.copyWith(
-            color: _requiredFieldsValid
-                ? AppColors.onPrimaryContainer
-                : AppColors.onSurfaceVariant,
-          ),
-          size: 48,
-          borderShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.spacingLg,
-            vertical: AppSpacing.spacingSm,
-          ),
-          child: const Text('Guardar'),
         ),
       ],
     );

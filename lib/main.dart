@@ -10,6 +10,7 @@ import 'providers/create_request_provider.dart';
 import 'providers/onboarding_provider.dart';
 import 'providers/solicitudes_provider.dart';
 import 'providers/notificaciones_provider.dart';
+import 'providers/profile_image_provider.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/realtime_notification_service.dart';
@@ -138,6 +139,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => NotificacionesProvider()..initialize(),
         ),
+        ChangeNotifierProvider(create: (_) => ProfileImageProvider()),
       ],
       child: Consumer<UserRoleProvider>(
         builder: (context, roleProvider, child) {

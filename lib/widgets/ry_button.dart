@@ -17,6 +17,7 @@ class RyButton extends StatelessWidget {
   final bool isLoading;
   final bool isDisabled;
   final bool isFullWidth;
+  final double? horizontalPadding;
   final VoidCallback? onPressed;
   final Widget? customChild;
 
@@ -30,6 +31,7 @@ class RyButton extends StatelessWidget {
     this.isLoading = false,
     this.isDisabled = false,
     this.isFullWidth = false,
+    this.horizontalPadding,
     this.onPressed,
     this.customChild,
   });
@@ -113,6 +115,11 @@ class RyButton extends StatelessWidget {
         ? _getDisabledForegroundColor(context)
         : _getForegroundColor(context);
     final borderSide = _getBorderSide(context);
+    final effectiveHorizontalPadding =
+        horizontalPadding ??
+        (variant == RyButtonVariant.text
+            ? AppSpacing.spacingXs
+            : AppSpacing.spacingLg);
 
     Widget content;
     if (isLoading) {
@@ -172,9 +179,7 @@ class RyButton extends StatelessWidget {
             height: _getHeight(),
             width: isFullWidth ? double.infinity : null,
             padding: EdgeInsets.symmetric(
-              horizontal: variant == RyButtonVariant.text
-                  ? AppSpacing.spacingXs
-                  : AppSpacing.spacingLg,
+              horizontal: effectiveHorizontalPadding,
             ),
             decoration: BoxDecoration(
               border: borderSide != null

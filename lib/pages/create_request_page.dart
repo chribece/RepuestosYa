@@ -451,8 +451,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   /// Flujo de captura de GPS compartido (helper `flujo_ubicacion.dart`):
   /// progreso → Reintentar / Abrir Ajustes / Usar dirección manual.
   /// Toda la lógica de permisos vive en `UbicacionService`.
-  Future<UbicacionResultado> _flujoUbicacionGps() =>
-      flujoUbicacionGps(context, _ubicacionService);
+  Future<UbicacionResultado> _flujoUbicacionGps({
+    bool mostrarSnackbarSiNoDisponible = false,
+  }) => flujoUbicacionGps(
+    context,
+    _ubicacionService,
+    mostrarSnackbarSiNoDisponible: mostrarSnackbarSiNoDisponible,
+  );
 
   // ========== IMAGEN ==========
 
@@ -500,6 +505,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     final nueva = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: AppColors.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -511,7 +517,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       // selector visual de mapa (RyLocationMapPicker).
       builder: (sheetContext) => NuevaDireccionSheet(
         direccionService: _direccionService,
-        resolverUbicacion: _flujoUbicacionGps,
+        resolverUbicacion: () =>
+            _flujoUbicacionGps(mostrarSnackbarSiNoDisponible: true),
       ),
     );
 

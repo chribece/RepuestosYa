@@ -65,6 +65,21 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   String? _piezaNombreOverride;
   String? _fotoUrlOverride;
   int? _ofertasPendientesOverride;
+  bool _cotizacionesCargadas = false;
+  double? _latitudEntrega;
+  double? _longitudEntrega;
+
+  int get _ofertasPendientes {
+    if (!_cotizacionesCargadas) {
+      return _ofertasPendientesOverride ?? widget.ofertasPendientes;
+    }
+    return _allCotizaciones
+        .where(
+          (cotizacion) =>
+              cotizacion['estado']?.toString().toLowerCase() == 'pendiente',
+        )
+        .length;
+  }
 
   @override
   void initState() {
@@ -79,7 +94,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     // suscripción falla en silencio sin romper la pantalla.
     unawaited(
       RealtimeNotificationService()
-          .subscribeToCotizaciones(widget.solicitudId)
+          .subscribeToCotizaciones(
+            widget.solicitudId,
+            onNuevaCotizacion: () => unawaited(_cargarCotizaciones()),
+          )
           .catchError((Object error) {
             AppLogger.error(
               'Error al suscribir a cotizaciones',
@@ -100,7 +118,15 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           final solicitud = Solicitud(solicitudData);
           _piezaNombreOverride = solicitud.displayPartName;
           _fotoUrlOverride = solicitud.fotoUrl ?? _fotoUrlOverride;
-          _ofertasPendientesOverride = solicitud.cantidadCotizaciones;
+          _latitudEntrega = _parseCoordenada(
+            solicitudData['latitud_entrega'] ??
+                (solicitudData['direcciones_entrega'] as Map?)?['latitude'],
+          );
+          _longitudEntrega = _parseCoordenada(
+            solicitudData['longitud_entrega'] ??
+                (solicitudData['direcciones_entrega'] as Map?)?['longitude'],
+          );
+          _actualizarDistancias();
         });
       }
     } catch (e) {
@@ -119,6 +145,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   }
 
   Future<void> _cargarCotizaciones() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -128,11 +155,12 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       final cotizaciones = await _solicitudService.obtenerCotizacionesRecibidas(
         widget.solicitudId,
       );
+      if (!mounted) return;
       setState(() {
-        // Guardamos la lista completa original y aplicamos el filtro actual
-        // para poblar `_cotizaciones`. Así, al cambiar de un tab filtrado
-        // (ej. "Más baratas") a "Todas", podremos restaurar la lista completa.
-        _allCotizaciones = List<Map<String, dynamic>>.from(cotizaciones);
+        _allCotizaciones = cotizaciones
+            .map(_calcularDistanciaCotizacion)
+            .toList();
+        _cotizacionesCargadas = true;
         _cotizaciones = _ordenarCotizaciones(
           _allCotizaciones,
           _selectedTabIndex,
@@ -140,6 +168,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = ApiErrorHandler.userMessage(e);
         _isLoading = false;
@@ -155,6 +184,35 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
   /// Parsea `distancia_km` (numeric de Postgres serializado como string o
   /// como num). Devuelve null si no está disponible.
   double? _parseDistancia(dynamic value) => parseDistanciaKm(value);
+
+  double? _parseCoordenada(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  Map<String, dynamic> _calcularDistanciaCotizacion(
+    Map<String, dynamic> cotizacion,
+  ) {
+    final almacen = cotizacion['almacenes'];
+    final coordenadasAlmacen = almacen is Map ? almacen : null;
+    final distancia = calcularDistanciaHaversineKm(
+      latitudOrigen: _latitudEntrega,
+      longitudOrigen: _longitudEntrega,
+      latitudDestino: _parseCoordenada(coordenadasAlmacen?['latitude']),
+      longitudDestino: _parseCoordenada(coordenadasAlmacen?['longitude']),
+    );
+    // No mostrar la distancia persistida como si fuera actual cuando falte
+    // alguna coordenada para recalcularla.
+    return {...cotizacion, 'distancia_km': distancia};
+  }
+
+  void _actualizarDistancias() {
+    _allCotizaciones = _allCotizaciones
+        .map(_calcularDistanciaCotizacion)
+        .toList();
+    _cotizaciones = _ordenarCotizaciones(_allCotizaciones, _selectedTabIndex);
+  }
 
   List<Map<String, dynamic>> _ordenarCotizaciones(
     List<Map<String, dynamic>> cotizaciones,
@@ -315,8 +373,19 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
-        title: const Text('¿Aceptar esta cotización?'),
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        title: Text(
+          '¿Aceptar esta cotización?',
+          style: AppTextStyles.textStyleTitle.copyWith(
+            color: AppColors.onSurface,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,20 +399,45 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             ),
             const SizedBox(height: AppSpacing.spacingSm),
             const Text(
-              'Al aceptar verás los datos de contacto del almacén para '
-              'coordinar el pago y la entrega.',
-              style: AppTextStyles.textStyleSmall,
+              'Al confirmar, se seleccionará esta oferta y podrás acceder a '
+              'los datos de contacto del almacén para coordinar el pago y la '
+              'entrega.',
+              style: AppTextStyles.textStyleCaption,
             ),
           ],
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.spacingMd,
+          AppSpacing.spacingXs,
+          AppSpacing.spacingMd,
+          AppSpacing.spacingMd,
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Aceptar'),
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                Expanded(
+                  child: RyButton(
+                    label: 'Cancelar',
+                    variant: RyButtonVariant.outline,
+                    size: RyButtonSize.small,
+                    isFullWidth: true,
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: RyButton(
+                    label: 'Aceptar',
+                    variant: RyButtonVariant.primary,
+                    size: RyButtonSize.small,
+                    isFullWidth: true,
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -366,6 +460,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
           Text(
             '$label: ',
             style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -373,7 +468,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             child: Text(
               value,
               style: AppTextStyles.textStyleCaption.copyWith(
-                color: destacado ? AppColors.primaryContainer : null,
+                color: destacado
+                    ? AppColors.primaryContainer
+                    : AppColors.onSurface,
                 fontWeight: destacado ? FontWeight.w800 : FontWeight.w400,
               ),
             ),
@@ -490,6 +587,87 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     );
   }
 
+  Future<void> _confirmarRechazo({
+    required String cotizacionId,
+    required String almacenNombre,
+    required String repuestoNombre,
+    required double precio,
+  }) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          side: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.55),
+          ),
+        ),
+        title: Text(
+          'Rechazar cotización',
+          style: AppTextStyles.textStyleTitle.copyWith(
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildResumenLinea('Almacén', almacenNombre),
+            _buildResumenLinea('Repuesto', repuestoNombre),
+            _buildResumenLinea('Precio', '\$${precio.toStringAsFixed(2)}'),
+            const SizedBox(height: AppSpacing.spacingSm),
+            Text(
+              'Esta oferta será descartada y dejará de estar disponible '
+              'para esta solicitud.',
+              style: AppTextStyles.textStyleCaption.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.spacingMd,
+          AppSpacing.spacingXs,
+          AppSpacing.spacingMd,
+          AppSpacing.spacingMd,
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: Row(
+              children: [
+                Expanded(
+                  child: RyButton(
+                    label: 'Cancelar',
+                    variant: RyButtonVariant.outline,
+                    size: RyButtonSize.small,
+                    isFullWidth: true,
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Expanded(
+                  child: RyButton(
+                    label: 'Rechazar',
+                    variant: RyButtonVariant.danger,
+                    size: RyButtonSize.small,
+                    isFullWidth: true,
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado == true && mounted) {
+      await _rechazarCotizacion(cotizacionId);
+    }
+  }
+
   Future<void> _rechazarCotizacion(String cotizacionId) async {
     try {
       AppLogger.debug(
@@ -498,7 +676,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
       );
       await _solicitudService.rechazarCotizacion(cotizacionId);
       if (mounted) {
-        mostrarSnackbarAdvertencia(context, mensaje: 'Cotización rechazada');
+        mostrarSnackbarInfoSobrio(context, mensaje: 'Cotización rechazada');
         _cargarCotizaciones();
       }
     } catch (e) {
@@ -568,8 +746,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final fotoUrl = _fotoUrlOverride ?? widget.fotoUrl;
     final piezaNombre =
         _piezaNombreOverride ?? widget.piezaNombre ?? 'Cargando...';
-    final ofertasPendientes =
-        _ofertasPendientesOverride ?? widget.ofertasPendientes;
+    final ofertasPendientes = _ofertasPendientes;
 
     return Container(
       margin: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -626,7 +803,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                 ),
                 const SizedBox(height: AppSpacing.spacingXxs),
                 Text(
-                  '$ofertasPendientes ofertas pendientes',
+                  '$ofertasPendientes oferta${ofertasPendientes == 1 ? '' : 's'} pendiente${ofertasPendientes == 1 ? '' : 's'}',
                   style: AppTextStyles.textStyleCaption.copyWith(
                     color: AppColors.secondary,
                   ),
@@ -747,9 +924,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
             _cotizaciones[_selectedTabIndex == 1 ? index - 1 : index];
         return _buildQuotationCard(
           cotizacion,
-          // En el tab "Más cercanas" la lista viene ordenada por distancia:
-          // solo la primera es la más cercana.
-          destacarCercana: _selectedTabIndex == 2 && index == 0,
+          destacarCercana:
+              _selectedTabIndex == 2 &&
+              index == 0 &&
+              _parseDistancia(cotizacion['distancia_km']) != null,
         );
       },
     );
@@ -762,6 +940,8 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     final almacenes = cotizacion['almacenes'] as Map<String, dynamic>?;
     final almacenNombre =
         almacenes?['nombre_comercial'] ?? 'Almacén desconocido';
+    final repuestoNombre =
+        _piezaNombreOverride ?? widget.piezaNombre ?? 'el repuesto';
     final precio = _parsePrecio(cotizacion['precio_venta']);
     final tiempoEntrega =
         cotizacion['tiempo_entrega_estimado'] ?? 'No especificado';
@@ -958,7 +1138,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                     const SizedBox(width: AppSpacing.spacingXxs),
                     Expanded(
                       child: Text(
-                        'A ${_parseDistancia(cotizacion['distancia_km'])!.toStringAsFixed(1)} km de ti',
+                        '${_parseDistancia(cotizacion['distancia_km'])!.toStringAsFixed(1)} km de ti',
                         style: AppTextStyles.textStyleSmall.copyWith(
                           color: AppColors.onSurfaceVariant,
                         ),
@@ -1084,8 +1264,15 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                               variant: RyButtonVariant.danger,
                               size: RyButtonSize.small,
                               isFullWidth: true,
-                              onPressed: () =>
-                                  _rechazarCotizacion(cotizacionId),
+                              isDisabled: isLoading,
+                              onPressed: isLoading
+                                  ? null
+                                  : () => _confirmarRechazo(
+                                      cotizacionId: cotizacionId,
+                                      almacenNombre: almacenNombre,
+                                      repuestoNombre: repuestoNombre,
+                                      precio: precio,
+                                    ),
                             ),
                           ),
                         ),
@@ -1094,9 +1281,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                           child: Semantics(
                             button: true,
                             label:
-                                'Seleccionar y aceptar cotización de $almacenNombre por \$${precio.toStringAsFixed(2)}',
+                                'Aceptar cotización de $almacenNombre por \$${precio.toStringAsFixed(2)}',
                             child: RyButton(
-                              label: 'Seleccionar y Aceptar',
+                              label: 'Aceptar',
                               icon: Icons.check,
                               variant: RyButtonVariant.primary,
                               size: RyButtonSize.small,

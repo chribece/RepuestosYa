@@ -12,12 +12,14 @@ class RyFormDialog extends StatelessWidget {
   final String title;
   final Widget content;
   final List<Widget> actions;
+  final Color backgroundColor;
 
   const RyFormDialog({
     super.key,
     required this.title,
     required this.content,
     required this.actions,
+    this.backgroundColor = AppColors.surfaceContainerHigh,
   });
 
   @override
@@ -32,7 +34,7 @@ class RyFormDialog extends StatelessWidget {
     );
 
     return Dialog(
-      backgroundColor: AppColors.surfaceContainerHigh,
+      backgroundColor: backgroundColor,
       insetPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.spacingMd,
         vertical: AppSpacing.spacingMd,

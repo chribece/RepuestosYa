@@ -23,6 +23,7 @@ class RyTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String? helperText;
   final TextStyle? helperStyle;
+  final TextStyle? counterStyle;
   final String? errorText;
   final RyTextFieldType type;
   final bool isRequired;
@@ -61,6 +62,7 @@ class RyTextField extends StatefulWidget {
     this.controller,
     this.helperText,
     this.helperStyle,
+    this.counterStyle,
     this.errorText,
     this.type = RyTextFieldType.text,
     this.isRequired = false,
@@ -228,6 +230,7 @@ class _RyTextFieldState extends State<RyTextField> {
           hintMaxLines: widget.hintMaxLines,
           helperText: widget.helperText,
           helperStyle: widget.helperStyle,
+          counterStyle: widget.counterStyle,
           helperMaxLines: widget.helperMaxLines,
           errorText: widget.errorText,
           errorMaxLines: widget.errorMaxLines,

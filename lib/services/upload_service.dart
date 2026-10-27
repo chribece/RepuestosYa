@@ -22,8 +22,7 @@ class UploadService {
   }) {
     return _upload(
       imageFile,
-      folder: 'solicitudes',
-      ownerId: clienteId,
+      directory: 'evidencias/solicitudes/$clienteId',
       prefix: 'solicitud',
       idempotencyKey: idempotencyKey,
     );
@@ -40,23 +39,34 @@ class UploadService {
   }) {
     return _upload(
       imageFile,
-      folder: 'cotizaciones',
-      ownerId: almacenId,
+      directory: 'evidencias/cotizaciones/$almacenId',
       prefix: 'cotizacion',
       idempotencyKey: idempotencyKey,
     );
   }
 
+  /// Sube una foto de perfil o logo comercial en `perfiles/{userId}`.
+  Future<String?> uploadProfileImage(
+    File imageFile,
+    String userId, {
+    required bool isWarehouse,
+  }) {
+    return _upload(
+      imageFile,
+      directory: 'perfiles/$userId',
+      prefix: isWarehouse ? 'logo' : 'avatar',
+    );
+  }
+
   Future<String?> _upload(
     File imageFile, {
-    required String folder,
-    required String ownerId,
+    required String directory,
     required String prefix,
     String? idempotencyKey,
   }) async {
     try {
       AppLogger.debug(
-        '[UPLOAD] Iniciando subida de imagen ($folder)...',
+        '[UPLOAD] Iniciando subida de imagen ($directory)...',
         name: 'UploadService',
       );
 
@@ -90,7 +100,7 @@ class UploadService {
       final namePart =
           idempotencyKey ?? '${DateTime.now().millisecondsSinceEpoch}';
       final fileName = '${prefix}_$namePart.$ext';
-      final filePath = 'evidencias/$folder/$ownerId/$fileName';
+      final filePath = '$directory/$fileName';
 
       // Subir al bucket `Repuestosya`
       await supabase.storage

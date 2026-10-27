@@ -55,8 +55,14 @@ void main() {
       String id = 'c',
       Object? precio,
       Object? distancia,
+      String estado = 'pendiente',
     }) {
-      return {'id': id, 'precio_venta': ?precio, 'distancia_km': ?distancia};
+      return {
+        'id': id,
+        'precio_venta': ?precio,
+        'distancia_km': ?distancia,
+        'estado': estado,
+      };
     }
 
     test('tab 0 (Todas) devuelve la lista sin tocar', () {
@@ -86,6 +92,15 @@ void main() {
       expect(resultado.map((c) => c['id']).toSet(), {'a', 'b'});
     });
 
+    test('tab 1 excluye cotizaciones que ya no están pendientes', () {
+      final lista = [
+        cot(id: 'rechazada', precio: 1, estado: 'rechazada'),
+        cot(id: 'pendiente', precio: 20),
+      ];
+
+      expect(ordenarCotizaciones(lista, 1).map((c) => c['id']), ['pendiente']);
+    });
+
     test('tab 1 con lista vacía → lista vacía', () {
       expect(ordenarCotizaciones([], 1), isEmpty);
     });
@@ -108,9 +123,53 @@ void main() {
       ]);
     });
 
+    test('tab 2 excluye cotizaciones que ya no están pendientes', () {
+      final lista = [
+        cot(id: 'rechazada', distancia: 0.1, estado: 'rechazada'),
+        cot(id: 'pendiente', distancia: 2.0),
+      ];
+
+      expect(ordenarCotizaciones(lista, 2).map((c) => c['id']), ['pendiente']);
+    });
+
     test('tab inválido → lista original', () {
       final lista = [cot(id: 'a')];
       expect(ordenarCotizaciones(lista, 99), same(lista));
+    });
+  });
+
+  group('calcularDistanciaHaversineKm', () {
+    test('calcula la distancia entre coordenadas reales', () {
+      final distancia = calcularDistanciaHaversineKm(
+        latitudOrigen: -0.18,
+        longitudOrigen: -78.49,
+        latitudDestino: -0.19,
+        longitudDestino: -78.49,
+      );
+
+      expect(distancia, isNotNull);
+      expect(distancia!, closeTo(1.11, 0.02));
+    });
+
+    test('rechaza coordenadas ausentes o fuera de rango', () {
+      expect(
+        calcularDistanciaHaversineKm(
+          latitudOrigen: null,
+          longitudOrigen: -78.49,
+          latitudDestino: -0.19,
+          longitudDestino: -78.49,
+        ),
+        isNull,
+      );
+      expect(
+        calcularDistanciaHaversineKm(
+          latitudOrigen: 91,
+          longitudOrigen: -78.49,
+          latitudDestino: -0.19,
+          longitudDestino: -78.49,
+        ),
+        isNull,
+      );
     });
   });
 

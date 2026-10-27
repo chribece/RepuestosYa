@@ -1,17 +1,17 @@
-import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
-import '../config/app_config.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../services/almacen_service.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
-import '../utils/app_logger.dart';
-import '../utils/contact_launcher.dart';
+import '../services/upload_service.dart';
+import '../providers/profile_image_provider.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
-import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_notification_bell.dart';
@@ -21,8 +21,27 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../router/route_names.dart';
 
+typedef ProfileImagePicker = Future<XFile?> Function(ImageSource source);
+typedef ProfileImageUploader =
+    Future<String?> Function(
+      File imageFile,
+      String userId, {
+      required bool isWarehouse,
+    });
+
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final ProfileService? profileService;
+  final AlmacenService? warehouseService;
+  final ProfileImagePicker? imagePicker;
+  final ProfileImageUploader? imageUploader;
+
+  const ProfilePage({
+    super.key,
+    this.profileService,
+    this.warehouseService,
+    this.imagePicker,
+    this.imageUploader,
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -36,10 +55,21 @@ class _ProfilePageState extends State<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
 
   final AuthService _authService = AuthService();
-  final ProfileService _profileService = ProfileService();
+  late final ProfileService _profileService =
+      widget.profileService ?? ProfileService();
+  late final AlmacenService _warehouseService =
+      widget.warehouseService ?? AlmacenService();
+  late final ProfileImagePicker _imagePicker =
+      widget.imagePicker ?? _pickImageFromDevice;
+  late final ProfileImageUploader _imageUploader =
+      widget.imageUploader ?? UploadService().uploadProfileImage;
 
   Map<String, dynamic>? _profile;
+  Map<String, dynamic>? _warehouseData;
   bool _isLoading = false;
+  bool _isSaving = false;
+  bool _isAvatarUploading = false;
+  File? _avatarFile;
 
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
@@ -58,6 +88,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _loadProfile() async {
+    final profileImageProvider = context.read<ProfileImageProvider?>();
     setState(() {
       _isLoading = true;
     });
@@ -69,8 +100,31 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _profile = profileData;
           _nombreController.text = profileData['nombre_completo'] ?? '';
-          _telefonoController.text = profileData['telefono'] ?? '';
+          _telefonoController.text = _normalizarTelefonoPerfil(
+            profileData['telefono'],
+          );
         });
+        if (user.rol != 'almacen' && user.rol != 'warehouse') {
+          profileImageProvider?.setImageUrl(
+            profileData['avatar_url']?.toString(),
+            userId: user.id,
+          );
+        }
+      }
+      if (user.rol == 'almacen' || user.rol == 'warehouse') {
+        try {
+          final warehouseData = await _warehouseService.obtenerMiAlmacen();
+          if (mounted && warehouseData != null) {
+            setState(() => _warehouseData = warehouseData);
+            profileImageProvider?.setImageUrl(
+              warehouseData['logo_url']?.toString(),
+              userId: user.id,
+            );
+          }
+        } catch (_) {
+          // La edición del perfil sigue disponible aunque falle la carga
+          // opcional del logo del almacén.
+        }
       }
     }
 
@@ -81,33 +135,201 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  String _normalizarTelefonoPerfil(dynamic value) {
+    var phone = value?.toString().replaceAll(RegExp(r'\D'), '') ?? '';
+    if (phone.startsWith('593')) {
+      phone = phone.substring(3);
+    }
+    if (phone.startsWith('0')) {
+      phone = phone.substring(1);
+    }
+    return phone;
+  }
+
+  Future<XFile?> _pickImageFromDevice(ImageSource source) {
+    return ImagePicker().pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+  }
+
+  Future<void> _showAvatarSourcePicker({required bool isWarehouse}) async {
+    if (_isAvatarUploading) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.radiusLg),
+        ),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: AppSpacing.spacingMd),
+            Text(
+              isWarehouse ? 'Actualizar logo comercial' : 'Actualizar foto',
+              style: AppTextStyles.textStyleTitle,
+            ),
+            const SizedBox(height: AppSpacing.spacingSm),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Tomar foto'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Elegir de galería'),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+            const SizedBox(height: AppSpacing.spacingSm),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    try {
+      final selected = await _imagePicker(source);
+      if (selected == null || !mounted) return;
+      final imageFile = File(selected.path);
+      setState(() => _avatarFile = imageFile);
+      await _uploadAvatar(imageFile, isWarehouse: isWarehouse);
+    } catch (_) {
+      if (mounted) {
+        mostrarSnackbarError(
+          context,
+          mensaje: 'No se pudo seleccionar la imagen. Inténtalo de nuevo.',
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadAvatar(
+    File imageFile, {
+    required bool isWarehouse,
+  }) async {
+    final profileImageProvider = context.read<ProfileImageProvider?>();
+    final user = _authService.currentUser;
+    if (user == null) {
+      mostrarSnackbarError(
+        context,
+        mensaje: 'Inicia sesión para actualizar tu imagen.',
+      );
+      return;
+    }
+
+    setState(() => _isAvatarUploading = true);
+    try {
+      final imageUrl = await _imageUploader(
+        imageFile,
+        user.id,
+        isWarehouse: isWarehouse,
+      );
+      if (imageUrl == null || imageUrl.isEmpty) {
+        throw StateError('No se pudo subir la imagen');
+      }
+
+      final Map<String, dynamic>? updated;
+      if (isWarehouse) {
+        var warehouseId = _warehouseData?['id']?.toString();
+        if (warehouseId == null || warehouseId.isEmpty) {
+          final warehouseData = await _warehouseService.obtenerMiAlmacen();
+          warehouseId = warehouseData?['id']?.toString();
+        }
+        if (warehouseId == null || warehouseId.isEmpty) {
+          throw StateError('No se encontró el almacén del usuario');
+        }
+        updated = await _warehouseService.actualizarAlmacen(warehouseId, {
+          'logo_url': imageUrl,
+        });
+      } else {
+        updated = await _profileService.updateProfile(avatarUrl: imageUrl);
+      }
+      if (!mounted) return;
+      if (updated == null) {
+        throw StateError('No se pudo guardar la imagen');
+      }
+
+      setState(() {
+        if (isWarehouse) {
+          _warehouseData = {
+            ...?_warehouseData,
+            ...?updated,
+            'logo_url': imageUrl,
+          };
+        } else {
+          _profile = {...?_profile, ...?updated, 'avatar_url': imageUrl};
+        }
+      });
+      profileImageProvider?.setImageUrl(imageUrl, userId: user.id);
+      mostrarSnackbarExitoSobrio(
+        context,
+        mensaje: isWarehouse
+            ? 'Logo comercial actualizado'
+            : 'Foto de perfil actualizada',
+      );
+    } catch (_) {
+      if (mounted) {
+        mostrarSnackbarError(
+          context,
+          mensaje: isWarehouse
+              ? 'No se pudo actualizar el logo comercial.'
+              : 'No se pudo actualizar la foto de perfil.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAvatarUploading = false);
+    }
+  }
+
   Future<void> _saveProfile() async {
     // El teléfono es obligatorio: sin él el almacén ganador no puede
     // coordinar el pago y la entrega (se exige también al aceptar).
-    if (!_formKey.currentState!.validate()) return;
+    final form = _formKey.currentState;
+    if (form == null || !form.validate() || _isSaving) return;
 
     setState(() {
-      _isLoading = true;
+      _isSaving = true;
     });
 
-    final updated = await _profileService.updateProfile(
-      nombreCompleto: _nombreController.text.trim(),
-      telefono: _telefonoController.text.trim(),
-    );
+    final nombreCompleto = _nombreController.text.trim();
+    final telefono = _telefonoController.text.trim();
+    try {
+      final updated = await _profileService.updateProfile(
+        nombreCompleto: nombreCompleto,
+        telefono: telefono,
+      );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (!mounted) return;
 
       if (updated != null) {
-        mostrarSnackbarExito(
+        setState(() {
+          _profile = {
+            ...?_profile,
+            'nombre_completo': nombreCompleto,
+            'telefono': telefono,
+          };
+        });
+        mostrarSnackbarExitoSobrio(
           context,
           mensaje: 'Perfil actualizado correctamente',
         );
-        _loadProfile();
       } else {
         mostrarSnackbarError(context, mensaje: 'Error al actualizar el perfil');
+      }
+    } catch (_) {
+      if (mounted) {
+        mostrarSnackbarError(context, mensaje: 'Error al actualizar el perfil');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
@@ -155,7 +377,7 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Text(
                 'Salir',
                 style: AppTextStyles.textStyleButton.copyWith(
-                  color: AppColors.error,
+                  color: SemanticColors.colorErrorText,
                 ),
               ),
             ),
@@ -230,11 +452,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.logout, color: AppColors.error),
+                leading: const Icon(
+                  Icons.logout_rounded,
+                  color: SemanticColors.colorErrorText,
+                ),
                 title: Text(
-                  'Cerrar Sesión',
+                  'Cerrar sesión',
                   style: AppTextStyles.textStyleBody.copyWith(
-                    color: AppColors.error,
+                    color: SemanticColors.colorErrorText,
                   ),
                 ),
                 onTap: () {
@@ -269,8 +494,6 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildMenuSection(),
                           const SizedBox(height: AppSpacing.spacingXl),
-                          _buildLogoutButton(),
-                          const SizedBox(height: AppSpacing.spacingMd),
                           _buildFooter(),
                           const SizedBox(height: AppSpacing.spacingXxl),
                         ],
@@ -320,11 +543,21 @@ class _ProfilePageState extends State<ProfilePage> {
               const RyNotificationBell(),
               if (!_isLoading)
                 IconButton(
-                  icon: const Icon(
-                    Icons.save,
-                    color: AppColors.primaryContainer,
-                  ),
-                  onPressed: _saveProfile,
+                  tooltip: _isSaving ? 'Guardando cambios' : 'Guardar cambios',
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryContainer,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.save_rounded,
+                          color: AppColors.primaryContainer,
+                        ),
                 ),
             ],
           ),
@@ -337,28 +570,108 @@ class _ProfilePageState extends State<ProfilePage> {
     final displayName =
         _profile?['nombre_completo'] ?? user?.nombreCompleto ?? 'Usuario';
     final email = user?.email ?? 'Sin correo registrado';
-    final roleDisplay = (user?.rol == 'almacen' || user?.rol == 'warehouse')
+    final isWarehouse = user?.rol == 'almacen' || user?.rol == 'warehouse';
+    final roleDisplay = isWarehouse
         ? 'Rol: Almacén / Vendedor'
         : 'Rol: Cliente';
+    final avatarTooltip = isWarehouse
+        ? 'Actualizar logo comercial'
+        : 'Actualizar foto de perfil';
+    final avatarUrl = isWarehouse
+        ? (_warehouseData?['logo_url']?.toString())
+        : (_profile?['avatar_url']?.toString());
 
     return Row(
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerHigh,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.primaryContainer, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primaryContainer.withValues(alpha: 0.2),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+        Semantics(
+          button: true,
+          label: avatarTooltip,
+          child: Tooltip(
+            message: avatarTooltip,
+            child: Material(
+              color: Colors.transparent,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isAvatarUploading
+                    ? null
+                    : () => _showAvatarSourcePicker(isWarehouse: isWarehouse),
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerHigh,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.primaryContainer,
+                            width: 2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryContainer.withValues(
+                                alpha: 0.2,
+                              ),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _buildAvatarImage(
+                            isWarehouse: isWarehouse,
+                            imageUrl: avatarUrl,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryContainer,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.background,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_rounded,
+                            color: AppColors.onPrimaryContainer,
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                      if (_isAvatarUploading)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.background.withValues(
+                                alpha: 0.55,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(AppSpacing.spacingXl),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
-          child: const Icon(Icons.person, size: 40, color: AppColors.primary),
         ),
         const SizedBox(width: AppSpacing.spacingLg),
         Expanded(
@@ -387,6 +700,39 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildAvatarImage({
+    required bool isWarehouse,
+    required String? imageUrl,
+  }) {
+    if (_avatarFile != null) {
+      return Image.file(
+        _avatarFile!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildAvatarPlaceholder(isWarehouse),
+      );
+    }
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildAvatarPlaceholder(isWarehouse),
+      );
+    }
+    return _buildAvatarPlaceholder(isWarehouse);
+  }
+
+  Widget _buildAvatarPlaceholder(bool isWarehouse) {
+    return Center(
+      child: Icon(
+        isWarehouse ? Icons.storefront_rounded : Icons.person_rounded,
+        size: 40,
+        color: AppColors.primary,
+      ),
+    );
+  }
+
   Widget _buildEditableFields() {
     return Form(
       key: _formKey,
@@ -403,23 +749,41 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: AppSpacing.spacingMd),
           RyTextField(
             label: 'Teléfono',
-            prefixIcon: Icons.phone_android_outlined,
+            hint: 'Ej: 981894367',
             type: RyTextFieldType.phone,
             controller: _telefonoController,
+            keyboardType: TextInputType.phone,
+            inputFormatters: ecuadorMobilePhoneInputFormatters(),
             isRequired: true,
-            helperText:
-                'Obligatorio: el almacén ganador lo usará para coordinar el '
-                'pago y la entrega de tu repuesto.',
+            prefixWidget: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.phone_android,
+                  color: AppColors.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Text(
+                  '+593',
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.spacingXs),
+                Container(
+                  width: 1,
+                  height: 24,
+                  color: AppColors.outlineVariant,
+                ),
+              ],
+            ),
+            helperText: '9 dígitos, sin el 0 inicial.',
+            helperStyle: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
             helperMaxLines: 3,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'El teléfono es requerido';
-              }
-              if (!esTelefonoValido(value)) {
-                return 'Ingresa un teléfono válido (mín. 9 dígitos)';
-              }
-              return null;
-            },
+            validator: validarTelefonoMovilEcuador,
           ),
         ],
       ),
@@ -427,11 +791,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMenuSection() {
-    // Botón de fallo de prueba: SOLO en debug o cuando APP_ENV != prod.
-    // Nunca aparece en el build release de producción (kReleaseMode + env
-    // 'prod' eliminan el widget por dead-code elimination).
-    final mostrarPruebaFallo = _mostrarPruebaFallo;
-
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant,
@@ -460,38 +819,16 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () {
               context.pushNamed(RouteNames.misOrdenes);
             },
-            isLast: !mostrarPruebaFallo,
           ),
-          if (mostrarPruebaFallo)
-            _buildMenuItem(
-              icon: Icons.bug_report_outlined,
-              title: 'Provocar fallo de prueba (Sentry)',
-              onTap: _probarFallo,
-              isLast: true,
-            ),
+          _buildMenuItem(
+            icon: Icons.logout_rounded,
+            title: 'Cerrar sesión',
+            foregroundColor: SemanticColors.colorErrorText,
+            onTap: _showLogoutDialog,
+            isLast: true,
+          ),
         ],
       ),
-    );
-  }
-
-  /// Solo debug o staging/dev: nunca en el build release de producción.
-  bool get _mostrarPruebaFallo =>
-      !kReleaseMode || AppConfig.environment != 'prod';
-
-  void _probarFallo() {
-    final mensaje =
-        'Fallo de prueba manual desde Mi Perfil (env=${AppConfig.environment})';
-    AppLogger.error(mensaje, name: 'ProfilePage');
-    unawaited(
-      Sentry.captureException(
-        StateError(mensaje),
-        stackTrace: StackTrace.current,
-      ),
-    );
-    mostrarSnackbarInfo(
-      context,
-      mensaje:
-          'Fallo de prueba enviado a Sentry (env=${AppConfig.environment}).',
     );
   }
 
@@ -500,25 +837,33 @@ class _ProfilePageState extends State<ProfilePage> {
     required String title,
     required VoidCallback onTap,
     bool isLast = false,
+    Color? foregroundColor,
   }) {
+    final itemColor = foregroundColor ?? AppColors.primary;
     return Column(
       children: [
-        ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(AppSpacing.spacingSm),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        Material(
+          color: Colors.transparent,
+          child: ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(AppSpacing.spacingSm),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+              ),
+              child: Icon(icon, color: itemColor),
             ),
-            child: Icon(icon, color: AppColors.primary),
+            title: Text(
+              title,
+              style: AppTextStyles.textStyleBody.copyWith(color: itemColor),
+            ),
+            trailing: const Icon(
+              Icons.arrow_forward_ios,
+              color: AppColors.onSurfaceVariant,
+              size: 16,
+            ),
+            onTap: onTap,
           ),
-          title: Text(title, style: AppTextStyles.textStyleBody),
-          trailing: const Icon(
-            Icons.arrow_forward_ios,
-            color: AppColors.onSurfaceVariant,
-            size: 16,
-          ),
-          onTap: onTap,
         ),
         if (!isLast)
           Container(
@@ -532,21 +877,10 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildLogoutButton() {
-    return RyButton(
-      label: 'Cerrar Sesión',
-      icon: Icons.logout,
-      variant: RyButtonVariant.danger,
-      size: RyButtonSize.large,
-      isFullWidth: true,
-      onPressed: _showLogoutDialog,
-    );
-  }
-
   Widget _buildFooter() {
     return Center(
       child: Text(
-        'Versión 2.1.0 • Built for Performance',
+        'Versión 2.1.0 • Built by VCore Tech',
         style: AppTextStyles.textStyleSmall.copyWith(
           color: AppColors.outlineVariant,
         ),

@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../services/realtime_notification_service.dart';
 import '../providers/create_request_provider.dart';
 import '../providers/solicitudes_provider.dart';
+import '../providers/profile_image_provider.dart';
 import '../widgets/client_bottom_navigation_bar.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
@@ -73,6 +74,12 @@ class _HomePageState extends State<HomePage> {
     // Pero forzamos un refresco por seguridad
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SolicitudesProvider>().refreshFromServer();
+      if (_authService.currentUser != null) {
+        final profileImageProvider = context.read<ProfileImageProvider?>();
+        if (profileImageProvider != null) {
+          unawaited(profileImageProvider.loadForCurrentUser());
+        }
+      }
     });
 
     // Timer para actualizar el "tiempo transcurrido" en la UI cada minuto
@@ -461,6 +468,7 @@ class _HomePageState extends State<HomePage> {
 
   // --- APPBAR SUPERIOR ---
   Widget _buildTopAppBar() {
+    final profileImageUrl = context.watch<ProfileImageProvider?>()?.imageUrl;
     return Container(
       key: const ValueKey('home-top-app-bar'),
       height: 64,
@@ -511,14 +519,38 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.outlineVariant),
               ),
-              child: const Icon(
-                Icons.person,
-                color: AppColors.onSurfaceVariant,
-                size: 24,
+              child: CircleAvatar(
+                key: const ValueKey('home-profile-avatar'),
+                radius: 24,
+                backgroundColor: AppColors.surfaceVariant,
+                child: ClipOval(
+                  child: profileImageUrl != null && profileImageUrl.isNotEmpty
+                      ? Image.network(
+                          profileImageUrl,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildHomeAvatarFallback(),
+                        )
+                      : _buildHomeAvatarFallback(),
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHomeAvatarFallback() {
+    return const SizedBox(
+      width: 48,
+      height: 48,
+      child: Icon(
+        Icons.person_rounded,
+        color: AppColors.onSurfaceVariant,
+        size: 24,
       ),
     );
   }

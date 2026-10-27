@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -11,12 +12,58 @@ import 'package:repuestosya/pages/mis_ordenes_page.dart';
 import 'package:repuestosya/pages/profile_page.dart';
 import 'package:repuestosya/providers/notificaciones_provider.dart';
 import 'package:repuestosya/router/route_names.dart';
+import 'package:repuestosya/services/almacen_service.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/notificaciones_api_service.dart';
+import 'package:repuestosya/services/profile_service.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_notification_bell.dart';
 
 import '../helpers/fake_services.dart';
+
+class _FakeProfileService extends ProfileService {
+  Map<String, dynamic> profile = {
+    'nombre_completo': 'Usuario de prueba',
+    'telefono': '+593 0991234567',
+    'avatar_url': null,
+  };
+  int updateCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async => profile;
+
+  @override
+  Future<Map<String, dynamic>?> updateProfile({
+    String? nombreCompleto,
+    String? telefono,
+    String? avatarUrl,
+  }) async {
+    updateCalls++;
+    profile = {
+      ...profile,
+      'nombre_completo': ?nombreCompleto,
+      'telefono': ?telefono,
+      'avatar_url': ?avatarUrl,
+    };
+    return profile;
+  }
+}
+
+class _FakeAlmacenService extends AlmacenService {
+  Map<String, dynamic> warehouse = {'id': 'warehouse-1', 'logo_url': null};
+
+  @override
+  Future<Map<String, dynamic>?> obtenerMiAlmacen() async => warehouse;
+
+  @override
+  Future<Map<String, dynamic>> actualizarAlmacen(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    warehouse = {...warehouse, ...data};
+    return warehouse;
+  }
+}
 
 void main() {
   setUp(() {
@@ -221,6 +268,9 @@ void main() {
           find.byKey(const ValueKey('profile-top-app-bar')),
           size.width,
         );
+        expect(find.text('Provocar fallo de prueba (Sentry)'), findsNothing);
+        expect(find.text('Cerrar sesión'), findsWidgets);
+        expect(find.byIcon(Icons.logout_rounded), findsWidgets);
         await tester.pumpWidget(const SizedBox.shrink());
       }
     } finally {
@@ -236,6 +286,126 @@ void main() {
           'El AppBar no debe desbordar a 420/800px:\n'
           '${layoutErrors.map((error) => error.exceptionAsString()).join('\n')}',
     );
+  });
+
+  testWidgets(
+    'guardar perfil muestra confirmación sobria sin recargar la vista',
+    (tester) async {
+      final profileService = _FakeProfileService();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: darkTheme,
+          home: ProfilePage(profileService: profileService),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final campos = find.byType(TextFormField);
+      expect(find.text('+593'), findsOneWidget);
+      expect(
+        tester.widget<TextFormField>(campos.at(1)).controller!.text,
+        '991234567',
+      );
+      expect(find.text('Versión 2.1.0 • Built by VCore Tech'), findsOneWidget);
+      await tester.enterText(campos.at(0), 'Ana Actualizada');
+      await tester.enterText(campos.at(1), '0998765432');
+      await tester.tap(find.byTooltip('Guardar cambios'));
+      await tester.pumpAndSettle();
+
+      expect(profileService.updateCalls, 1);
+      expect(profileService.profile['telefono'], '998765432');
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is Text && widget.data == 'Ana Actualizada',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Perfil actualizado correctamente'), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+
+      final snackbar = tester.widget<SnackBar>(find.byType(SnackBar).last);
+      expect(snackbar.backgroundColor, const Color(0xFF1E1E1E));
+      expect(snackbar.shape, isA<RoundedRectangleBorder>());
+    },
+  );
+
+  testWidgets('avatar permite elegir foto y la previsualiza tras guardarla', (
+    tester,
+  ) async {
+    final profileService = _FakeProfileService();
+    var uploaderReceivedWarehouseRole = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        home: ProfilePage(
+          profileService: profileService,
+          imagePicker: (source) async {
+            expect(source, ImageSource.gallery);
+            return XFile('avatar-test.jpg');
+          },
+          imageUploader: (file, userId, {required isWarehouse}) async {
+            expect(userId, 'user-1');
+            uploaderReceivedWarehouseRole = isWarehouse;
+            return 'https://example.test/avatar.jpg';
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Actualizar foto de perfil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Actualizar foto'), findsOneWidget);
+    await tester.tap(find.text('Elegir de galería'));
+    await tester.pumpAndSettle();
+
+    expect(uploaderReceivedWarehouseRole, isFalse);
+    expect(
+      profileService.profile['avatar_url'],
+      'https://example.test/avatar.jpg',
+    );
+    expect(find.byType(Image), findsOneWidget);
+  });
+
+  testWidgets('el avatar de almacén identifica la acción como logo comercial', (
+    tester,
+  ) async {
+    AuthService().currentUserForTesting = User(
+      id: 'warehouse-1',
+      email: 'almacen@test.com',
+      rol: 'almacen',
+    );
+    final profileService = _FakeProfileService();
+    final warehouseService = _FakeAlmacenService();
+    var uploaderReceivedWarehouseRole = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        home: ProfilePage(
+          profileService: profileService,
+          warehouseService: warehouseService,
+          imagePicker: (source) async => XFile('logo-test.png'),
+          imageUploader: (file, userId, {required isWarehouse}) async {
+            uploaderReceivedWarehouseRole = isWarehouse;
+            return 'https://example.test/logo.png';
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Actualizar logo comercial'));
+    await tester.pumpAndSettle();
+    expect(find.text('Actualizar logo comercial'), findsOneWidget);
+    await tester.tap(find.text('Elegir de galería'));
+    await tester.pumpAndSettle();
+
+    expect(uploaderReceivedWarehouseRole, isTrue);
+    expect(
+      warehouseService.warehouse['logo_url'],
+      'https://example.test/logo.png',
+    );
+    expect(profileService.profile['avatar_url'], isNull);
   });
 
   testWidgets('marcar leída baja el badge de inmediato y guarda el cambio', (

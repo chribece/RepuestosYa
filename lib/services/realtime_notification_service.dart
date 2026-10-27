@@ -249,7 +249,10 @@ class RealtimeNotificationService {
     }
   }
 
-  Future<void> subscribeToCotizaciones(String solicitudId) async {
+  Future<void> subscribeToCotizaciones(
+    String solicitudId, {
+    void Function()? onNuevaCotizacion,
+  }) async {
     await _cotizacionesChannel?.unsubscribe();
 
     _cotizacionesChannel = Supabase.instance.client
@@ -268,6 +271,7 @@ class RealtimeNotificationService {
               '¡Nueva Cotización!',
               'Un almacén ha respondido a tu solicitud.',
             );
+            onNuevaCotizacion?.call();
           },
         )
         .subscribe();

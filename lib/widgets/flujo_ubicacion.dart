@@ -4,6 +4,7 @@ import '../services/ubicacion_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/ry_snackbar.dart';
 import 'rationale.dart';
 import 'ry_button.dart';
 
@@ -65,8 +66,9 @@ const UbicacionResultado _cancelado = UbicacionResultado(
 /// helper solo orquesta los diálogos de UI.
 Future<UbicacionResultado> flujoUbicacionGps(
   BuildContext context,
-  UbicacionService service,
-) async {
+  UbicacionService service, {
+  bool mostrarSnackbarSiNoDisponible = false,
+}) async {
   bool primeraVez = true;
 
   while (true) {
@@ -89,17 +91,53 @@ Future<UbicacionResultado> flujoUbicacionGps(
     }
 
     mostrarProgresoUbicacion(context);
-    final resultado = await service.obtenerUbicacion();
-    if (context.mounted) {
-      try {
-        Navigator.of(context, rootNavigator: true).pop(); // cerrar progreso
-      } catch (_) {}
+    late final UbicacionResultado resultado;
+    try {
+      resultado = await service.obtenerUbicacion();
+    } catch (_) {
+      // Un plugin que lance una excepción no debe dejar el progreso abierto.
+      resultado = const UbicacionResultado(
+        estado: UbicacionEstado.noDisponible,
+        mensaje:
+            'No pudimos obtener tu ubicación. Puedes ingresarla manualmente.',
+      );
+    } finally {
+      if (context.mounted) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {}
+      }
     }
-    if (resultado.disponible) return resultado;
+    if (resultado.disponible) {
+      if (mostrarSnackbarSiNoDisponible &&
+          resultado.esUltimaUbicacionConocida &&
+          context.mounted) {
+        mostrarSnackbarInfo(
+          context,
+          mensaje:
+              resultado.mensaje ??
+              'Usamos tu última ubicación conocida. Revisa el pin.',
+        );
+      }
+      return resultado;
+    }
     if (!context.mounted) return _cancelado;
 
     // Opciones según el estado real (servicio apagado vs. permiso de la app).
     final esServicioApagado = resultado.estado == UbicacionEstado.gpsApagado;
+    final esFijacionNoDisponible =
+        resultado.estado == UbicacionEstado.noDisponible;
+    if (mostrarSnackbarSiNoDisponible &&
+        (esServicioApagado || esFijacionNoDisponible)) {
+      mostrarSnackbarInfo(
+        context,
+        mensaje: esServicioApagado
+            ? 'La ubicación está desactivada. Puedes ingresar la dirección manualmente.'
+            : 'No pudimos obtener tu ubicación. Puedes ingresarla manualmente.',
+      );
+      return resultado;
+    }
+
     final esPermiso =
         resultado.estado == UbicacionEstado.permisoDenegadoPermanente ||
         resultado.estado == UbicacionEstado.permisoDenegado;

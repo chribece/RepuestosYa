@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:repuestosya/services/ubicacion_service.dart';
@@ -10,6 +12,38 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  test(
+    'timeout usa última ubicación conocida con indicador de fallback',
+    () async {
+      final resultado =
+          await UbicacionService.obtenerConFallbackUltimaUbicacion(
+            obtenerActual: () => Completer<UbicacionResultado>().future,
+            obtenerUltima: () async =>
+                const UbicacionResultado.ok(-0.18, -78.47),
+            timeLimit: const Duration(milliseconds: 10),
+            timeoutUltima: const Duration(milliseconds: 10),
+          );
+
+      expect(resultado.disponible, isTrue);
+      expect(resultado.latitude, -0.18);
+      expect(resultado.longitude, -78.47);
+      expect(resultado.esUltimaUbicacionConocida, isTrue);
+      expect(resultado.mensaje, contains('última ubicación conocida'));
+    },
+  );
+
+  test('timeout sin última ubicación degrada a entrada manual', () async {
+    final resultado = await UbicacionService.obtenerConFallbackUltimaUbicacion(
+      obtenerActual: () => Completer<UbicacionResultado>().future,
+      obtenerUltima: () async => null,
+      timeLimit: const Duration(milliseconds: 10),
+      timeoutUltima: const Duration(milliseconds: 10),
+    );
+
+    expect(resultado.disponible, isFalse);
+    expect(resultado.estado, UbicacionEstado.noDisponible);
   });
 
   Future<void> confirmarRationale(WidgetTester tester) async {
@@ -208,6 +242,87 @@ void main() {
     expect(find.text('Activar ubicación'), findsOneWidget);
     expect(find.text('Abrir permisos de la app'), findsNothing);
   });
+
+  testWidgets('modo manual no bloqueante cierra progreso y muestra snackbar', (
+    tester,
+  ) async {
+    final fake = _FakeUbicacion.secuencial([
+      const UbicacionResultado(
+        estado: UbicacionEstado.gpsApagado,
+        mensaje: 'GPS apagado',
+      ),
+    ]);
+    UbicacionResultado? resultado;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                resultado = await flujoUbicacionGps(
+                  context,
+                  fake,
+                  mostrarSnackbarSiNoDisponible: true,
+                );
+              },
+              child: const Text('iniciar'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('iniciar'));
+    await tester.pump();
+    await tester.pump();
+    await confirmarRationale(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'La ubicación está desactivada. Puedes ingresar la dirección manualmente.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Obteniendo tu ubicación…'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(resultado?.estado, UbicacionEstado.gpsApagado);
+  });
+
+  testWidgets('un error inesperado también cierra el progreso', (tester) async {
+    UbicacionResultado? resultado;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () async {
+                resultado = await flujoUbicacionGps(
+                  context,
+                  _UbicacionQueFalla(),
+                  mostrarSnackbarSiNoDisponible: true,
+                );
+              },
+              child: const Text('iniciar'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('iniciar'));
+    await tester.pump();
+    await confirmarRationale(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Obteniendo tu ubicación…'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      find.text(
+        'No pudimos obtener tu ubicación. Puedes ingresarla manualmente.',
+      ),
+      findsOneWidget,
+    );
+    expect(resultado?.estado, UbicacionEstado.noDisponible);
+  });
 }
 
 /// Fake de [UbicacionService]: devuelve resultados en secuencia y evita
@@ -245,5 +360,14 @@ class _FakeUbicacion extends UbicacionService {
   Future<bool> abrirAjustesSistema() async {
     ajustesSistema++;
     return true;
+  }
+}
+
+class _UbicacionQueFalla extends UbicacionService {
+  @override
+  Future<UbicacionResultado> obtenerUbicacion({
+    int intentos = UbicacionService.maxIntentos,
+  }) async {
+    throw StateError('test error');
   }
 }

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:repuestosya/pages/home_page.dart';
 import 'package:repuestosya/router/route_names.dart';
 import 'package:repuestosya/providers/solicitudes_provider.dart';
+import 'package:repuestosya/providers/profile_image_provider.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/theme/app_spacing.dart';
 import 'package:repuestosya/widgets/ry_notification_bell.dart';
@@ -46,6 +47,7 @@ void main() {
     WidgetTester tester, {
     required Size size,
     double bottomPadding = 0,
+    ProfileImageProvider? profileImageProvider,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -82,6 +84,10 @@ void main() {
           ChangeNotifierProvider<CreateRequestProvider>.value(
             value: createRequestProvider,
           ),
+          if (profileImageProvider != null)
+            ChangeNotifierProvider<ProfileImageProvider>.value(
+              value: profileImageProvider,
+            ),
         ],
         child: MaterialApp(home: HomePage(catalogService: catalogService)),
       ),
@@ -90,6 +96,38 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     return provider;
   }
+
+  testWidgets('Home refleja en el AppBar los cambios reactivos del avatar', (
+    tester,
+  ) async {
+    final profileImageProvider = ProfileImageProvider()
+      ..setImageUrl(
+        'https://example.test/avatar-v1.jpg',
+        userId: 'cliente-test',
+      );
+    addTearDown(profileImageProvider.dispose);
+
+    await pumpHome(
+      tester,
+      size: const Size(420, 900),
+      profileImageProvider: profileImageProvider,
+    );
+
+    final avatar = find.byKey(const ValueKey('home-profile-avatar'));
+    Image avatarImage() => tester.widget<Image>(
+      find.descendant(of: avatar, matching: find.byType(Image)),
+    );
+    expect((avatarImage().image as NetworkImage).url, contains('avatar-v1'));
+
+    profileImageProvider.setImageUrl(
+      'https://example.test/avatar-v2.jpg',
+      userId: 'cliente-test',
+    );
+    await tester.pump();
+
+    expect((avatarImage().image as NetworkImage).url, contains('avatar-v2'));
+    while (tester.takeException() != null) {}
+  });
 
   /// Descarta los overflows de layout que la fuente de test (Ahem) genera en
   /// widgets NO relacionados con los 3 fixes (ver nota arriba).
@@ -429,7 +467,7 @@ void main() {
       );
       final avatar = find.descendant(
         of: appBar,
-        matching: find.byIcon(Icons.person),
+        matching: find.byKey(const ValueKey('home-profile-avatar')),
       );
       final title = find.descendant(
         of: appBar,
@@ -438,6 +476,13 @@ void main() {
 
       expect(bell, findsOneWidget);
       expect(avatar, findsOneWidget);
+      expect(
+        find.descendant(
+          of: avatar,
+          matching: find.byIcon(Icons.person_rounded),
+        ),
+        findsOneWidget,
+      );
       expect(title, findsOneWidget);
       expect(
         tester.renderObject<RenderParagraph>(title).didExceedMaxLines,

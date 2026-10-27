@@ -55,6 +55,7 @@ class _FakeGeocodingService extends GeocodingService {
   Future<DireccionAutocompletada?> reverseGeocode({
     required double lat,
     required double lng,
+    bool buscarCalleSecundariaCercana = false,
   }) async {
     return const DireccionAutocompletada(
       callePrincipal: 'Av. Amazonas y Naciones Unidas',

@@ -252,7 +252,7 @@ class AuthService {
         );
       }
 
-      return signInWithGoogleIdToken(
+      return await signInWithGoogleIdToken(
         idToken: idToken,
         accessToken: accessToken,
       );

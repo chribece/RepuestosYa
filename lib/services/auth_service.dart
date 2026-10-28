@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
@@ -44,6 +45,16 @@ class AuthResponse {
   AuthResponse({required this.user, this.token});
 }
 
+class GoogleSignInResult {
+  final AuthResponse? authResponse;
+  final bool needsRoleSelection;
+
+  const GoogleSignInResult({
+    this.authResponse,
+    this.needsRoleSelection = false,
+  });
+}
+
 class AuthState {
   final User? user;
 
@@ -51,8 +62,14 @@ class AuthState {
 }
 
 class AuthService {
+  static const _googleOAuthClientIdSuffix = '.apps.googleusercontent.com';
+  static const _googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+  );
+
   final ApiClient _apiClient = ApiClient();
   final SecureStorageService _secureStorage = SecureStorageService();
+  GoogleSignIn? _googleSignIn;
   User? _currentUser;
   final StreamController<AuthState> _authStateController =
       StreamController<AuthState>.broadcast();
@@ -213,23 +230,96 @@ class AuthService {
     }
   }
 
+  /// Inicia Google Sign-In y exige el Web OAuth client ID para poder obtener
+  /// un ID token válido para Supabase.
+  Future<GoogleSignInResult?> signInWithGoogle() async {
+    try {
+      final account = await _configuredGoogleSignIn.signIn();
+      if (account == null) return null;
+
+      final credentials = await account.authentication;
+      final idToken = credentials.idToken;
+      final accessToken = credentials.accessToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw const ApiException(
+          'Google no devolvió un ID token. Verifica GOOGLE_SERVER_CLIENT_ID '
+          'y la configuración OAuth de Android.',
+        );
+      }
+      if (accessToken == null || accessToken.isEmpty) {
+        throw const ApiException(
+          'Google no devolvió el token de acceso requerido.',
+        );
+      }
+
+      return signInWithGoogleIdToken(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      AppLogger.error(
+        'Error al obtener credenciales de Google',
+        name: 'AuthService',
+        error: e,
+      );
+      throw ApiException(
+        'No se pudo iniciar sesión con Google. Inténtalo nuevamente.',
+        technicalMessage: 'signInWithGoogle: $e',
+      );
+    }
+  }
+
+  GoogleSignIn get _configuredGoogleSignIn {
+    final serverClientId = _googleServerClientId.trim();
+    final hasExpectedSuffix = serverClientId.endsWith(
+      _googleOAuthClientIdSuffix,
+    );
+    final hasDuplicatedSuffix =
+        hasExpectedSuffix &&
+        serverClientId
+            .substring(
+              0,
+              serverClientId.length - _googleOAuthClientIdSuffix.length,
+            )
+            .endsWith(_googleOAuthClientIdSuffix);
+    if (serverClientId.isEmpty || !hasExpectedSuffix || hasDuplicatedSuffix) {
+      throw const ApiException(
+        'GOOGLE_SERVER_CLIENT_ID no es válido. Usa el Web OAuth client ID '
+        'completo y verifica que termine una sola vez en '
+        '.apps.googleusercontent.com.',
+      );
+    }
+    return _googleSignIn ??= GoogleSignIn(
+      scopes: const ['email'],
+      serverClientId: serverClientId,
+    );
+  }
+
   /// Autentica con Google en Supabase y traduce esa sesión al JWT que usa la
   /// API de RepuestosYa para proteger sus endpoints.
-  Future<AuthResponse> signInWithGoogleIdToken({
+  Future<GoogleSignInResult> signInWithGoogleIdToken({
     required String idToken,
     required String accessToken,
   }) async {
     try {
-      final authResponse = await supabase.Supabase.instance.client.auth
+      final supabaseResponse = await supabase.Supabase.instance.client.auth
           .signInWithIdToken(
             provider: supabase.OAuthProvider.google,
             idToken: idToken,
             accessToken: accessToken,
           );
-      final session = authResponse.session;
-      if (authResponse.user == null || session == null) {
+      final session = supabaseResponse.session;
+      if (supabaseResponse.user == null || session == null) {
         throw const ApiException(
           'No se pudo completar la autenticación con Google.',
+        );
+      }
+      final refreshToken = session.refreshToken;
+      if (refreshToken == null || refreshToken.isEmpty) {
+        throw const ApiException(
+          'Supabase no devolvió el refresh token de Google.',
         );
       }
 
@@ -237,31 +327,20 @@ class AuthService {
         '/auth/google',
         body: {
           'accessToken': session.accessToken,
-          'refreshToken': session.refreshToken,
+          'refreshToken': refreshToken,
         },
         requireAuth: false,
       );
 
-      final token = response['token'] as String?;
-      final refreshToken = response['refreshToken'] as String?;
-      final userData = response['user'] as Map<String, dynamic>?;
-      if (token == null || userData == null) {
-        throw const ApiException(
-          'La respuesta de autenticación no contiene un perfil válido.',
-        );
+      if (response['needsRoleSelection'] == true) {
+        return const GoogleSignInResult(needsRoleSelection: true);
       }
 
-      _currentUser = User.fromJson(userData);
-      _syncSentryUser();
-      await _apiClient.setToken(token);
-      await _secureStorage.saveToken(
-        token,
-        refreshToken: refreshToken ?? session.refreshToken,
+      final authResponse = await _persistGoogleApiSession(
+        response,
+        fallbackRefreshToken: refreshToken,
       );
-      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
-      _authStateController.add(AuthState(user: _currentUser));
-
-      return AuthResponse(user: _currentUser!, token: token);
+      return GoogleSignInResult(authResponse: authResponse);
     } on ApiException {
       rethrow;
     } catch (e) {
@@ -275,6 +354,65 @@ class AuthService {
         technicalMessage: 'signInWithGoogleIdToken: $e',
       );
     }
+  }
+
+  /// Guarda en la app la sesión propia devuelta por el backend tras completar
+  /// el perfil asociado a la identidad verificada por Supabase.
+  Future<AuthResponse> completeGoogleRegistration({required String rol}) async {
+    final session = supabase.Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      throw const ApiException(
+        'La sesión de Google expiró. Inicia sesión nuevamente.',
+        statusCode: 401,
+      );
+    }
+    final refreshToken = session.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      throw const ApiException(
+        'Supabase no devolvió el refresh token de Google.',
+      );
+    }
+
+    final response = await _apiClient.post(
+      '/auth/google/complete-registration',
+      body: {
+        'accessToken': session.accessToken,
+        'refreshToken': refreshToken,
+        'rol': rol,
+      },
+      requireAuth: false,
+    );
+
+    return _persistGoogleApiSession(
+      response,
+      fallbackRefreshToken: refreshToken,
+    );
+  }
+
+  Future<AuthResponse> _persistGoogleApiSession(
+    Map<String, dynamic> response, {
+    required String fallbackRefreshToken,
+  }) async {
+    final token = response['token'] as String?;
+    final refreshToken = response['refreshToken'] as String?;
+    final userData = response['user'] as Map<String, dynamic>?;
+    if (token == null || userData == null) {
+      throw const ApiException(
+        'La respuesta de autenticación no contiene un perfil válido.',
+      );
+    }
+
+    _currentUser = User.fromJson(userData);
+    _syncSentryUser();
+    await _apiClient.setToken(token);
+    await _secureStorage.saveToken(
+      token,
+      refreshToken: refreshToken ?? fallbackRefreshToken,
+    );
+    await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
+    _authStateController.add(AuthState(user: _currentUser));
+
+    return AuthResponse(user: _currentUser!, token: token);
   }
 
   /// Renueva el JWT propio usando el refresh token de Supabase persistido.

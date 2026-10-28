@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
+import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_logo_badge.dart';
 import '../router/route_names.dart';
+import '../services/auth_service.dart';
+import '../providers/user_role_provider.dart';
 
 class RoleSelectionPage extends StatefulWidget {
-  const RoleSelectionPage({super.key});
+  const RoleSelectionPage({super.key, this.isGoogleSignup = false});
+
+  final bool isGoogleSignup;
 
   @override
   State<RoleSelectionPage> createState() => _RoleSelectionPageState();
@@ -18,6 +25,8 @@ class RoleSelectionPage extends StatefulWidget {
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
   String? _selectedRole;
   bool _showRoleError = false;
+  bool _isSubmitting = false;
+  final AuthService _authService = AuthService();
 
   @override
   Widget build(BuildContext context) {
@@ -63,14 +72,16 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         const RyLogoBadge(size: 160),
         const SizedBox(height: AppSpacing.spacingMd),
         Text(
-          'Cuéntanos quién eres',
+          widget.isGoogleSignup ? 'Completa tu cuenta' : 'Cuéntanos quién eres',
           style: AppTextStyles.textStyleHeading.copyWith(
             color: AppColors.onSurface,
           ),
         ),
         const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Selecciona tu tipo de cuenta para continuar',
+          widget.isGoogleSignup
+              ? 'Elige tu rol para configurar tu perfil'
+              : 'Selecciona tu tipo de cuenta para continuar',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -85,7 +96,9 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Elige tu tipo de cuenta',
+          widget.isGoogleSignup
+              ? '¿Cómo usarás RepuestosYa?'
+              : 'Elige tu tipo de cuenta',
           style: AppTextStyles.textStyleTitle.copyWith(
             color: AppColors.onSurface,
           ),
@@ -93,13 +106,13 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         const SizedBox(height: AppSpacing.spacingSm),
         _buildRoleCard(
           role: 'Cliente',
-          description: 'Quiero encontrar y comprar repuestos',
+          description: 'Buscar y cotizar repuestos',
           icon: Icons.person_outline,
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         _buildRoleCard(
           role: 'Almacén',
-          description: 'Quiero ofrecer repuestos y cotizaciones',
+          description: 'Propietario de almacén o vendedor',
           icon: Icons.storefront_outlined,
         ),
         if (_showRoleError) ...[
@@ -205,18 +218,48 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
 
   Widget _buildContinueButton() {
     return RyButton(
-      label: 'Continuar',
+      label: widget.isGoogleSignup ? 'Crear cuenta y continuar' : 'Continuar',
       trailingIcon: Icons.arrow_forward,
       variant: RyButtonVariant.primary,
       size: RyButtonSize.large,
+      isLoading: _isSubmitting,
       isFullWidth: true,
       onPressed: _handleContinue,
     );
   }
 
-  void _handleContinue() {
+  Future<void> _handleContinue() async {
     if (_selectedRole == null) {
       setState(() => _showRoleError = true);
+      return;
+    }
+
+    if (widget.isGoogleSignup) {
+      setState(() => _isSubmitting = true);
+      try {
+        final response = await _authService.completeGoogleRegistration(
+          rol: _selectedRole == 'Cliente' ? 'cliente' : 'almacen',
+        );
+        if (!mounted) return;
+
+        context.read<UserRoleProvider>().setRoleFromString(response.user.rol);
+        if (_selectedRole == 'Almacén') {
+          context.goNamed(RouteNames.completeProfile);
+        } else {
+          context.goNamed(RouteNames.home);
+        }
+      } catch (e) {
+        if (!mounted) return;
+        mostrarSnackbarError(
+          context,
+          mensaje: ApiErrorHandler.userMessage(
+            e,
+            context: ApiErrorContext.auth,
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
       return;
     }
 

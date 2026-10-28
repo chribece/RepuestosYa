@@ -139,7 +139,9 @@ class AppRouter {
         GoRoute(
           path: '/role-selection',
           name: RouteNames.roleSelection,
-          builder: (context, state) => const RoleSelectionPage(),
+          builder: (context, state) => RoleSelectionPage(
+            isGoogleSignup: state.uri.queryParameters['source'] == 'google',
+          ),
         ),
         GoRoute(
           path: '/login',

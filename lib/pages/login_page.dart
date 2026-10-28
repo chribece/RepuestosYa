@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:provider/provider.dart';
@@ -17,14 +16,6 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../router/route_names.dart';
-
-// Configurar con el Web OAuth client ID de Google mediante --dart-define.
-const _googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-
-final _googleSignIn = GoogleSignIn(
-  scopes: const ['email'],
-  serverClientId: _googleServerClientId.isEmpty ? null : _googleServerClientId,
-);
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -189,24 +180,23 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return;
-
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-      final accessToken = googleAuth.accessToken;
-      if (idToken == null || accessToken == null) {
-        throw const ApiException(
-          'No se obtuvo el token de Google. Verifica la configuración '
-          'GOOGLE_SERVER_CLIENT_ID.',
+      final googleResult = await _authService.signInWithGoogle();
+      if (!mounted) return;
+      if (googleResult == null) return;
+      if (googleResult.needsRoleSelection) {
+        context.goNamed(
+          RouteNames.roleSelection,
+          queryParameters: const {'source': 'google'},
         );
+        return;
       }
 
-      final authResponse = await _authService.signInWithGoogleIdToken(
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-      if (!mounted) return;
+      final authResponse = googleResult.authResponse;
+      if (authResponse == null) {
+        throw const ApiException(
+          'No se pudo completar la autenticación con Google.',
+        );
+      }
 
       final userRoleProvider = context.read<UserRoleProvider>();
       userRoleProvider.setRoleFromString(authResponse.user.rol);
@@ -306,7 +296,7 @@ class _LoginPageState extends State<LoginPage> {
         Text('Bienvenido', style: AppTextStyles.textStyleHeading),
         const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Repuestos y autopartes al instante en Ecuador',
+          'Repuestos y autopartes al instante',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),

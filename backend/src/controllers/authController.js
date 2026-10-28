@@ -272,8 +272,13 @@ const loginWithGoogle = async (req, res) => {
       console.error('Google profile fetch error:', profileError.message);
       return res.status(500).json({ error: 'Error al obtener perfil de usuario' });
     }
-    if (!profile) {
-      return res.status(404).json({ error: 'Perfil de usuario no encontrado' });
+    const profileNeedsRole =
+      !profile ||
+      !profile.rol ||
+      !profile.nombre_completo ||
+      profile.nombre_completo === 'Usuario Nuevo';
+    if (profileNeedsRole) {
+      return res.json({ success: true, needsRoleSelection: true });
     }
 
     const userRole = profile.rol || 'cliente';
@@ -297,6 +302,101 @@ const loginWithGoogle = async (req, res) => {
     });
   } catch (error) {
     console.error('Google login error:', error.message);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// POST /auth/google/complete-registration
+const completeGoogleRegistration = async (req, res) => {
+  try {
+    const { accessToken, refreshToken, rol } = req.body;
+    const validRoles = new Set(['cliente', 'almacen']);
+    if (
+      !accessToken ||
+      !refreshToken ||
+      typeof rol !== 'string' ||
+      !validRoles.has(rol)
+    ) {
+      return res.status(400).json({ error: 'Google tokens and a valid role are required' });
+    }
+
+    const authClient = createSupabaseAuthClient();
+    const { data: authData, error: authError } =
+      await authClient.auth.getUser(accessToken);
+    if (authError || !authData?.user) {
+      return res.status(401).json({ error: 'La sesión de Google no es válida' });
+    }
+
+    const user = authData.user;
+    const isGoogleUser =
+      user.app_metadata?.provider === 'google' ||
+      user.identities?.some((identity) => identity.provider === 'google');
+    if (!isGoogleUser) {
+      return res.status(403).json({ error: 'Se requiere una cuenta de Google' });
+    }
+
+    const { data: existingProfile, error: lookupError } = await supabase
+      .from('profiles')
+      .select('id, nombre_completo, rol')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('Google registration profile lookup error:', lookupError.message);
+      return res.status(500).json({ error: 'Error al consultar el perfil' });
+    }
+
+    const profileIsComplete =
+      existingProfile?.rol &&
+      existingProfile.nombre_completo &&
+      existingProfile.nombre_completo !== 'Usuario Nuevo';
+    if (profileIsComplete) {
+      return res.status(409).json({ error: 'El perfil ya tiene un rol asignado' });
+    }
+
+    const metadata = user.user_metadata || {};
+    const nombreCompleto =
+      [metadata.nombre_completo, metadata.full_name, metadata.name]
+        .find((name) => typeof name === 'string' && name.trim())?.trim() ||
+      user.email?.split('@')[0] ||
+      'Usuario Google';
+    const profileData = {
+      id: user.id,
+      email: user.email,
+      nombre_completo: nombreCompleto,
+      rol,
+      tipo_membresia: 'Regular Member'
+    };
+
+    const { data: profile, error: saveError } = await supabase
+      .from('profiles')
+      .upsert(profileData, { onConflict: 'id' })
+      .select('id, email, nombre_completo, rol, telefono')
+      .single();
+    if (saveError || !profile) {
+      console.error('Google registration profile save error:', saveError?.message);
+      return res.status(500).json({ error: 'No se pudo guardar el perfil' });
+    }
+
+    const token = jwt.sign(
+      { id: profile.id, email: profile.email, rol: profile.rol },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    return res.status(201).json({
+      success: true,
+      token,
+      refreshToken,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        nombre_completo: profile.nombre_completo,
+        rol: profile.rol,
+        telefono: profile.telefono || null
+      }
+    });
+  } catch (error) {
+    console.error('Google registration error:', error.message);
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
@@ -388,4 +488,12 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, loginWithGoogle, refresh, logout, getMe };
+module.exports = {
+  register,
+  login,
+  loginWithGoogle,
+  completeGoogleRegistration,
+  refresh,
+  logout,
+  getMe
+};

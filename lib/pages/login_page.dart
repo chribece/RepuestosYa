@@ -7,6 +7,7 @@ import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../providers/user_role_provider.dart';
 import '../widgets/ry_button.dart';
@@ -209,6 +210,11 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
       if (!mounted) return;
+
+      if (!tieneTelefonoMovilEcuador(authResponse.user.telefono)) {
+        context.goNamed(RouteNames.googlePhone);
+        return;
+      }
 
       if (userRoleProvider.isAlmacen) {
         final hasProfile = await _almacenService.hasWarehouseProfile();

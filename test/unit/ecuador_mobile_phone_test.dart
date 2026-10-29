@@ -3,6 +3,40 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:repuestosya/utils/ecuador_mobile_phone.dart';
 
 void main() {
+  group('tieneTelefonoMovilEcuador', () {
+    test('detecta teléfonos existentes en los formatos soportados', () {
+      expect(tieneTelefonoMovilEcuador('0991234567'), isTrue);
+      expect(tieneTelefonoMovilEcuador('991234567'), isTrue);
+      expect(tieneTelefonoMovilEcuador('+593 99 123 4567'), isTrue);
+    });
+
+    test('detecta teléfono ausente, pendiente o inválido', () {
+      expect(tieneTelefonoMovilEcuador(null), isFalse);
+      expect(tieneTelefonoMovilEcuador(''), isFalse);
+      expect(tieneTelefonoMovilEcuador('pendiente'), isFalse);
+      expect(tieneTelefonoMovilEcuador('0891234567'), isFalse);
+    });
+  });
+
+  group('validarTelefonoLocalEcuador', () {
+    test('requiere 10 dígitos locales iniciando con 09', () {
+      expect(validarTelefonoLocalEcuador(null), 'El teléfono es requerido');
+      expect(validarTelefonoLocalEcuador('0991234567'), isNull);
+      expect(
+        validarTelefonoLocalEcuador('991234567'),
+        ecuadorLocalMobilePhoneError,
+      );
+      expect(
+        validarTelefonoLocalEcuador('0891234567'),
+        ecuadorLocalMobilePhoneError,
+      );
+      expect(
+        validarTelefonoLocalEcuador('099123456'),
+        ecuadorLocalMobilePhoneError,
+      );
+    });
+  });
+
   group('validarTelefonoMovilEcuador', () {
     test('requiere un teléfono', () {
       expect(validarTelefonoMovilEcuador(null), 'El teléfono es requerido');

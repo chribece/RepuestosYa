@@ -6,6 +6,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_logo_badge.dart';
@@ -243,6 +244,11 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         if (!mounted) return;
 
         context.read<UserRoleProvider>().setRoleFromString(response.user.rol);
+        if (!tieneTelefonoMovilEcuador(response.user.telefono)) {
+          context.goNamed(RouteNames.googlePhone);
+          return;
+        }
+
         if (_selectedRole == 'Almacén') {
           context.goNamed(RouteNames.completeProfile);
         } else {

@@ -29,6 +29,7 @@ router.get('/auth/me', auth, authController.getMe);
 // Profile routes (protected)
 router.get('/profile', auth, profileController.getProfile);
 router.put('/profile', auth, profileController.updateProfile);
+router.put('/profile/phone', auth, profileController.updatePhone);
 
 // Vehiculo routes (protected)
 router.get('/vehicles', auth, vehiculoController.getVehiculos);

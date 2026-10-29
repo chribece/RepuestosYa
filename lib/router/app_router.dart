@@ -21,6 +21,7 @@ import '../pages/create_quotation_page.dart';
 import '../pages/mis_ordenes_page.dart';
 import '../pages/orden_compra_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/google_phone_page.dart';
 import '../pages/perfil_almacen_page.dart';
 import '../pages/addresses_page.dart';
 import '../pages/vehicles_page.dart';
@@ -30,6 +31,7 @@ import '../pages/notificaciones_page.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/user_role_provider.dart';
 import '../services/auth_service.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import 'route_names.dart';
 import '../utils/keys.dart';
 
@@ -92,6 +94,13 @@ class AppRouter {
         // 3. Si está autenticado y el rol es conocido:
         final role = roleProvider.currentRole;
 
+        final phoneMissing = !tieneTelefonoMovilEcuador(
+          authService.currentUser?.telefono,
+        );
+        if (phoneMissing && location != '/profile/phone') {
+          return '/profile/phone';
+        }
+
         // Si está en una ruta pública (login/welcome/etc), mandarlo a su Home
         if (isPublicRoute) {
           return _getHomeRoute(role);
@@ -116,6 +125,7 @@ class AppRouter {
 
         final isOnboardingFlowRoute =
             location.startsWith('/onboarding') ||
+            location == '/profile/phone' ||
             location.startsWith('/profile/vehicles') ||
             location.startsWith('/request/create');
         if (role == UserRole.cliente &&
@@ -180,6 +190,11 @@ class AppRouter {
           path: '/profile',
           name: RouteNames.profile,
           builder: (context, state) => const ProfilePage(),
+        ),
+        GoRoute(
+          path: '/profile/phone',
+          name: RouteNames.googlePhone,
+          builder: (context, state) => const GooglePhonePage(),
         ),
         GoRoute(
           path: '/notificaciones',

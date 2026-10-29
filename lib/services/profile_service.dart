@@ -59,4 +59,21 @@ class ProfileService {
       return null;
     }
   }
+
+  /// Actualiza el teléfono local verificado requerido durante el alta Google.
+  Future<Map<String, dynamic>?> updatePhone(String telefono) async {
+    try {
+      return await _apiClient.put(
+        '/profile/phone',
+        body: {'telefono': telefono},
+      );
+    } catch (e) {
+      AppLogger.error(
+        'Error al actualizar el teléfono del perfil',
+        name: 'ProfileService',
+        error: e,
+      );
+      return null;
+    }
+  }
 }

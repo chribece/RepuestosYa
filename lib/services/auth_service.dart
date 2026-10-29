@@ -563,6 +563,21 @@ class AuthService {
   // Obtener el usuario actual
   User? get currentUser => _currentUser;
 
+  /// Mantiene el teléfono recién validado en la sesión en memoria.
+  void updateCurrentUserPhone(String telefono) {
+    final user = _currentUser;
+    if (user == null) return;
+
+    _currentUser = User(
+      id: user.id,
+      email: user.email,
+      nombreCompleto: user.nombreCompleto,
+      rol: user.rol,
+      telefono: telefono,
+    );
+    _authStateController.add(AuthState(user: _currentUser));
+  }
+
   /// Hook de tests (Fase 2 de docs/TESTING.md): AuthService es singleton y no
   /// es subclaseable (constructor privado), así que los widget tests fijan el
   /// usuario actual directamente y lo restauran en el tearDown.

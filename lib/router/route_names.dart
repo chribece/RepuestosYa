@@ -31,6 +31,7 @@ class RouteNames {
 
   // Perfil
   static const String profile = 'profile';
+  static const String googlePhone = 'google-phone';
   static const String profileAlmacen = 'profile-almacen';
   static const String addresses = 'addresses';
   static const String vehicles = 'vehicles';

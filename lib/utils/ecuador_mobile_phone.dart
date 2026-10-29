@@ -3,8 +3,33 @@ import 'package:flutter/services.dart';
 const int ecuadorMobilePhoneLength = 9;
 const String ecuadorMobilePhoneError =
     'Ingresa 9 dígitos sin el 0, ej: 981894367';
+const String ecuadorLocalMobilePhoneError =
+    'Ingresa 10 dígitos y comienza con 09, ej: 0991234567';
 
 final RegExp _ecuadorMobilePhonePattern = RegExp(r'^9\d{8}$');
+final RegExp _ecuadorLocalMobilePhonePattern = RegExp(r'^09\d{8}$');
+
+/// Acepta los formatos ya almacenados por la app y detecta valores pendientes.
+bool tieneTelefonoMovilEcuador(String? value) {
+  var digits = value?.replaceAll(RegExp(r'\D'), '') ?? '';
+  if (digits.startsWith('593')) digits = digits.substring(3);
+  if (digits.startsWith('0')) digits = digits.substring(1);
+  return _ecuadorMobilePhonePattern.hasMatch(digits);
+}
+
+List<TextInputFormatter> ecuadorLocalMobilePhoneInputFormatters() => [
+  FilteringTextInputFormatter.digitsOnly,
+  LengthLimitingTextInputFormatter(10),
+];
+
+String? validarTelefonoLocalEcuador(String? value) {
+  final phone = value?.trim() ?? '';
+  if (phone.isEmpty) return 'El teléfono es requerido';
+  if (!_ecuadorLocalMobilePhonePattern.hasMatch(phone)) {
+    return ecuadorLocalMobilePhoneError;
+  }
+  return null;
+}
 
 List<TextInputFormatter> ecuadorMobilePhoneInputFormatters() => [
   FilteringTextInputFormatter.digitsOnly,

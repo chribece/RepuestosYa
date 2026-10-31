@@ -8,6 +8,7 @@ import '../utils/app_logger.dart';
 import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import '../router/route_names.dart';
@@ -116,7 +117,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
             AppSpacing.spacingMd,
             AppSpacing.spacingSm,
             AppSpacing.spacingMd,
-            AppSpacing.spacingLg,
+            AppSpacing.spacingXl,
           ),
           child: Form(
             key: _formKey,
@@ -178,8 +179,8 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   Widget _buildRepresentanteField() {
     return RyTextField(
-      label: 'Nombre completo',
-      hint: 'Ej: Juan Pérez',
+      label: 'Nombre del local o responsable',
+      hint: 'Ej: Repuestos Don Juan',
       controller: _representanteController,
       type: RyTextFieldType.text,
       isDense: true,
@@ -187,7 +188,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       prefixIcon: Icons.person_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
-          return 'El nombre completo es requerido';
+          return 'Ingresa el nombre del responsable o establecimiento.';
         }
         if (value.trim().length < 3) {
           return 'El nombre debe tener al menos 3 caracteres';
@@ -229,27 +230,12 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       keyboardType: TextInputType.phone,
       inputFormatters: ecuadorMobilePhoneInputFormatters(),
       isRequired: true,
-      prefixWidget: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Text(
-            '+593',
-            style: AppTextStyles.textStyleBody.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Container(width: 1, height: 24, color: AppColors.outlineVariant),
-        ],
-      ),
-      helperText: 'Número de contacto para coordinar solicitudes.',
+      prefixWidget: const EcuadorPhonePrefix(),
+      helperText: '9 dígitos sin el 0 inicial',
       helperStyle: AppTextStyles.textStyleCaption.copyWith(
         color: AppColors.onSurfaceVariant,
       ),
-      helperMaxLines: 3,
+      helperMaxLines: 1,
       validator: (value) {
         return validarTelefonoMovilEcuador(value);
       },
@@ -265,6 +251,10 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       isDense: true,
       isRequired: true,
       prefixIcon: Icons.lock_outline,
+      helperText: 'Mínimo 6 caracteres.',
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant,
+      ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'La contraseña es requerida';
@@ -286,6 +276,10 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       isDense: true,
       isRequired: true,
       prefixIcon: Icons.lock_outline,
+      helperText: 'Debe coincidir con la contraseña anterior.',
+      helperStyle: AppTextStyles.textStyleCaption.copyWith(
+        color: AppColors.onSurfaceVariant,
+      ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Por favor confirme su contraseña';

@@ -61,12 +61,15 @@ const updateProfile = async (req, res) => {
 // PUT /profile/phone - Teléfono local obligatorio durante el alta con Google.
 const updatePhone = async (req, res) => {
   try {
-    const telefono = normalizarTelefono(req.body.telefono);
-    if (!telefono || !/^09\d{8}$/.test(telefono)) {
+    const phoneDigits = normalizarTelefono(req.body.telefono);
+    const isLocalPhone = /^09\d{8}$/.test(phoneDigits || '');
+    const isCanonicalPhone = /^9\d{8}$/.test(phoneDigits || '');
+    if (!isLocalPhone && !isCanonicalPhone) {
       return res.status(400).json({
-        error: 'Ingresa un celular ecuatoriano de 10 dígitos que comience con 09'
+        error: 'Ingresa 9 dígitos empezando con 9, sin el 0 inicial'
       });
     }
+    const telefono = isLocalPhone ? phoneDigits.substring(1) : phoneDigits;
 
     const { data: profile, error } = await supabase
       .from('profiles')

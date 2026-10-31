@@ -18,6 +18,7 @@ enum RyTextFieldType {
 
 class RyTextField extends StatefulWidget {
   final String? label;
+  final String? semanticLabel;
   final String? hint;
   final String? initialValue;
   final TextEditingController? controller;
@@ -57,6 +58,7 @@ class RyTextField extends StatefulWidget {
   const RyTextField({
     super.key,
     this.label,
+    this.semanticLabel,
     this.hint,
     this.initialValue,
     this.controller,
@@ -205,7 +207,7 @@ class _RyTextFieldState extends State<RyTextField> {
     // InputDecoration. excludeSemantics evita que el label/helper/error
     // se anuncien dos veces.
     return Semantics(
-      label: widget.label ?? widget.hint,
+      label: widget.semanticLabel ?? widget.label ?? widget.hint,
       hint: widget.errorText ?? widget.helperText,
       textField: true,
       enabled: !widget.isReadOnly,

@@ -16,6 +16,7 @@ import '../utils/api_error_handler.dart';
 import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/ry_text_field.dart';
 
 class GooglePhonePage extends StatefulWidget {
@@ -158,19 +159,20 @@ class _GooglePhonePageState extends State<GooglePhonePage> {
             ),
             const SizedBox(height: AppSpacing.spacingLg),
             RyTextField(
-              label: 'Número celular',
-              hint: '0991234567',
+              label: 'Teléfono',
+              hint: 'Ej: 981894367',
               type: RyTextFieldType.phone,
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              inputFormatters: ecuadorLocalMobilePhoneInputFormatters(),
-              prefixIcon: Icons.phone_outlined,
+              inputFormatters: ecuadorMobilePhoneInputFormatters(),
+              prefixWidget: const EcuadorPhonePrefix(),
               isRequired: true,
-              validator: validarTelefonoLocalEcuador,
-              helperText: 'Ingresa 10 dígitos comenzando con 09.',
+              validator: validarTelefonoMovilEcuador,
+              helperText: '9 dígitos sin el 0 inicial',
               helperStyle: AppTextStyles.textStyleCaption.copyWith(
                 color: AppColors.onSurfaceVariant,
               ),
+              helperMaxLines: 1,
             ),
             const SizedBox(height: AppSpacing.spacingLg),
             RyButton(

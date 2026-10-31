@@ -9,6 +9,7 @@ import '../utils/app_logger.dart';
 import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import '../router/route_names.dart';
@@ -248,28 +249,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       keyboardType: TextInputType.phone,
       inputFormatters: ecuadorMobilePhoneInputFormatters(),
       isRequired: true,
-      prefixWidget: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Text(
-            '+593',
-            style: AppTextStyles.textStyleBody.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Container(width: 1, height: 24, color: AppColors.outlineVariant),
-        ],
-      ),
-      helperText:
-          'El almacén ganador lo usará para coordinar el pago y la entrega.',
+      prefixWidget: const EcuadorPhonePrefix(),
+      helperText: '9 dígitos sin el 0 inicial',
       helperStyle: AppTextStyles.textStyleCaption.copyWith(
         color: AppColors.onSurfaceVariant,
       ),
-      helperMaxLines: 3,
+      helperMaxLines: 1,
       validator: (value) {
         return validarTelefonoMovilEcuador(value);
       },

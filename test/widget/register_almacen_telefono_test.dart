@@ -3,6 +3,45 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:repuestosya/pages/register_almacen_page.dart';
 
 void main() {
+  testWidgets(
+    'registro de almacén muestra aclaraciones y errores de contraseña en móvil',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 690);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(const MaterialApp(home: RegisterAlmacenPage()));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Nombre del local o responsable'), findsOneWidget);
+      expect(find.text('Mínimo 6 caracteres.'), findsOneWidget);
+      expect(
+        find.text('Debe coincidir con la contraseña anterior.'),
+        findsOneWidget,
+      );
+
+      await tester.enterText(find.byType(TextField).at(0), 'Repuestos Juan');
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'juan@repuestosya.com',
+      );
+      await tester.enterText(find.byType(TextField).at(2), '981234567');
+      await tester.enterText(find.byType(TextField).at(3), '123');
+      await tester.enterText(find.byType(TextField).at(4), '124');
+      await tester.ensureVisible(find.text('CREAR CUENTA'));
+      await tester.tap(find.text('CREAR CUENTA'));
+      await tester.pump();
+
+      expect(
+        find.text('La contraseña debe tener al menos 6 caracteres'),
+        findsOneWidget,
+      );
+      expect(find.text('Las contraseñas no coinciden'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('registro de almacén elimina cero inicial y muestra +593', (
     tester,
   ) async {

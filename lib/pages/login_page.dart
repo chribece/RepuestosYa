@@ -252,16 +252,20 @@ class _LoginPageState extends State<LoginPage> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxHeight < 700;
-            final verticalPadding = compact ? 12.0 : 24.0;
+            final topPadding = compact ? 12.0 : 24.0;
+            const bottomPadding = AppSpacing.spacingXl;
             return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.spacingMd,
-                vertical: verticalPadding,
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.spacingMd,
+                topPadding,
+                AppSpacing.spacingMd,
+                bottomPadding,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: (constraints.maxHeight - verticalPadding * 2)
-                      .clamp(0.0, constraints.maxHeight),
+                  minHeight:
+                      (constraints.maxHeight - topPadding - bottomPadding)
+                          .clamp(0.0, constraints.maxHeight),
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -278,7 +282,7 @@ class _LoginPageState extends State<LoginPage> {
                         _buildLoginForm(compact: compact),
                         SizedBox(
                           height: compact
-                              ? AppSpacing.spacingMd
+                              ? AppSpacing.spacingLg
                               : AppSpacing.spacingXl,
                         ),
                         _buildFooter(),
@@ -343,7 +347,7 @@ class _LoginPageState extends State<LoginPage> {
             SizedBox(
               height: compact ? AppSpacing.spacingMd : AppSpacing.spacingLg,
             ),
-            _buildActionButtons(),
+            _buildActionButtons(compact: compact),
           ],
         ),
       ),
@@ -483,7 +487,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons({required bool compact}) {
     return Column(
       children: [
         RyButton(
@@ -496,11 +500,13 @@ class _LoginPageState extends State<LoginPage> {
           isFullWidth: true,
           onPressed: _handleLogin,
         ),
-        const SizedBox(height: AppSpacing.spacingSm),
+        SizedBox(height: compact ? AppSpacing.spacingSm : AppSpacing.spacingMd),
         _buildGoogleDivider(),
-        const SizedBox(height: AppSpacing.spacingSm),
+        SizedBox(height: compact ? AppSpacing.spacingSm : AppSpacing.spacingMd),
         _buildGoogleButton(),
-        const SizedBox(height: AppSpacing.spacingSm),
+        SizedBox(
+          height: compact ? AppSpacing.spacingXxs : AppSpacing.spacingXs,
+        ),
         // El label completo en un botón de texto se truncaba con ellipsis en
         // móvil angosto (el RyButton limita a 1 línea): se muestra como texto
         // + enlace, con wrap completo si no cabe. SizedBox(infinite) hace que
@@ -549,11 +555,13 @@ class _LoginPageState extends State<LoginPage> {
       children: [
         const Expanded(child: Divider(color: Colors.white24, height: 1)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingSm),
           child: Text(
-            'o',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
+            'o continuar con',
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: Colors.white54,
+              fontSize: 12,
+              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -572,6 +580,7 @@ class _LoginPageState extends State<LoginPage> {
           backgroundColor: const Color(0xFF1E1E1E),
           foregroundColor: AppColors.onSurface,
           side: const BorderSide(color: Colors.white24),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.radiusMd),
           ),
@@ -586,22 +595,21 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               )
             : Row(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    'G',
-                    style: TextStyle(
-                      color: Color(0xFF4285F4),
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Image.asset(
+                    'assets/images/google_logo.png',
+                    width: 20,
+                    height: 20,
+                    semanticLabel: 'Google',
                   ),
-                  const SizedBox(width: AppSpacing.spacingSm),
+                  const SizedBox(width: 12),
                   Flexible(
                     child: Text(
                       'Continuar con Google',
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.textStyleButton.copyWith(
                         color: AppColors.onSurface,
                       ),

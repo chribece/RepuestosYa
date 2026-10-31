@@ -4,33 +4,41 @@ const { normalizarTelefono, telefonoValido } = require('../utils/phone');
 // POST /warehouses (crear almacén)
 const createAlmacen = async (req, res) => {
   try {
-    const { 
-      encargado_id, 
-      nombre_comercial, 
-      ruc, 
-      representante_legal, 
-      email, 
-      direccion_texto, 
-      latitude, 
-      longitude 
+    const {
+      nombre_comercial,
+      ruc,
+      representante_legal,
+      direccion_texto,
+      latitude,
+      longitude
     } = req.body;
-
-    // El teléfono se normaliza a dígitos: el formulario acepta "+593 99...",
-    // espacios y guiones; la base exige `^[0-9]{9,}$`.
+    const encargado_id = req.user?.id;
+    const email = req.user?.email;
     const telefono = normalizarTelefono(req.body.telefono);
 
-    const required = { encargado_id, nombre_comercial, direccion_texto, ruc, representante_legal, telefono, email };
+    if (req.body.encargado_id && req.body.encargado_id !== encargado_id) {
+      return res.status(403).json({ error: 'No puedes crear un almacén para otro usuario' });
+    }
+
+    const required = {
+      encargado_id,
+      nombre_comercial,
+      direccion_texto,
+      ruc,
+      representante_legal,
+      telefono,
+      email
+    };
     const missing = Object.entries(required)
       .filter(([_, value]) => !value)
       .map(([key]) => key);
 
     if (missing.length > 0) {
-      return res.status(400).json({ 
-        error: `Missing required fields: ${missing.join(', ')}` 
+      return res.status(400).json({
+        error: `Missing required fields: ${missing.join(', ')}`
       });
     }
 
-    // Validar RUC (13 dígitos)
     const normalizedRuc = ruc.toString().trim().replace(/\s+/g, '');
     if (!/^\d{13}$/.test(normalizedRuc)) {
       return res.status(422).json({
@@ -39,8 +47,6 @@ const createAlmacen = async (req, res) => {
       });
     }
 
-    // Validar teléfono (9-15 dígitos tras normalizar; Ecuador 9-10,
-    // internacional E.164 hasta 15) — coherente con el frontend.
     if (!telefonoValido(telefono)) {
       return res.status(422).json({
         field: 'telefono',
@@ -48,59 +54,63 @@ const createAlmacen = async (req, res) => {
       });
     }
 
-    // Unicidad: verificar si el RUC ya está registrado
+    const normalizedName = nombre_comercial.trim();
+    const normalizedRepresentative = representante_legal.trim();
+    const normalizedAddress = direccion_texto.trim();
+    if (!normalizedName || !normalizedRepresentative || !normalizedAddress) {
+      return res.status(400).json({
+        error: 'Nombre comercial, representante y dirección son obligatorios'
+      });
+    }
+
     const { data: rucExistente, error: rucError } = await supabase
       .from('almacenes')
-      .select('id')
+      .select('id, encargado_id')
       .eq('ruc', normalizedRuc)
       .maybeSingle();
 
     if (rucError) {
       return res.status(400).json({ error: rucError.message });
     }
-    if (rucExistente) {
+    if (rucExistente && rucExistente.encargado_id !== encargado_id) {
       return res.status(422).json({
         field: 'ruc',
         message: 'El RUC ya está registrado'
       });
     }
 
-    // First, update the user's role to 'almacen' in profiles
-    const { error: roleError } = await supabase
-      .from('profiles')
-      .update({ rol: 'almacen' })
-      .eq('id', encargado_id);
-
-    if (roleError) {
-      console.error('Error updating user role:', roleError);
-      // Continue anyway, as the trigger might handle this
-    }
-
-    // Create the warehouse
-    const { data: almacen, error } = await supabase
-      .from('almacenes')
-      .insert({
-        encargado_id,
-        nombre_comercial,
-        ruc: normalizedRuc,
-        representante_legal,
-        telefono,
-        email,
-        direccion_texto,
-        latitude: latitude || 0,
-        longitude: longitude || 0,
-        verificado: false,
-        verification_status: 'pending',
-        estado_abierto: false
-      })
-      .select()
-      .single();
+    // RPC transactionally updates the account phone/role and inserts its
+    // commercial profile, so the two records cannot be left out of sync.
+    const { data: almacen, error } = await supabase.rpc(
+      'crear_almacen_con_perfil',
+      {
+        p_encargado_id: encargado_id,
+        p_nombre_comercial: normalizedName,
+        p_ruc: normalizedRuc,
+        p_representante_legal: normalizedRepresentative,
+        p_telefono: telefono,
+        p_email: email.trim(),
+        p_direccion_texto: normalizedAddress,
+        p_latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
+        p_longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 0
+      }
+    );
 
     if (error) {
-      return res.status(400).json({ error: error.message });
+      if (error.code === '23505') {
+        return res.status(422).json({
+          field: 'ruc',
+          message: 'El RUC ya está registrado'
+        });
+      }
+      if (error.code === 'P0002') {
+        return res.status(404).json({ error: 'Perfil de usuario no encontrado' });
+      }
+      console.error('Atomic warehouse registration failed:', error.message);
+      return res.status(400).json({ error: 'No se pudo guardar el perfil comercial' });
     }
 
-    res.status(201).json(almacen);
+    return res.status(201).json(almacen);
   } catch (error) {
     console.error('Create almacen error:', error);
     res.status(500).json({ error: 'Internal server error' });

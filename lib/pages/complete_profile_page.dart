@@ -13,6 +13,7 @@ import '../services/geocoding_service.dart';
 import '../services/ubicacion_service.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_location_picker.dart';
+import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -51,6 +52,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _rucController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _representanteController =
       TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
@@ -90,6 +92,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _direccionController.addListener(_onDireccionCambio);
     // Pre-llenar el nombre del representante desde el auth
     final currentUser = _authService.currentUser;
+    _emailController.text = currentUser?.email ?? '';
     if (currentUser?.nombreCompleto != null) {
       _representanteController.text = currentUser!.nombreCompleto!;
     }
@@ -106,6 +109,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _debounceTimer?.cancel();
     _nombreController.dispose();
     _rucController.dispose();
+    _emailController.dispose();
     _representanteController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
@@ -220,17 +224,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       }
 
       // Enviar datos del almacén al backend usando AlmacenService
-      await _almacenService.crearAlmacen({
+      final almacenCreado = await _almacenService.crearAlmacen({
         'encargado_id': userId,
         'nombre_comercial': _nombreController.text.trim(),
         'ruc': _rucController.text.trim(),
         'representante_legal': _representanteController.text.trim(),
         'telefono': _telefonoController.text.trim(),
-        'email': _authService.currentUser?.email ?? '',
+        'email': _emailController.text.trim(),
         'direccion_texto': _direccionController.text.trim(),
         'latitude': _lat,
         'longitude': _lng,
       });
+      final telefonoGuardado =
+          almacenCreado['telefono']?.toString() ??
+          _telefonoController.text.trim();
+      _authService.updateCurrentUserPhone(telefonoGuardado);
 
       if (mounted) {
         setState(() {
@@ -368,7 +376,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.spacingLg,
+              AppSpacing.spacingMd,
+              AppSpacing.spacingLg,
+              AppSpacing.spacingXl,
+            ),
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Form(
               key: _formKey,
@@ -391,6 +404,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     Icons.contact_phone_outlined,
                   ),
                   const SizedBox(height: AppSpacing.spacingSm),
+                  _buildEmailField(),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildRepresentanteField(),
                   const SizedBox(height: AppSpacing.spacingMd),
                   _buildTelefonoField(),
@@ -439,6 +454,37 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     );
   }
 
+  Widget _buildLabeledField(
+    String label,
+    Widget field, {
+    bool isRequired = true,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+            ),
+            children: [
+              if (isRequired)
+                TextSpan(
+                  text: ' *',
+                  style: const TextStyle(color: AppColors.requiredAsterisk),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.spacingXxs),
+        field,
+      ],
+    );
+  }
+
   Widget _buildWelcomeText() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,95 +508,117 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   }
 
   Widget _buildNombreField() {
-    return RyTextField(
-      label: 'Nombre Comercial',
-      hint: 'Ej: RepuestosYa Central',
-      controller: _nombreController,
-      isRequired: true,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El nombre comercial es requerido';
-        }
-        if (value.trim().length < 3) {
-          return 'El nombre debe tener al menos 3 caracteres';
-        }
-        return null;
-      },
+    return _buildLabeledField(
+      'Nombre Comercial',
+      RyTextField(
+        semanticLabel: 'Nombre Comercial',
+        hint: 'Ej: RepuestosYa Central',
+        controller: _nombreController,
+        isDense: true,
+        isRequired: true,
+        prefixIcon: Icons.storefront_outlined,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El nombre comercial es requerido';
+          }
+          if (value.trim().length < 3) {
+            return 'El nombre debe tener al menos 3 caracteres';
+          }
+          return null;
+        },
+      ),
     );
   }
 
   Widget _buildRucField() {
-    return RyTextField(
-      label: 'RUC',
-      hint: 'Ej: 1712345678001',
-      controller: _rucController,
-      type: RyTextFieldType.number,
-      isRequired: true,
-      maxLength: 13,
-      errorText: _fieldErrors['ruc'],
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El RUC es requerido';
-        }
-        if (value.trim().length != 13) {
-          return 'El RUC debe tener exactamente 13 dígitos';
-        }
-        return null;
-      },
+    return _buildLabeledField(
+      'RUC',
+      RyTextField(
+        semanticLabel: 'RUC',
+        hint: 'Ej: 1712345678001',
+        controller: _rucController,
+        type: RyTextFieldType.number,
+        isDense: true,
+        isRequired: true,
+        maxLength: 13,
+        prefixIcon: Icons.badge_outlined,
+        errorText: _fieldErrors['ruc'],
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El RUC es requerido';
+          }
+          if (value.trim().length != 13) {
+            return 'El RUC debe tener exactamente 13 dígitos';
+          }
+          return null;
+        },
+      ),
     );
   }
 
   Widget _buildRepresentanteField() {
-    return RyTextField(
-      label: 'Representante Legal',
-      hint: 'Ej: Juan Pérez',
-      controller: _representanteController,
-      isRequired: true,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'El representante legal es requerido';
-        }
-        if (value.trim().length < 3) {
-          return 'El nombre debe tener al menos 3 caracteres';
-        }
-        return null;
-      },
+    return _buildLabeledField(
+      'Representante Legal',
+      RyTextField(
+        semanticLabel: 'Representante Legal',
+        hint: 'Ej: Juan Pérez',
+        controller: _representanteController,
+        isDense: true,
+        isRequired: true,
+        prefixIcon: Icons.person_outline,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El representante legal es requerido';
+          }
+          if (value.trim().length < 3) {
+            return 'El nombre debe tener al menos 3 caracteres';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmailField() {
+    return _buildLabeledField(
+      'Correo electrónico',
+      RyTextField(
+        semanticLabel: 'Correo electrónico de la cuenta Google',
+        controller: _emailController,
+        isDense: true,
+        isReadOnly: true,
+        prefixIcon: Icons.mail_outline,
+        helperText: 'Correo asociado a tu cuenta.',
+        helperStyle: AppTextStyles.textStyleCaption.copyWith(
+          color: AppColors.onSurfaceVariant,
+        ),
+      ),
+      isRequired: false,
     );
   }
 
   Widget _buildTelefonoField() {
-    return RyTextField(
-      label: 'Teléfono',
-      hint: 'Ej: 981894367',
-      controller: _telefonoController,
-      type: RyTextFieldType.phone,
-      isDense: true,
-      keyboardType: TextInputType.phone,
-      inputFormatters: ecuadorMobilePhoneInputFormatters(),
-      isRequired: true,
-      prefixWidget: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.phone_android, color: AppColors.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Text(
-            '+593',
-            style: AppTextStyles.textStyleBody.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Container(width: 1, height: 24, color: AppColors.outlineVariant),
-        ],
+    return _buildLabeledField(
+      'Teléfono',
+      RyTextField(
+        semanticLabel: 'Teléfono',
+        hint: 'Ej: 981894367',
+        controller: _telefonoController,
+        type: RyTextFieldType.phone,
+        isDense: true,
+        keyboardType: TextInputType.phone,
+        inputFormatters: ecuadorMobilePhoneInputFormatters(),
+        isRequired: true,
+        prefixWidget: const EcuadorPhonePrefix(),
+        helperText: '9 dígitos sin el 0 inicial',
+        helperStyle: AppTextStyles.textStyleCaption.copyWith(
+          color: AppColors.onSurfaceVariant,
+        ),
+        helperMaxLines: 1,
+        validator: (value) {
+          return validarTelefonoMovilEcuador(value);
+        },
       ),
-      helperText: 'Ingresa 9 dígitos sin el 0 inicial.',
-      helperStyle: AppTextStyles.textStyleCaption.copyWith(
-        color: AppColors.onSurfaceVariant,
-      ),
-      validator: (value) {
-        return validarTelefonoMovilEcuador(value);
-      },
     );
   }
 
@@ -716,22 +784,28 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   }
 
   Widget _buildDireccionField() {
-    return RyTextField(
-      label: 'Dirección',
-      hint: 'Ej: Av. Principal 123, sector norte, junto al parque',
-      controller: _direccionController,
-      maxLines: 4,
-      isRequired: true,
-      errorText: _fieldErrors['direccion_texto'],
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return 'La dirección es requerida';
-        }
-        if (value.trim().length < 5) {
-          return 'La dirección debe tener al menos 5 caracteres';
-        }
-        return null;
-      },
+    return _buildLabeledField(
+      'Dirección',
+      RyTextField(
+        semanticLabel: 'Dirección',
+        hint: 'Ej: De Los Jaribues, Marianitas',
+        controller: _direccionController,
+        maxLines: 2,
+        hintMaxLines: 2,
+        isDense: true,
+        isRequired: true,
+        prefixIcon: Icons.location_on_outlined,
+        errorText: _fieldErrors['direccion_texto'],
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'La dirección es requerida';
+          }
+          if (value.trim().length < 5) {
+            return 'La dirección debe tener al menos 5 caracteres';
+          }
+          return null;
+        },
+      ),
     );
   }
 

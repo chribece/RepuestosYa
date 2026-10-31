@@ -97,7 +97,19 @@ class AppRouter {
         final phoneMissing = !tieneTelefonoMovilEcuador(
           authService.currentUser?.telefono,
         );
-        if (phoneMissing && location != '/profile/phone') {
+        final isGoogleWarehouseRoleSelection =
+            roleProvider.isAlmacen &&
+            location == '/role-selection' &&
+            state.uri.queryParameters['source'] == 'google';
+        final isWarehouseProfileCompletion =
+            roleProvider.isAlmacen && location == '/complete-profile';
+        if (phoneMissing && isGoogleWarehouseRoleSelection) {
+          return '/complete-profile';
+        }
+        if (phoneMissing &&
+            location != '/profile/phone' &&
+            !isGoogleWarehouseRoleSelection &&
+            !isWarehouseProfileCompletion) {
           return '/profile/phone';
         }
 

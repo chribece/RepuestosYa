@@ -244,16 +244,21 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         if (!mounted) return;
 
         context.read<UserRoleProvider>().setRoleFromString(response.user.rol);
+        if (!mounted) return;
+
+        // El perfil comercial captura y guarda el teléfono junto con el resto
+        // de los datos del almacén en una sola petición.
+        if (_selectedRole == 'Almacén') {
+          context.goNamed(RouteNames.completeProfile);
+          return;
+        }
+
         if (!tieneTelefonoMovilEcuador(response.user.telefono)) {
           context.goNamed(RouteNames.googlePhone);
           return;
         }
 
-        if (_selectedRole == 'Almacén') {
-          context.goNamed(RouteNames.completeProfile);
-        } else {
-          context.goNamed(RouteNames.home);
-        }
+        context.goNamed(RouteNames.home);
       } catch (e) {
         if (!mounted) return;
         mostrarSnackbarError(

@@ -2,6 +2,10 @@ const supabase = require('../services/supabase');
 const { createSupabaseAuthClient } = require('../services/supabaseAuth');
 const jwt = require('jsonwebtoken');
 const { normalizarTelefono } = require('../utils/phone');
+const {
+  isGoogleIdentity,
+  needsGoogleRoleSelection
+} = require('../utils/googleRoleOnboarding');
 
 // POST /auth/register
 const register = async (req, res) => {
@@ -261,6 +265,9 @@ const loginWithGoogle = async (req, res) => {
     if (authError || !authData?.user) {
       return res.status(401).json({ error: 'La sesión de Google no es válida' });
     }
+    if (!isGoogleIdentity(authData.user)) {
+      return res.status(403).json({ error: 'Se requiere una cuenta de Google' });
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -272,12 +279,7 @@ const loginWithGoogle = async (req, res) => {
       console.error('Google profile fetch error:', profileError.message);
       return res.status(500).json({ error: 'Error al obtener perfil de usuario' });
     }
-    const profileNeedsRole =
-      !profile ||
-      !profile.rol ||
-      !profile.nombre_completo ||
-      profile.nombre_completo === 'Usuario Nuevo';
-    if (profileNeedsRole) {
+    if (needsGoogleRoleSelection(profile, authData.user)) {
       return res.json({ success: true, needsRoleSelection: true });
     }
 
@@ -337,7 +339,7 @@ const completeGoogleRegistration = async (req, res) => {
 
     const { data: existingProfile, error: lookupError } = await supabase
       .from('profiles')
-      .select('id, nombre_completo, rol')
+      .select('id, nombre_completo, rol, telefono')
       .eq('id', user.id)
       .maybeSingle();
     if (lookupError) {
@@ -345,11 +347,7 @@ const completeGoogleRegistration = async (req, res) => {
       return res.status(500).json({ error: 'Error al consultar el perfil' });
     }
 
-    const profileIsComplete =
-      existingProfile?.rol &&
-      existingProfile.nombre_completo &&
-      existingProfile.nombre_completo !== 'Usuario Nuevo';
-    if (profileIsComplete) {
+    if (!needsGoogleRoleSelection(existingProfile, user)) {
       return res.status(409).json({ error: 'El perfil ya tiene un rol asignado' });
     }
 

@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/ecuador_mobile_phone.dart';
 import '../utils/sentry_config.dart';
 import 'api_client.dart';
 import 'secure_storage_service.dart';
@@ -332,7 +333,12 @@ class AuthService {
         requireAuth: false,
       );
 
-      if (response['needsRoleSelection'] == true) {
+      final googleProfile = response['user'] as Map<String, dynamic>?;
+      final profileRole = googleProfile?['rol']?.toString();
+      final profilePhone = googleProfile?['telefono']?.toString();
+      final profileNeedsOnboarding =
+          profileRole == 'cliente' && !tieneTelefonoMovilEcuador(profilePhone);
+      if (response['needsRoleSelection'] == true || profileNeedsOnboarding) {
         return const GoogleSignInResult(needsRoleSelection: true);
       }
 

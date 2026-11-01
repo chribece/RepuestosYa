@@ -8,12 +8,15 @@ void main() {
       'nombre_comercial': 'Repuestos Central',
       'city': 'Quito',
       'tipo_establecimiento': 'sucursal',
+      'logo_url': 'https://storage.example/logo.jpg',
     });
 
     expect(almacen.city, 'Quito');
     expect(almacen.tipoEstablecimiento, 'sucursal');
+    expect(almacen.logoUrl, 'https://storage.example/logo.jpg');
     expect(almacen.toJson()['city'], 'Quito');
     expect(almacen.toJson()['tipo_establecimiento'], 'sucursal');
+    expect(almacen.toJson()['logo_url'], 'https://storage.example/logo.jpg');
   });
 
   test('mantiene compatibilidad con perfiles existentes sin ciudad', () {

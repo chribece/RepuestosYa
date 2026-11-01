@@ -25,6 +25,7 @@ class ProfileImageProvider extends ChangeNotifier {
 
   String? get imageUrl => _imageUrl;
   bool get isLoading => _isLoading;
+  bool get hasLoaded => _hasLoaded;
 
   Future<void> loadForCurrentUser() async {
     final user = _authService.currentUser;

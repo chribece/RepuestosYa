@@ -1,5 +1,6 @@
 const supabase = require('../services/supabase');
 const { normalizarTelefono, telefonoValido } = require('../utils/phone');
+const { validateImageUrl } = require('../utils/validation');
 
 // POST /warehouses (crear almacén)
 const createAlmacen = async (req, res) => {
@@ -8,6 +9,7 @@ const createAlmacen = async (req, res) => {
       nombre_comercial,
       tipo_establecimiento,
       city,
+      logo_url,
       ruc,
       representante_legal,
       direccion_texto,
@@ -81,6 +83,13 @@ const createAlmacen = async (req, res) => {
         message: 'Selecciona Matriz o Sucursal'
       });
     }
+    const logoValidation = await validateImageUrl(logo_url);
+    if (!logoValidation.valid) {
+      return res.status(422).json({
+        field: 'logo_url',
+        message: logoValidation.message
+      });
+    }
 
     const { data: rucExistente, error: rucError } = await supabase
       .from('almacenes')
@@ -113,7 +122,8 @@ const createAlmacen = async (req, res) => {
         p_latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
         p_longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
         p_city: normalizedCity,
-        p_tipo_establecimiento: normalizedEstablishmentType
+        p_tipo_establecimiento: normalizedEstablishmentType,
+        p_logo_url: logoValidation.value
       }
     );
 
@@ -220,7 +230,16 @@ const updateAlmacen = async (req, res) => {
       updateData.tipo_establecimiento = normalizedType;
     }
     if (direccion_texto !== undefined) updateData.direccion_texto = direccion_texto;
-    if (logo_url !== undefined) updateData.logo_url = logo_url;
+    if (logo_url !== undefined) {
+      const logoValidation = await validateImageUrl(logo_url);
+      if (!logoValidation.valid) {
+        return res.status(422).json({
+          field: 'logo_url',
+          message: logoValidation.message
+        });
+      }
+      updateData.logo_url = logoValidation.value;
+    }
     if (latitude !== undefined) updateData.latitude = latitude;
     if (longitude !== undefined) updateData.longitude = longitude;
     

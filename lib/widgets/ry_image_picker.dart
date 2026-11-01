@@ -20,6 +20,8 @@ class RyImagePicker extends StatelessWidget {
   final RyImagePickerMode mode;
   final double? width;
   final double? height;
+  final double? maxImageWidth;
+  final double? maxImageHeight;
   final BoxFit fit;
   final bool allowCamera;
   final bool allowGallery;
@@ -40,6 +42,8 @@ class RyImagePicker extends StatelessWidget {
     this.mode = RyImagePickerMode.single,
     this.width,
     this.height,
+    this.maxImageWidth,
+    this.maxImageHeight,
     this.fit = BoxFit.cover,
     this.allowCamera = true,
     this.allowGallery = true,
@@ -82,6 +86,8 @@ class RyImagePicker extends StatelessWidget {
       final pickedFile = await picker.pickImage(
         source: source,
         imageQuality: 85,
+        maxWidth: maxImageWidth,
+        maxHeight: maxImageHeight,
       );
 
       if (pickedFile != null) {
@@ -153,9 +159,8 @@ class RyImagePicker extends StatelessWidget {
       clave: 'rationale_camara',
       titulo: 'Permiso de cámara',
       mensaje:
-          'RepuestosYa usa la cámara para fotografiar la pieza que necesitas '
-          'al crear una solicitud, o el repuesto ofertado al enviar una '
-          'cotización.',
+          'RepuestosYa usa la cámara para fotografiar repuestos, actualizar '
+          'tu logo comercial o tomar tu foto de perfil.',
     );
     if (!context.mounted) return false;
     if (!rationaleOk) return false;

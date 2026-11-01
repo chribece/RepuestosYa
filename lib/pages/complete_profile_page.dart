@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:getwidget/getwidget.dart';
@@ -11,9 +12,12 @@ import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/geocoding_service.dart';
 import '../services/ubicacion_service.dart';
+import '../services/upload_service.dart';
+import '../providers/profile_image_provider.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_location_picker.dart';
 import '../widgets/ry_dropdown_field.dart';
+import '../widgets/ry_image_picker.dart';
 import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../theme/app_spacing.dart';
@@ -59,6 +63,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _ciudadController = TextEditingController();
+  File? _logoFile;
   String _tipoEstablecimiento = 'matriz';
   bool _ciudadEditadaPorUsuario = false;
 
@@ -231,11 +236,24 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         throw Exception('No se pudo obtener el ID del usuario');
       }
 
+      String? logoUrl;
+      if (_logoFile != null) {
+        logoUrl = await UploadService().uploadProfileImage(
+          _logoFile!,
+          userId,
+          isWarehouse: true,
+        );
+        if (logoUrl == null || logoUrl.isEmpty) {
+          throw StateError('No se pudo subir el logo del establecimiento');
+        }
+      }
+
       // Enviar datos del almacén al backend usando AlmacenService
       final almacenCreado = await _almacenService.crearAlmacen({
         'encargado_id': userId,
         'nombre_comercial': _nombreController.text.trim(),
         'tipo_establecimiento': _tipoEstablecimiento,
+        'logo_url': logoUrl,
         'ruc': _rucController.text.trim(),
         'representante_legal': _representanteController.text.trim(),
         'telefono': _telefonoController.text.trim(),
@@ -249,6 +267,12 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           almacenCreado['telefono']?.toString() ??
           _telefonoController.text.trim();
       _authService.updateCurrentUserPhone(telefonoGuardado);
+      if (mounted) {
+        context.read<ProfileImageProvider?>()?.setImageUrl(
+          logoUrl,
+          userId: userId,
+        );
+      }
 
       if (mounted) {
         setState(() {
@@ -407,6 +431,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   const SizedBox(height: AppSpacing.spacingSm),
                   _buildNombreField(),
                   const SizedBox(height: AppSpacing.spacingMd),
+                  _buildLogoField(),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildTipoEstablecimientoField(),
                   const SizedBox(height: AppSpacing.spacingMd),
                   _buildRucField(),
@@ -558,6 +584,52 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
       },
       isRequired: true,
+    );
+  }
+
+  Widget _buildLogoField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Logo del Establecimiento (opcional)',
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.spacingXs),
+        Row(
+          children: [
+            RyImagePicker(
+              currentFile: _logoFile,
+              width: 112,
+              height: 112,
+              maxImageWidth: 1200,
+              maxImageHeight: 1200,
+              allowCamera: true,
+              allowGallery: true,
+              onImageSelected: (file) => setState(() => _logoFile = file),
+              onRemove: () => setState(() => _logoFile = null),
+              customPlaceholder: const Icon(
+                Icons.storefront_outlined,
+                size: 42,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Expanded(
+              child: Text(
+                'Elige una imagen clara para identificar tu negocio.',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

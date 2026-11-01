@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -7,8 +10,11 @@ import '../services/almacen_repository.dart';
 import '../services/auth_service.dart';
 import '../services/geocoding_service.dart';
 import '../services/ubicacion_service.dart';
+import '../services/upload_service.dart';
+import '../providers/profile_image_provider.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_image_picker.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -60,6 +66,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   String? _errorMessage;
   Map<String, String> _fieldErrors = {};
   Map<String, dynamic>? _almacenData;
+  File? _logoFile;
+  bool _removeLogo = false;
 
   late final AlmacenService _almacenService =
       widget.almacenService ??
@@ -185,6 +193,24 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         'longitude': double.tryParse(_lonController.text) ?? 0.0,
       };
 
+      if (_logoFile != null) {
+        final userId = _authService.currentUser?.id;
+        if (userId == null) {
+          throw StateError('No se pudo identificar al usuario del logo');
+        }
+        final logoUrl = await UploadService().uploadProfileImage(
+          _logoFile!,
+          userId,
+          isWarehouse: true,
+        );
+        if (logoUrl == null || logoUrl.isEmpty) {
+          throw StateError('No se pudo subir el logo del establecimiento');
+        }
+        data['logo_url'] = logoUrl;
+      } else if (_removeLogo) {
+        data['logo_url'] = null;
+      }
+
       AppLogger.debug(
         'Enviando PUT /warehouses/$almacenId con data: $data',
         name: 'PerfilAlmacenPage',
@@ -193,9 +219,20 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       await _almacenService.actualizarAlmacen(almacenId, data);
 
       if (!mounted) return;
+      if (data.containsKey('logo_url')) {
+        final userId = _authService.currentUser?.id;
+        if (userId != null) {
+          context.read<ProfileImageProvider?>()?.setImageUrl(
+            data['logo_url']?.toString(),
+            userId: userId,
+          );
+        }
+      }
       setState(() {
         _isSubmitting = false;
         _isEditing = false;
+        _logoFile = null;
+        _removeLogo = false;
       });
       mostrarSnackbarExito(
         context,
@@ -234,6 +271,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       _ciudadController.text = _almacenData!['city']?.toString() ?? '';
       _tipoEstablecimiento =
           _almacenData!['tipo_establecimiento']?.toString() ?? 'matriz';
+      _logoFile = null;
+      _removeLogo = false;
       _latController.text = (_almacenData!['latitude'] ?? 0).toString();
       _lonController.text = (_almacenData!['longitude'] ?? 0).toString();
     }
@@ -325,6 +364,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                           children: [
                             const SizedBox(height: AppSpacing.spacingLg),
                             _buildHeader(),
+                            const SizedBox(height: AppSpacing.spacingLg),
+                            _buildLogoSection(),
                             const SizedBox(height: AppSpacing.spacingXl),
                             _buildContactSection(),
                             const SizedBox(height: AppSpacing.spacingXl),
@@ -642,6 +683,98 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildLogoSection() {
+    final logoUrl = _removeLogo ? null : _almacenData?['logo_url']?.toString();
+    return RySectionCard(
+      title: 'Logo del Establecimiento',
+      icon: Icons.storefront_outlined,
+      children: [
+        Row(
+          children: [
+            if (_isEditing)
+              RyImagePicker(
+                currentImageUrl: logoUrl,
+                currentFile: _logoFile,
+                width: 112,
+                height: 112,
+                maxImageWidth: 1200,
+                maxImageHeight: 1200,
+                onImageSelected: (file) {
+                  setState(() {
+                    _logoFile = file;
+                    _removeLogo = false;
+                  });
+                },
+                onRemove: () {
+                  setState(() {
+                    _logoFile = null;
+                    _removeLogo = true;
+                  });
+                },
+                customPlaceholder: _buildLogoPlaceholder('Añadir logo'),
+              )
+            else
+              _buildReadOnlyLogoPreview(logoUrl),
+            const SizedBox(width: AppSpacing.spacingMd),
+            Expanded(
+              child: Text(
+                _isEditing
+                    ? 'Selecciona una imagen para representar tu establecimiento. Se guardará al confirmar los cambios.'
+                    : logoUrl == null || logoUrl.isEmpty
+                    ? 'Aún no has agregado un logo.'
+                    : 'Identidad visual del establecimiento.',
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLogoPlaceholder(String label) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.storefront_outlined,
+          size: 36,
+          color: AppColors.primary,
+        ),
+        const SizedBox(height: AppSpacing.spacingXxs),
+        Text(
+          label,
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyLogoPreview(String? logoUrl) {
+    return Container(
+      width: 112,
+      height: 112,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: logoUrl == null || logoUrl.isEmpty
+          ? _buildLogoPlaceholder('Sin logo')
+          : CachedNetworkImage(
+              imageUrl: logoUrl,
+              fit: BoxFit.cover,
+              placeholder: (_, _) => _buildLogoPlaceholder(''),
+              errorWidget: (_, _, _) => _buildLogoPlaceholder('Sin logo'),
+            ),
     );
   }
 

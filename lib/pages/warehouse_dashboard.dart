@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -14,6 +15,7 @@ import '../services/almacen_repository.dart';
 import '../services/realtime_notification_service.dart';
 import '../services/outbox.dart';
 import '../services/sync_engine.dart';
+import '../providers/profile_image_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/flujo_notificaciones.dart';
@@ -789,20 +791,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 ),
                                 sliver: SliverList.list(
                                   children: [
-                                    Text(
-                                      _nombreAlmacen ?? 'Panel de Control',
-                                      style: AppTextStyles.textStyleHeading,
-                                    ),
-                                    const SizedBox(
-                                      height: AppSpacing.spacingXxs,
-                                    ),
-                                    Text(
-                                      _dashboardSubtitle,
-                                      style: AppTextStyles.textStyleCaption
-                                          .copyWith(
-                                            color: AppColors.onSurfaceVariant,
-                                          ),
-                                    ),
+                                    _buildEstablishmentIdentity(),
                                     const SizedBox(
                                       height: AppSpacing.spacingLg,
                                     ),
@@ -1040,6 +1029,70 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           const SizedBox(width: AppSpacing.spacingXxs),
           const RyNotificationBell(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEstablishmentIdentity() {
+    final profileImage = context.watch<ProfileImageProvider?>();
+    final logoUrl = profileImage?.hasLoaded == true
+        ? profileImage!.imageUrl
+        : _almacenData?['logo_url']?.toString();
+    return Row(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerHigh,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: logoUrl != null && logoUrl.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: logoUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => _buildEstablishmentLogoFallback(),
+                  errorWidget: (_, _, _) => _buildEstablishmentLogoFallback(),
+                )
+              : _buildEstablishmentLogoFallback(),
+        ),
+        const SizedBox(width: AppSpacing.spacingMd),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _nombreAlmacen ?? 'Panel de Control',
+                style: AppTextStyles.textStyleHeading,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.spacingXxs),
+              Text(
+                _dashboardSubtitle,
+                style: AppTextStyles.textStyleCaption.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEstablishmentLogoFallback() {
+    return const Center(
+      child: Icon(
+        Icons.storefront_outlined,
+        size: 30,
+        color: AppColors.primary,
       ),
     );
   }

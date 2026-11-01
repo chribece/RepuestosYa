@@ -6,6 +6,8 @@ const createAlmacen = async (req, res) => {
   try {
     const {
       nombre_comercial,
+      tipo_establecimiento,
+      city,
       ruc,
       representante_legal,
       direccion_texto,
@@ -57,9 +59,26 @@ const createAlmacen = async (req, res) => {
     const normalizedName = nombre_comercial.trim();
     const normalizedRepresentative = representante_legal.trim();
     const normalizedAddress = direccion_texto.trim();
+    const normalizedCity = typeof city === 'string' ? city.trim() : '';
+    const normalizedEstablishmentType =
+      typeof tipo_establecimiento === 'string'
+        ? tipo_establecimiento.trim().toLowerCase()
+        : '';
     if (!normalizedName || !normalizedRepresentative || !normalizedAddress) {
       return res.status(400).json({
-        error: 'Nombre comercial, representante y dirección son obligatorios'
+        error: 'Nombre del establecimiento, representante y dirección son obligatorios'
+      });
+    }
+    if (!normalizedCity) {
+      return res.status(422).json({
+        field: 'city',
+        message: 'La ciudad del establecimiento es obligatoria'
+      });
+    }
+    if (!['matriz', 'sucursal'].includes(normalizedEstablishmentType)) {
+      return res.status(422).json({
+        field: 'tipo_establecimiento',
+        message: 'Selecciona Matriz o Sucursal'
       });
     }
 
@@ -92,7 +111,9 @@ const createAlmacen = async (req, res) => {
         p_email: email.trim(),
         p_direccion_texto: normalizedAddress,
         p_latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
-        p_longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 0
+        p_longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
+        p_city: normalizedCity,
+        p_tipo_establecimiento: normalizedEstablishmentType
       }
     );
 
@@ -143,7 +164,21 @@ const getAlmacenByEncargado = async (req, res) => {
 const updateAlmacen = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_comercial, direccion_texto, latitude, longitude, verificado, estado_abierto, telefono, ruc, representante_legal, email, logo_url } = req.body;
+    const {
+      nombre_comercial,
+      tipo_establecimiento,
+      city,
+      direccion_texto,
+      latitude,
+      longitude,
+      verificado,
+      estado_abierto,
+      telefono,
+      ruc,
+      representante_legal,
+      email,
+      logo_url
+    } = req.body;
 
     // Verify ownership and status
     const { data: existing, error: existingError } = await supabase
@@ -162,6 +197,28 @@ const updateAlmacen = async (req, res) => {
 
     const updateData = {};
     if (nombre_comercial !== undefined) updateData.nombre_comercial = nombre_comercial;
+    if (city !== undefined) {
+      const normalizedCity = typeof city === 'string' ? city.trim() : '';
+      if (!normalizedCity) {
+        return res.status(422).json({
+          field: 'city',
+          message: 'La ciudad del establecimiento es obligatoria'
+        });
+      }
+      updateData.city = normalizedCity;
+    }
+    if (tipo_establecimiento !== undefined) {
+      const normalizedType = typeof tipo_establecimiento === 'string'
+        ? tipo_establecimiento.trim().toLowerCase()
+        : '';
+      if (!['matriz', 'sucursal'].includes(normalizedType)) {
+        return res.status(422).json({
+          field: 'tipo_establecimiento',
+          message: 'Selecciona Matriz o Sucursal'
+        });
+      }
+      updateData.tipo_establecimiento = normalizedType;
+    }
     if (direccion_texto !== undefined) updateData.direccion_texto = direccion_texto;
     if (logo_url !== undefined) updateData.logo_url = logo_url;
     if (latitude !== undefined) updateData.latitude = latitude;

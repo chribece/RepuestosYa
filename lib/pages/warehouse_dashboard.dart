@@ -113,6 +113,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       _almacenData?['verification_status'] == null;
   bool get _isRejected => _almacenData?['verification_status'] == 'rejected';
   String? get _rejectionReason => _almacenData?['rejection_reason'];
+  String get _dashboardSubtitle {
+    final tipo = _almacenData?['tipo_establecimiento'] == 'sucursal'
+        ? 'Sucursal'
+        : 'Matriz';
+    final city = _almacenData?['city']?.toString().trim();
+    final establecimiento =
+        '$tipo${city == null || city.isEmpty ? '' : ' · $city'}';
+    if (!_isApproved) return establecimiento;
+    return '$establecimiento · ${_isOpen ? 'Abierto para solicitudes' : 'Cerrado temporalmente'}';
+  }
 
   // Variables dinámicas para el panel de estadísticas Bento
   // "Ventas" = cotizaciones GANADAS ('aceptada'); antes era un 0 fijo.
@@ -368,13 +378,32 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   /// sobre el presupuesto de 16 ms) con el raster inactivo.
   Widget _buildFeedSliver() {
     if (!_isApproved) {
+      if (_isPending) {
+        return const SliverToBoxAdapter(
+          child: Padding(
+            key: ValueKey('warehouse-pending-spinner-spacing'),
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.spacingXxxl),
+            child: Center(
+              child: SizedBox(
+                key: ValueKey('warehouse-pending-spinner'),
+                width: 48,
+                height: 48,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppColors.primaryContainer,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
       return SliverToBoxAdapter(
         child: RyStateContainer(
-          title: _isPending ? 'En Verificación' : 'Almacén Rechazado',
-          subtitle: _isPending
-              ? 'Tu cuenta está en proceso de revisión. Podrás ver solicitudes una vez seas aprobado.'
-              : 'Tu registro ha sido rechazado. ${_rejectionReason ?? "Contacta a soporte para más información."}',
-          type: _isPending ? RyStateType.loading : RyStateType.error,
+          title: 'Establecimiento Rechazado',
+          subtitle:
+              'Tu registro ha sido rechazado. ${_rejectionReason ?? "Contacta a soporte para más información."}',
+          type: RyStateType.error,
         ),
       );
     }
@@ -435,7 +464,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
-              color: AppColors.secondaryContainer,
+              color: AppColors.primaryContainer,
             ),
           ),
         ),
@@ -577,10 +606,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         _approvalTimer?.cancel();
         _approvalTimer = null;
 
-        mostrarSnackbarInfo(
+        mostrarSnackbarExitoSobrio(
           context,
-          mensaje:
-              '¡Tu almacén ha sido aprobado! Ya puedes ver y responder solicitudes.',
+          titulo: '¡Establecimiento Aprobado!',
+          mensaje: 'Ya puedes recibir y responder solicitudes de cotización',
         );
 
         await _cargarSolicitudes();
@@ -642,7 +671,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     ),
                     const SizedBox(height: AppSpacing.spacingSm),
                     Text(
-                      'Panel de Control (Almacén)',
+                      'Panel de Control',
                       style: AppTextStyles.textStyleCaption.copyWith(
                         color: AppColors.onSurfaceVariant,
                       ),
@@ -683,7 +712,10 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   Icons.store,
                   color: AppColors.primaryContainer,
                 ),
-                title: Text('Mi Almacén', style: AppTextStyles.textStyleBody),
+                title: Text(
+                  'Mi Establecimiento',
+                  style: AppTextStyles.textStyleBody,
+                ),
                 onTap: () async {
                   Navigator.pop(context);
                   final almacen = await _almacenService.obtenerMiAlmacen();
@@ -758,14 +790,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                 sliver: SliverList.list(
                                   children: [
                                     Text(
-                                      _nombreAlmacen ?? 'Cargando...',
+                                      _nombreAlmacen ?? 'Panel de Control',
                                       style: AppTextStyles.textStyleHeading,
                                     ),
                                     const SizedBox(
                                       height: AppSpacing.spacingXxs,
                                     ),
                                     Text(
-                                      'Gestión de inventario y pedidos en tiempo real.',
+                                      _dashboardSubtitle,
                                       style: AppTextStyles.textStyleCaption
                                           .copyWith(
                                             color: AppColors.onSurfaceVariant,
@@ -1028,7 +1060,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Text(
-              'Tu almacén está en verificación. Un administrador revisará tu información antes de habilitarte para recibir solicitudes.',
+              'Tu establecimiento está en verificación. Un administrador revisará tu información antes de habilitarte para recibir solicitudes.',
               style: AppTextStyles.textStyleSmall.copyWith(
                 color: AppColors.primaryContainer,
               ),
@@ -1056,7 +1088,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               const SizedBox(width: AppSpacing.spacingMd),
               Expanded(
                 child: Text(
-                  'Tu almacén ha sido rechazado.',
+                  'Tu establecimiento ha sido rechazado.',
                   style: AppTextStyles.textStyleSmall.copyWith(
                     color: AppColors.error,
                     fontWeight: FontWeight.bold,
@@ -1158,10 +1190,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
           Text(
@@ -1942,11 +1980,18 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildBottomNavItem(Icons.home, 'Home', 0),
-                _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
-                _buildBottomNavItem(Icons.store, 'Mi Almacén', 3),
+                Expanded(child: _buildBottomNavItem(Icons.home, 'Home', 0)),
+                Expanded(
+                  child: _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
+                ),
+                Expanded(
+                  child: _buildBottomNavItem(
+                    Icons.store,
+                    'Mi Establecimiento',
+                    3,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1986,12 +2031,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               size: 24,
             ),
             const SizedBox(height: AppSpacing.spacingXxs),
-            Text(
-              label,
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: isActive
-                    ? AppColors.primaryContainer
-                    : AppColors.onSurfaceVariant,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: isActive
+                      ? AppColors.primaryContainer
+                      : AppColors.onSurfaceVariant,
+                ),
               ),
             ),
           ],

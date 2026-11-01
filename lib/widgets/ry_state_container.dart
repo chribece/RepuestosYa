@@ -49,7 +49,7 @@ class RyStateContainer extends StatelessWidget {
       case RyStateType.error:
         return SemanticColors.colorErrorBackground;
       case RyStateType.loading:
-        return AppColors.secondaryContainer;
+        return AppColors.primaryContainer;
       case RyStateType.success:
         return SemanticColors.colorSuccess;
       case RyStateType.network:

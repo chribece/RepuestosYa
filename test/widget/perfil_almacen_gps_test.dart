@@ -103,7 +103,7 @@ void main() {
       await pumpPerfil(tester);
 
       expect(almacen.llamadasMiAlmacen, 1);
-      // Aparece en el encabezado y en el campo "Nombre Comercial".
+      // Aparece en el encabezado y en el campo "Nombre del Establecimiento".
       expect(find.text('Repuestos Central'), findsWidgets);
 
       // Entrar en modo edición para que aparezca el botón GPS.

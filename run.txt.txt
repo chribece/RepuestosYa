@@ -1,0 +1,29 @@
+activar backend local npm start
+
+
+móvil fluter run c5d532db
+flutter run -d c5d532db
+
+cd /d C:\RepuestosYa
+flutter run -d T10MPROPLUS00342411 --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://192.168.100.2:3000/api
+
+
+flutter run -d c5d532db --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://192.168.100.2:3000/api
+
+
+flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=936788127776-ccaspa0gatlsuleusd5qf50rfmv85peo.apps.googleusercontent.com
+
+
+
+flutter run -d c5d532db --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://192.168.100.3:3000/api --dart-define=GOOGLE_SERVER_CLIENT_ID=936788127776-ccaspa0gatlsuleusd5qf50rfmv85peo.apps.googleusercontent.com
+
+
+
+http://192.168.100.2:3000/api/notificaciones/unread-count
+
+
+dart format
+flutter analyze 0 issues
+flutter test
+
+

@@ -13,6 +13,7 @@ import '../services/geocoding_service.dart';
 import '../services/ubicacion_service.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_location_picker.dart';
+import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../theme/app_spacing.dart';
@@ -23,11 +24,11 @@ import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
-/// Formulario de registro/completado del perfil de almacén.
+/// Formulario de registro/completado del perfil del establecimiento.
 ///
 /// La ubicación se define con el selector visual embebido (Opción A):
 /// - Mapa interactivo con pin arrastrable (long-press) y tap-to-move,
-///   etiquetado "Ubicación del Almacén", + botón "Usar mi ubicación actual".
+///   etiquetado "Ubicación del Establecimiento", + botón "Usar mi ubicación actual".
 /// - Al mover el pin o usar el GPS se hace reverse geocoding (Nominatim) y la
 ///   "Dirección" se presurtiene automáticamente si está vacía (o no fue
 ///   editada por el usuario).
@@ -57,13 +58,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
+  final TextEditingController _ciudadController = TextEditingController();
+  String _tipoEstablecimiento = 'matriz';
+  bool _ciudadEditadaPorUsuario = false;
 
   late final UbicacionService _ubicacionService =
       widget.ubicacionService ?? UbicacionService();
   late final GeocodingService _geocodingService =
       widget.geocodingService ?? GeocodingService();
 
-  // Ubicación del almacén (se guarda internamente, sin inputs visibles).
+  // Ubicación del establecimiento (se guarda internamente, sin inputs visibles).
   double? _lat;
   double? _lng;
   bool get _ubicacionFijada => _lat != null && _lng != null;
@@ -113,6 +117,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _representanteController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
+    _ciudadController.dispose();
     super.dispose();
   }
 
@@ -170,6 +175,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     setState(() {
       _autocompletando = false;
       if (resultado == null) return; // degradación: el usuario escribe
+      if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
+        _ciudadController.text = resultado.ciudad!;
+      }
       if (_direccionEditadaPorUsuario) return;
 
       final partes = <String>[
@@ -227,11 +235,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       final almacenCreado = await _almacenService.crearAlmacen({
         'encargado_id': userId,
         'nombre_comercial': _nombreController.text.trim(),
+        'tipo_establecimiento': _tipoEstablecimiento,
         'ruc': _rucController.text.trim(),
         'representante_legal': _representanteController.text.trim(),
         'telefono': _telefonoController.text.trim(),
         'email': _emailController.text.trim(),
         'direccion_texto': _direccionController.text.trim(),
+        'city': _ciudadController.text.trim(),
         'latitude': _lat,
         'longitude': _lng,
       });
@@ -244,7 +254,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         setState(() {
           _isSubmitting = false;
         });
-        mostrarSnackbarInfo(
+        mostrarSnackbarExitoSobrio(
           context,
           mensaje: '¡Perfil completado exitosamente!',
           duracion: const Duration(seconds: 3),
@@ -397,6 +407,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   const SizedBox(height: AppSpacing.spacingSm),
                   _buildNombreField(),
                   const SizedBox(height: AppSpacing.spacingMd),
+                  _buildTipoEstablecimientoField(),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildRucField(),
                   const SizedBox(height: AppSpacing.spacingLg),
                   _buildSectionHeading(
@@ -415,6 +427,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     Icons.location_on_outlined,
                   ),
                   const SizedBox(height: AppSpacing.spacingSm),
+                  _buildCiudadField(),
+                  const SizedBox(height: AppSpacing.spacingMd),
                   _buildUbicacionAlmacen(),
                   const SizedBox(height: AppSpacing.spacingMd),
                   _buildDireccionField(),
@@ -498,7 +512,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         ),
         const SizedBox(height: AppSpacing.spacingXs),
         Text(
-          'Completa la información de tu almacén para comenzar.',
+          'Completa la información de tu establecimiento para comenzar.',
           style: AppTextStyles.textStyleBody.copyWith(
             color: AppColors.onSurfaceVariant,
           ),
@@ -509,9 +523,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
   Widget _buildNombreField() {
     return _buildLabeledField(
-      'Nombre Comercial',
+      'Nombre del Establecimiento',
       RyTextField(
-        semanticLabel: 'Nombre Comercial',
+        semanticLabel: 'Nombre del Establecimiento',
         hint: 'Ej: RepuestosYa Central',
         controller: _nombreController,
         isDense: true,
@@ -519,10 +533,52 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         prefixIcon: Icons.storefront_outlined,
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
-            return 'El nombre comercial es requerido';
+            return 'El nombre del establecimiento es requerido';
           }
           if (value.trim().length < 3) {
             return 'El nombre debe tener al menos 3 caracteres';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  Widget _buildTipoEstablecimientoField() {
+    return RyDropdownField<String>(
+      label: 'Tipo de Establecimiento',
+      value: _tipoEstablecimiento,
+      items: const ['matriz', 'sucursal'],
+      itemLabelBuilder: (tipo) => switch (tipo) {
+        'matriz' => 'Matriz',
+        'sucursal' => 'Sucursal',
+        _ => tipo,
+      },
+      onChanged: (tipo) {
+        if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
+      },
+      isRequired: true,
+    );
+  }
+
+  Widget _buildCiudadField() {
+    return _buildLabeledField(
+      'Ciudad',
+      RyTextField(
+        semanticLabel: 'Ciudad del establecimiento',
+        hint: 'Ej: Quito',
+        controller: _ciudadController,
+        isDense: true,
+        isRequired: true,
+        prefixIcon: Icons.location_city_outlined,
+        errorText: _fieldErrors['city'],
+        onChanged: (_) => _ciudadEditadaPorUsuario = true,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'La ciudad es obligatoria';
+          }
+          if (value.trim().length < 2) {
+            return 'Ingresa una ciudad válida';
           }
           return null;
         },
@@ -657,7 +713,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   ),
                   const SizedBox(width: AppSpacing.spacingXs),
                   Text(
-                    'Ubicación del Almacén',
+                    'Ubicación del Establecimiento',
                     style: AppTextStyles.textStyleSmall.copyWith(
                       color: AppColors.onSurfaceVariant,
                       fontWeight: FontWeight.bold,

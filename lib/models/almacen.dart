@@ -1,6 +1,8 @@
 class Almacen {
   final String id;
   final String nombreComercial;
+  final String? city;
+  final String tipoEstablecimiento;
   final String? direccionTexto;
   final String? logoUrl;
   final double? latitude;
@@ -19,6 +21,8 @@ class Almacen {
   Almacen({
     required this.id,
     required this.nombreComercial,
+    this.city,
+    this.tipoEstablecimiento = 'matriz',
     this.direccionTexto,
     this.logoUrl,
     this.latitude,
@@ -35,6 +39,8 @@ class Almacen {
       id: json['id']?.toString() ?? '',
       nombreComercial:
           json['nombre_comercial']?.toString() ?? 'Almacén desconocido',
+      city: json['city']?.toString(),
+      tipoEstablecimiento: json['tipo_establecimiento']?.toString() ?? 'matriz',
       direccionTexto: json['direccion_texto']?.toString(),
       logoUrl: json['logo_url']?.toString(),
       latitude: (json['latitude'] as num?)?.toDouble(),
@@ -51,6 +57,8 @@ class Almacen {
     return {
       'id': id,
       'nombre_comercial': nombreComercial,
+      'city': city,
+      'tipo_establecimiento': tipoEstablecimiento,
       'direccion_texto': direccionTexto,
       'logo_url': logoUrl,
       'latitude': latitude,

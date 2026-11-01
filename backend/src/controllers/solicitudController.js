@@ -19,6 +19,7 @@ const {
   validarCoordenadas,
   geocodeDireccion
 } = require('../utils/geocoding');
+const { normalizeCity, filterRequestsByCity } = require('../utils/geographicCity');
 
 // Shape de respuesta con las relaciones que necesita el cliente.
 // Incluye direcciones_entrega (texto y coordenadas) para que el almacén
@@ -174,7 +175,7 @@ const getSolicitudesActivas = async (req, res) => {
     // Get warehouse ID for this user
     const { data: almacen, error: almacenError } = await supabase
       .from('almacenes')
-      .select('id, verification_status')
+      .select('id, verification_status, city')
       .eq('encargado_id', req.user.id)
       .single();
 
@@ -190,8 +191,17 @@ const getSolicitudesActivas = async (req, res) => {
       });
     }
 
-    // Cache key específica por almacén para no mezclar datos
-    const cacheKey = `solicitudes:activas:almacen:${almacen.id}:page:${page}`;
+    const warehouseCity = normalizeCity(almacen.city);
+    if (!warehouseCity) {
+      return res.status(409).json({
+        code: 'WAREHOUSE_CITY_REQUIRED',
+        message: 'Completa la ciudad de tu establecimiento para ver solicitudes.'
+      });
+    }
+
+    // Include city to prevent a stale city-specific feed after profile edits.
+    const cacheKey =
+      `solicitudes:activas:almacen:${almacen.id}:city:${warehouseCity}:page:${page}`;
 
     const { data: solicitudes, fromCache } = await getOrSet(
       cacheKey,
@@ -212,10 +222,15 @@ const getSolicitudesActivas = async (req, res) => {
           throw new Error(error.message);
         }
 
-        // Filtrar solicitudes que ya tienen cotización de este almacén
-        console.log(`[DEBUG] Filtrando solicitudes para almacén ${almacen.id}, total: ${(data || []).length}`);
+        // Only expose requests in the warehouse's exact city before checking
+        // quotations, so other cities never enter this warehouse's feed.
+        const solicitudesEnCiudad = filterRequestsByCity(data || [], warehouseCity);
+        console.log(
+          `[DEBUG] Filtrando solicitudes para almacén ${almacen.id} en ${warehouseCity}, `
+          + `total: ${solicitudesEnCiudad.length}`
+        );
         const solicitudesSinCotizar = await Promise.all(
-          (data || []).map(async (solicitud) => {
+          solicitudesEnCiudad.map(async (solicitud) => {
             const { data: cotizacionesExistentes } = await supabase
               .from('cotizaciones')
               .select('id')

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:repuestosya/pages/warehouse_dashboard.dart';
+import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
 import 'package:repuestosya/widgets/ry_button.dart';
 import 'package:repuestosya/widgets/ry_part_card.dart';
@@ -34,14 +35,16 @@ void main() {
       ..respuestaMiAlmacen = {
         'id': 'a-1',
         'nombre_comercial': 'Repuestos Central',
+        'city': 'Quito',
+        'tipo_establecimiento': 'matriz',
         'verification_status': 'approved',
         'estado_abierto': true,
       };
     solicitud = FakeSolicitudService();
   });
 
-  Future<void> pumpDashboard(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(800, 2000);
+  Future<void> pumpDashboard(WidgetTester tester, {double width = 800}) async {
+    tester.view.physicalSize = Size(width, 2000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -65,8 +68,63 @@ void main() {
 
     expect(find.text('Verificando perfil de almacén...'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsWidgets);
+    final spinner = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator).first,
+    );
+    expect(
+      (spinner.valueColor as AlwaysStoppedAnimation<Color>).value,
+      AppColors.primaryContainer,
+    );
     // El feed no debe renderizarse mientras valida.
     expect(find.text('Solicitudes Disponibles'), findsNothing);
+  });
+
+  testWidgets('el label Pendientes no se divide en pantallas angostas', (
+    tester,
+  ) async {
+    await pumpDashboard(tester, width: 420);
+
+    final pendientes = tester.widget<Text>(find.text('Pendientes'));
+    expect(pendientes.maxLines, 1);
+    expect(pendientes.softWrap, isFalse);
+  });
+
+  testWidgets('el subtítulo evita duplicar el aviso de verificación', (
+    tester,
+  ) async {
+    almacen.respuestaMiAlmacen = {
+      ...almacen.respuestaMiAlmacen!,
+      'verification_status': 'pending',
+    };
+    await pumpDashboard(tester);
+
+    expect(find.text('Matriz · Quito'), findsOneWidget);
+    expect(
+      find.textContaining('Tu establecimiento está en verificación.'),
+      findsOneWidget,
+    );
+    expect(find.text('En Verificación'), findsNothing);
+    expect(
+      find.textContaining('Tu cuenta está en proceso de revisión.'),
+      findsNothing,
+    );
+    final spinnerBox = tester.widget<SizedBox>(
+      find.byKey(const ValueKey('warehouse-pending-spinner')),
+    );
+    expect(spinnerBox.width, 48);
+    expect(spinnerBox.height, 48);
+    final spinner = tester.widget<CircularProgressIndicator>(
+      find.descendant(
+        of: find.byKey(const ValueKey('warehouse-pending-spinner')),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+    );
+    expect(spinner.strokeWidth, 3);
+    expect(spinner.color, AppColors.primaryContainer);
+    final spinnerSpacing = tester.widget<Padding>(
+      find.byKey(const ValueKey('warehouse-pending-spinner-spacing')),
+    );
+    expect(spinnerSpacing.padding, const EdgeInsets.symmetric(vertical: 64));
   });
 
   testWidgets('estado CON DATOS: el feed muestra las solicitudes activas', (
@@ -89,6 +147,10 @@ void main() {
     await pumpDashboard(tester);
 
     expect(find.text('Repuestos Central'), findsOneWidget);
+    expect(
+      find.text('Matriz · Quito · Abierto para solicitudes'),
+      findsOneWidget,
+    );
     expect(find.text('Filtro de aceite'), findsOneWidget);
     expect(find.text('Bujías NGK'), findsOneWidget);
     expect(find.byType(RyPartCard), findsNWidgets(2));

@@ -2,6 +2,7 @@ import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/utils/ry_snackbar.dart';
 
 /// Pruebas del helper de notificaciones estilizadas (awesome_snackbar_content):
@@ -42,6 +43,30 @@ void main() {
     expect(find.byType(AwesomeSnackbarContent), findsOneWidget);
     expect(find.text('Éxito'), findsOneWidget);
     expect(find.text('Cotización aceptada correctamente'), findsOneWidget);
+  });
+
+  testWidgets('éxito sobrio: usa tarjeta oscura sin banner azul', (
+    tester,
+  ) async {
+    await pumpYMostrar(
+      tester,
+      (context) => mostrarSnackbarExitoSobrio(
+        context,
+        titulo: '¡Establecimiento Aprobado!',
+        mensaje: 'Ya puedes recibir y responder solicitudes de cotización',
+      ),
+    );
+
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.backgroundColor, const Color(0xFF1E1E1E));
+    expect(find.text('¡Establecimiento Aprobado!'), findsOneWidget);
+    expect(
+      find.text('Ya puedes recibir y responder solicitudes de cotización'),
+      findsOneWidget,
+    );
+    expect(find.byType(AwesomeSnackbarContent), findsNothing);
+    final icon = tester.widget<Icon>(find.byIcon(Icons.check_circle_rounded));
+    expect(icon.color, AppColors.primaryContainer);
   });
 
   testWidgets('error: usa el tipo failure y conserva el mensaje', (

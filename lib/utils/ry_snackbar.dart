@@ -95,6 +95,7 @@ void mostrarSnackbarExito(
 /// Éxito flotante sobrio para flujos que deben seguir la paleta oscura.
 void mostrarSnackbarExitoSobrio(
   BuildContext context, {
+  String? titulo,
   required String mensaje,
   Duration duracion = const Duration(seconds: 3),
 }) {
@@ -121,18 +122,39 @@ void mostrarSnackbarExitoSobrio(
           children: [
             const Icon(
               Icons.check_circle_rounded,
-              color: Color(0xFF8BC9A8),
+              color: AppColors.primaryContainer,
               size: 22,
             ),
             const SizedBox(width: AppSpacing.spacingSm),
             Expanded(
-              child: Text(
-                mensaje,
-                style: AppTextStyles.textStyleBody.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              child: titulo == null
+                  ? Text(
+                      mensaje,
+                      style: AppTextStyles.textStyleBody.copyWith(
+                        color: AppColors.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titulo,
+                          style: AppTextStyles.textStyleBody.copyWith(
+                            color: AppColors.primaryContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.spacingXxs),
+                        Text(
+                          mensaje,
+                          style: AppTextStyles.textStyleCaption.copyWith(
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),

@@ -10,6 +10,7 @@ import '../services/ubicacion_service.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
+import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_section_card.dart';
@@ -48,8 +49,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   final TextEditingController _rucController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
+  final TextEditingController _ciudadController = TextEditingController();
   final TextEditingController _latController = TextEditingController();
   final TextEditingController _lonController = TextEditingController();
+  String _tipoEstablecimiento = 'matriz';
 
   bool _isEditing = false;
   bool _isSubmitting = false;
@@ -79,6 +82,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     _rucController.dispose();
     _telefonoController.dispose();
     _direccionController.dispose();
+    _ciudadController.dispose();
     _latController.dispose();
     _lonController.dispose();
     super.dispose();
@@ -100,6 +104,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           _rucController.text = almacen['ruc'] ?? '';
           _telefonoController.text = almacen['telefono'] ?? '';
           _direccionController.text = almacen['direccion_texto'] ?? '';
+          _ciudadController.text = almacen['city']?.toString() ?? '';
+          _tipoEstablecimiento =
+              almacen['tipo_establecimiento']?.toString() ?? 'matriz';
           _latController.text = (almacen['latitude'] ?? 0).toString();
           _lonController.text = (almacen['longitude'] ?? 0).toString();
           _isLoading = false;
@@ -172,6 +179,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         'ruc': _rucController.text.trim(),
         'telefono': _telefonoController.text.trim(),
         'direccion_texto': _direccionController.text.trim(),
+        'city': _ciudadController.text.trim(),
+        'tipo_establecimiento': _tipoEstablecimiento,
         'latitude': double.tryParse(_latController.text) ?? 0.0,
         'longitude': double.tryParse(_lonController.text) ?? 0.0,
       };
@@ -222,6 +231,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       _rucController.text = _almacenData!['ruc'] ?? '';
       _telefonoController.text = _almacenData!['telefono'] ?? '';
       _direccionController.text = _almacenData!['direccion_texto'] ?? '';
+      _ciudadController.text = _almacenData!['city']?.toString() ?? '';
+      _tipoEstablecimiento =
+          _almacenData!['tipo_establecimiento']?.toString() ?? 'matriz';
       _latController.text = (_almacenData!['latitude'] ?? 0).toString();
       _lonController.text = (_almacenData!['longitude'] ?? 0).toString();
     }
@@ -401,7 +413,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           // Mi Almacén → PerfilAlmacenPage (página actual)
           ListTile(
             leading: const Icon(Icons.store, color: AppColors.primaryContainer),
-            title: Text('Mi Almacén', style: AppTextStyles.textStyleBody),
+            title: Text(
+              'Mi Establecimiento',
+              style: AppTextStyles.textStyleBody,
+            ),
             onTap: () => Navigator.pop(context),
           ),
           const Divider(color: AppColors.outlineVariant),
@@ -452,7 +467,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 ),
               ),
               const SizedBox(width: AppSpacing.spacingXxs),
-              Text('Mi Almacén', style: AppTextStyles.textStyleTitle),
+              Text('Mi Establecimiento', style: AppTextStyles.textStyleTitle),
             ],
           ),
           if (!_isLoading && _almacenData != null)
@@ -518,7 +533,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
 
     return Semantics(
       label:
-          'Almacén $nombreComercial, encargado: $representanteLegal, '
+          'Establecimiento $nombreComercial, encargado: $representanteLegal, '
           'estado: $statusLabel, '
           '${estadoAbierto ? "abierto" : "cerrado"}',
       excludeSemantics: true,
@@ -638,20 +653,33 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       icon: Icons.contact_phone_outlined,
       children: [
         RyTextField(
-          label: 'Nombre Comercial',
+          label: 'Nombre del Establecimiento',
           prefixIcon: Icons.store_outlined,
           controller: _nombreController,
           isReadOnly: !_isEditing,
           isRequired: true,
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'El nombre comercial es requerido';
+              return 'El nombre del establecimiento es requerido';
             }
             if (value.trim().length < 3) {
               return 'Debe tener al menos 3 caracteres';
             }
             return null;
           },
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyDropdownField<String>(
+          label: 'Tipo de Establecimiento',
+          value: _tipoEstablecimiento,
+          items: const ['matriz', 'sucursal'],
+          itemLabelBuilder: (tipo) =>
+              tipo == 'sucursal' ? 'Sucursal' : 'Matriz',
+          onChanged: (tipo) {
+            if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
+          },
+          isRequired: true,
+          enabled: _isEditing,
         ),
         const SizedBox(height: AppSpacing.spacingMd),
         RyTextField(
@@ -669,6 +697,24 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
             }
             if (value.trim().length != 13) {
               return 'El RUC debe tener exactamente 13 dígitos';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        RyTextField(
+          label: 'Ciudad',
+          prefixIcon: Icons.location_city_outlined,
+          controller: _ciudadController,
+          isReadOnly: !_isEditing,
+          isRequired: true,
+          errorText: _fieldErrors['city'],
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'La ciudad es obligatoria';
+            }
+            if (value.trim().length < 2) {
+              return 'Ingresa una ciudad válida';
             }
             return null;
           },

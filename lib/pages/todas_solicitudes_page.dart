@@ -744,42 +744,58 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SolicitudesProvider>(
-      builder: (context, provider, child) {
-        final solicitudes = provider.solicitudes;
-        final filteredRequests = _filteredRequests(solicitudes);
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.goNamed(RouteNames.home);
+      },
+      child: Consumer<SolicitudesProvider>(
+        builder: (context, provider, child) {
+          final solicitudes = provider.solicitudes;
+          final filteredRequests = _filteredRequests(solicitudes);
 
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: AppBar(
+          return Scaffold(
             backgroundColor: AppColors.background,
-            elevation: 0,
-            title: Text('Mis Solicitudes', style: AppTextStyles.textStyleTitle),
-            iconTheme: const IconThemeData(color: AppColors.onSurface),
-            shape: const Border(
-              bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+            appBar: AppBar(
+              backgroundColor: AppColors.background,
+              elevation: 0,
+              leading: IconButton(
+                tooltip: 'Volver al inicio',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => context.goNamed(RouteNames.home),
+              ),
+              title: Text(
+                'Mis Solicitudes',
+                style: AppTextStyles.textStyleTitle,
+              ),
+              iconTheme: const IconThemeData(color: AppColors.onSurface),
+              shape: const Border(
+                bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
+              ),
             ),
-          ),
-          body: Column(
-            children: [
-              _buildStatusFilters(),
-              _buildSyncBanner(provider),
-              _buildOutboxErrors(),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: () => _recargarConFeedback(provider),
-                  child: _buildRequestList(
-                    provider,
-                    solicitudes,
-                    filteredRequests,
+            body: Column(
+              children: [
+                _buildStatusFilters(),
+                _buildSyncBanner(provider),
+                _buildOutboxErrors(),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => _recargarConFeedback(provider),
+                    child: _buildRequestList(
+                      provider,
+                      solicitudes,
+                      filteredRequests,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: const ClientBottomNavigationBar(currentIndex: 1),
-        );
-      },
+              ],
+            ),
+            bottomNavigationBar: const ClientBottomNavigationBar(
+              currentIndex: 1,
+            ),
+          );
+        },
+      ),
     );
   }
 }

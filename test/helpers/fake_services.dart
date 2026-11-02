@@ -215,6 +215,9 @@ class FakeAlmacenService extends AlmacenService {
   bool respuestaTienePerfil = true;
   Map<String, dynamic>? respuestaMiAlmacen;
   Object? falloAlValidar;
+  Future<void>? bloquearActualizarAlmacen;
+  Object? falloActualizarAlmacen;
+  int actualizarAlmacenCalls = 0;
 
   /// La validación del perfil queda pendiente para siempre (estado de carga).
   bool bloquearValidacion = false;
@@ -233,5 +236,17 @@ class FakeAlmacenService extends AlmacenService {
   @override
   Future<Map<String, dynamic>?> obtenerMiAlmacen() async {
     return respuestaMiAlmacen;
+  }
+
+  @override
+  Future<Map<String, dynamic>> actualizarAlmacen(
+    String id,
+    Map<String, dynamic> data,
+  ) async {
+    actualizarAlmacenCalls++;
+    await bloquearActualizarAlmacen;
+    if (falloActualizarAlmacen != null) throw falloActualizarAlmacen!;
+    respuestaMiAlmacen = {...?respuestaMiAlmacen, ...data};
+    return {...?respuestaMiAlmacen, 'id': id};
   }
 }

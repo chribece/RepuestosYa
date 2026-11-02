@@ -549,13 +549,21 @@ class RyPartCard extends StatelessWidget {
                 children: [
                   Text(
                     partName,
-                    style: AppTextStyles.textStyleTitle,
+                    style: AppTextStyles.textStyleTitle.copyWith(
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (vehicleInfo != null) ...[
                     const SizedBox(height: AppSpacing.spacingXxs),
-                    Text(vehicleInfo!, style: AppTextStyles.textStyleCaption),
+                    Text(
+                      vehicleInfo!,
+                      style: AppTextStyles.textStyleCaption.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                   if (location != null) ...[
                     const SizedBox(height: AppSpacing.spacingXxs),
@@ -570,7 +578,9 @@ class RyPartCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             location!,
-                            style: AppTextStyles.textStyleSmall,
+                            style: AppTextStyles.textStyleSmall.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),

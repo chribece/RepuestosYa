@@ -175,6 +175,14 @@ void main() {
       // ellipsis, sino texto + enlace "Regístrate".
       expect(find.text('¿Aún no tienes cuenta? '), findsOneWidget);
       expect(find.text('Regístrate'), findsOneWidget);
+      expect(find.text('o continuar con'), findsOneWidget);
+      expect(find.text('o'), findsNothing);
+      expect(find.byType(Divider), findsNWidgets(2));
+      expect(find.text('Continuar con Google'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(find.text('o continuar con')).dy,
+        lessThan(tester.getTopLeft(find.text('Continuar con Google')).dy),
+      );
 
       // El footer ("Certificado ISO 9001 | SSL Secure") queda CENTRADO en la
       // pantalla, no pegado a la izquierda (regresión del Wrap).

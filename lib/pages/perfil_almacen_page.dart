@@ -96,6 +96,55 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     super.dispose();
   }
 
+  double? _parseCoordinate(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return null;
+    final coordinate = double.tryParse(normalized);
+    return coordinate != null && coordinate.isFinite ? coordinate : null;
+  }
+
+  bool _validWarehouseCoordinates(double? latitude, double? longitude) {
+    return latitude != null &&
+        longitude != null &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180 &&
+        !(latitude == 0 && longitude == 0);
+  }
+
+  void _setCoordinateControllers(
+    dynamic latitudeValue,
+    dynamic longitudeValue,
+  ) {
+    final latitude = double.tryParse(latitudeValue?.toString() ?? '');
+    final longitude = double.tryParse(longitudeValue?.toString() ?? '');
+    if (_validWarehouseCoordinates(latitude, longitude)) {
+      _latController.text = latitude.toString();
+      _lonController.text = longitude.toString();
+    } else {
+      _latController.clear();
+      _lonController.clear();
+    }
+  }
+
+  String? _validateCoordinatePair(String? _) {
+    if (!_isEditing) return null;
+    final latitudeText = _latController.text.trim();
+    final longitudeText = _lonController.text.trim();
+    if (latitudeText.isEmpty && longitudeText.isEmpty) return null;
+
+    final latitude = _parseCoordinate(latitudeText);
+    final longitude = _parseCoordinate(longitudeText);
+    if (latitude == null || longitude == null) {
+      return 'Ingresa latitud y longitud juntas';
+    }
+    if (!_validWarehouseCoordinates(latitude, longitude)) {
+      return 'Las coordenadas deben ser válidas y no pueden ser 0, 0';
+    }
+    return null;
+  }
+
   Future<void> _cargarAlmacen() async {
     setState(() {
       _isLoading = true;
@@ -115,8 +164,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           _ciudadController.text = almacen['city']?.toString() ?? '';
           _tipoEstablecimiento =
               almacen['tipo_establecimiento']?.toString() ?? 'matriz';
-          _latController.text = (almacen['latitude'] ?? 0).toString();
-          _lonController.text = (almacen['longitude'] ?? 0).toString();
+          _setCoordinateControllers(almacen['latitude'], almacen['longitude']);
           _isLoading = false;
         });
       } else {
@@ -189,9 +237,13 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         'direccion_texto': _direccionController.text.trim(),
         'city': _ciudadController.text.trim(),
         'tipo_establecimiento': _tipoEstablecimiento,
-        'latitude': double.tryParse(_latController.text) ?? 0.0,
-        'longitude': double.tryParse(_lonController.text) ?? 0.0,
       };
+      final latitude = _parseCoordinate(_latController.text);
+      final longitude = _parseCoordinate(_lonController.text);
+      if (_validWarehouseCoordinates(latitude, longitude)) {
+        data['latitude'] = latitude;
+        data['longitude'] = longitude;
+      }
 
       if (_logoFile != null) {
         final userId = _authService.currentUser?.id;
@@ -273,8 +325,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           _almacenData!['tipo_establecimiento']?.toString() ?? 'matriz';
       _logoFile = null;
       _removeLogo = false;
-      _latController.text = (_almacenData!['latitude'] ?? 0).toString();
-      _lonController.text = (_almacenData!['longitude'] ?? 0).toString();
+      _setCoordinateControllers(
+        _almacenData!['latitude'],
+        _almacenData!['longitude'],
+      );
     }
     setState(() => _isEditing = false);
   }
@@ -908,6 +962,13 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     final lat = resultado.latitude;
     final lng = resultado.longitude;
     if (lat == null || lng == null) return;
+    if (!_validWarehouseCoordinates(lat, lng)) {
+      mostrarSnackbarAdvertencia(
+        context,
+        mensaje: 'El GPS devolvió una ubicación no válida. Inténtalo otra vez.',
+      );
+      return;
+    }
 
     setState(() {
       _latController.text = lat.toStringAsFixed(6);
@@ -957,6 +1018,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 controller: _latController,
                 isReadOnly: !_isEditing,
                 type: RyTextFieldType.decimal,
+                validator: _validateCoordinatePair,
               ),
             ),
             const SizedBox(width: AppSpacing.spacingMd),
@@ -967,6 +1029,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 controller: _lonController,
                 isReadOnly: !_isEditing,
                 type: RyTextFieldType.decimal,
+                validator: _validateCoordinatePair,
               ),
             ),
           ],

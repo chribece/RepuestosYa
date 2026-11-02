@@ -175,16 +175,16 @@ void main() {
       find.byKey(const ValueKey('warehouse-top-app-bar')),
     );
     final bell = tester.getRect(find.byType(RyNotificationBell));
-    final estado = tester.getRect(find.text('Abierto'));
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(find.text('RepuestosYa'), findsOneWidget);
     final titulo = tester.renderObject<RenderParagraph>(
-      find.text('REPUESTOSYA'),
+      find.text('RepuestosYa'),
     );
-    expect(bell.left, greaterThanOrEqualTo(estado.right));
     expect(bell.right, lessThanOrEqualTo(header.right));
     expect(titulo.didExceedMaxLines, isFalse);
   });
 
-  testWidgets('AppBar de almacén conserva chip y campana a 800px', (
+  testWidgets('identidad del establecimiento y AppBar se separan a 800px', (
     tester,
   ) async {
     await montarDashboard(
@@ -199,13 +199,52 @@ void main() {
     );
     final bell = tester.getRect(find.byType(RyNotificationBell));
     final estado = tester.getRect(find.text('Abierto'));
-    final titulo = tester.renderObject<RenderParagraph>(
-      find.text('REPUESTOSYA'),
+    final identity = tester.getRect(
+      find.byKey(const ValueKey('warehouse-establishment-identity')),
     );
-    expect(bell.left, greaterThanOrEqualTo(estado.right));
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(find.text('RepuestosYa'), findsOneWidget);
+    expect(find.text('Repuestos Central'), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('warehouse-establishment-logo-avatar')),
+      ),
+      const Size(56, 56),
+    );
+    final titulo = tester.renderObject<RenderParagraph>(
+      find.text('RepuestosYa'),
+    );
+    expect(identity.top, greaterThanOrEqualTo(header.bottom));
+    expect(estado.top, greaterThanOrEqualTo(header.bottom));
     expect(bell.right, lessThanOrEqualTo(header.right));
     expect(bell.height, 48);
     expect(titulo.didExceedMaxLines, isFalse);
+  });
+
+  testWidgets('la cabecera se mantiene despejada en orientación horizontal', (
+    tester,
+  ) async {
+    final errores = await capturarErrores(tester, () async {
+      await montarDashboard(
+        tester,
+        almacen: almacenAprobado(),
+        solicitud: solicitudConDatos(),
+        size: const Size(900, 420),
+      );
+    });
+
+    expect(errores, isEmpty, reason: errores.join('\n'));
+    final appBar = tester.getRect(
+      find.byKey(const ValueKey('warehouse-top-app-bar')),
+    );
+    final identity = tester.getRect(
+      find.byKey(const ValueKey('warehouse-establishment-identity')),
+    );
+    expect(identity.top, greaterThanOrEqualTo(appBar.bottom));
+    expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+    expect(find.text('RepuestosYa'), findsOneWidget);
+    expect(find.text('Repuestos Central'), findsOneWidget);
+    expect(find.byType(RyNotificationBell), findsOneWidget);
   });
 
   testWidgets('cotizaciones enviadas: pull-to-refresh dispara el fetch real', (

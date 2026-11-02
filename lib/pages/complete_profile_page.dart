@@ -76,6 +76,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   double? _lat;
   double? _lng;
   bool get _ubicacionFijada => _lat != null && _lng != null;
+  bool get _ubicacionValida =>
+      _ubicacionFijada &&
+      _lat!.isFinite &&
+      _lng!.isFinite &&
+      _lat! >= -90 &&
+      _lat! <= 90 &&
+      _lng! >= -180 &&
+      _lng! <= 180 &&
+      !(_lat == 0 && _lng == 0);
 
   // Autocompletado de la Dirección desde el mapa (reverse geocoding).
   Timer? _debounceTimer;
@@ -215,10 +224,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     if (!_formKey.currentState!.validate()) return;
 
     // La ubicación en el mapa es obligatoria para un almacén comercial.
-    if (!_ubicacionFijada) {
+    if (!_ubicacionValida) {
       mostrarSnackbarAdvertencia(
         context,
-        mensaje: 'Ubica tu almacén en el mapa antes de continuar.',
+        mensaje: 'Selecciona una ubicación GPS válida antes de continuar.',
       );
       return;
     }

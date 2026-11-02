@@ -1,6 +1,7 @@
 const supabase = require('../services/supabase');
 const { normalizarTelefono, telefonoValido } = require('../utils/phone');
 const { validateImageUrl } = require('../utils/validation');
+const { warehouseCoordinates } = require('../utils/warehouseDistance');
 
 // POST /warehouses (crear almacén)
 const createAlmacen = async (req, res) => {
@@ -83,6 +84,13 @@ const createAlmacen = async (req, res) => {
         message: 'Selecciona Matriz o Sucursal'
       });
     }
+    const coordenadas = warehouseCoordinates({ latitude, longitude });
+    if (!coordenadas) {
+      return res.status(422).json({
+        field: 'ubicacion',
+        message: 'Selecciona una ubicación GPS válida para el establecimiento.'
+      });
+    }
     const logoValidation = await validateImageUrl(logo_url);
     if (!logoValidation.valid) {
       return res.status(422).json({
@@ -119,8 +127,8 @@ const createAlmacen = async (req, res) => {
         p_telefono: telefono,
         p_email: email.trim(),
         p_direccion_texto: normalizedAddress,
-        p_latitude: Number.isFinite(Number(latitude)) ? Number(latitude) : 0,
-        p_longitude: Number.isFinite(Number(longitude)) ? Number(longitude) : 0,
+        p_latitude: coordenadas.latitude,
+        p_longitude: coordenadas.longitude,
         p_city: normalizedCity,
         p_tipo_establecimiento: normalizedEstablishmentType,
         p_logo_url: logoValidation.value
@@ -240,8 +248,17 @@ const updateAlmacen = async (req, res) => {
       }
       updateData.logo_url = logoValidation.value;
     }
-    if (latitude !== undefined) updateData.latitude = latitude;
-    if (longitude !== undefined) updateData.longitude = longitude;
+    if (latitude !== undefined || longitude !== undefined) {
+      const coordenadas = warehouseCoordinates({ latitude, longitude });
+      if (!coordenadas) {
+        return res.status(422).json({
+          field: 'ubicacion',
+          message: 'Ingresa un par de coordenadas GPS válidas para el establecimiento.'
+        });
+      }
+      updateData.latitude = coordenadas.latitude;
+      updateData.longitude = coordenadas.longitude;
+    }
     
     // verificado y verification_status SOLO pueden ser cambiados por admin
     // a través de adminController.actualizarEstadoAlmacen

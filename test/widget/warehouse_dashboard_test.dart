@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,7 +100,7 @@ void main() {
     };
     await pumpDashboard(tester);
 
-    expect(find.text('Matriz · Quito'), findsOneWidget);
+    expect(find.text('Repuestos Central'), findsOneWidget);
     expect(
       find.textContaining('Tu establecimiento está en verificación.'),
       findsOneWidget,
@@ -127,6 +129,28 @@ void main() {
     expect(spinnerSpacing.padding, const EdgeInsets.symmetric(vertical: 64));
   });
 
+  testWidgets('confirma el cierre solo después de guardar el estado', (
+    tester,
+  ) async {
+    final confirmacionBackend = Completer<void>();
+    almacen.bloquearActualizarAlmacen = confirmacionBackend.future;
+    await pumpDashboard(tester);
+
+    await tester.tap(find.text('Abierto'));
+    await tester.pump();
+
+    expect(almacen.actualizarAlmacenCalls, 1);
+    expect(find.text('Abierto'), findsOneWidget);
+    expect(find.text('Establecimiento cerrado temporalmente'), findsNothing);
+
+    confirmacionBackend.complete();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Cerrado'), findsOneWidget);
+    expect(find.text('Establecimiento cerrado temporalmente'), findsOneWidget);
+  });
+
   testWidgets('estado CON DATOS: el feed muestra las solicitudes activas', (
     tester,
   ) async {
@@ -147,14 +171,30 @@ void main() {
     await pumpDashboard(tester);
 
     expect(find.text('Repuestos Central'), findsOneWidget);
-    expect(
-      find.text('Matriz · Quito · Abierto para solicitudes'),
-      findsOneWidget,
-    );
     expect(find.text('Filtro de aceite'), findsOneWidget);
     expect(find.text('Bujías NGK'), findsOneWidget);
+    expect(find.textContaining(' km'), findsNothing);
     expect(find.byType(RyPartCard), findsNWidgets(2));
+    expect(find.text('Urgente'), findsOneWidget);
+    expect(find.text('Sin cotizaciones aún'), findsNWidgets(2));
+    expect(find.text('COTIZAR'), findsNWidgets(2));
     expect(solicitud.solicitudesActivasCalls, 1);
+  });
+
+  testWidgets('formatea a un decimal la distancia georreferenciada recibida', (
+    tester,
+  ) async {
+    solicitud.respuestaActivas = [
+      {
+        'id': 'distance-1',
+        'pieza_nombre': 'Bomba de agua',
+        'created_at': '2026-09-20T10:00:00.000Z',
+        'distancia_km': 12.36,
+      },
+    ];
+    await pumpDashboard(tester);
+
+    expect(find.text('12.4 km'), findsOneWidget);
   });
 
   testWidgets(

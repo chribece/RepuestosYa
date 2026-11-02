@@ -28,6 +28,14 @@ double? parseDistanciaKm(dynamic value) {
   return null;
 }
 
+/// Formato compacto y defensivo para la distancia de una solicitud.
+String? formatearDistanciaKm(dynamic value) {
+  final distancia = parseDistanciaKm(value);
+  if (distancia == null || !distancia.isFinite || distancia < 0) return null;
+  final redondeada = ((distancia * 10) + 1e-9).round() / 10;
+  return '${redondeada.toStringAsFixed(1)} km';
+}
+
 /// Calcula la distancia geodésica entre dos puntos usando la fórmula de
 /// Haversine. Devuelve null si alguna coordenada no es válida.
 double? calcularDistanciaHaversineKm({

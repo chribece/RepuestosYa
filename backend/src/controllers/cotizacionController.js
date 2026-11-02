@@ -5,10 +5,13 @@ const { crearNotificacion } = require('../services/notificacionService');
 const { aceptarCotizacion, rechazarCotizacion, NotFoundError, ForbiddenError, BadRequestError, ConflictError } = require('../services/cotizacionService');
 const { validationError, validateImageUrl } = require('../utils/validation');
 const {
-  validarCoordenadas,
   haversineKm,
   estimarTiempoDespachoMin
 } = require('../utils/geocoding');
+const {
+  requestCoordinates,
+  warehouseCoordinates
+} = require('../utils/warehouseDistance');
 
 // Shape de respuesta con las relaciones que necesita el cliente.
 const COTIZACION_SELECT = '*, almacenes(nombre_comercial)';
@@ -96,30 +99,22 @@ const createCotizacion = async (req, res) => {
     // el punto de entrega para ser viable operativamente. Se calcula desde
     // el snapshot de la solicitud (o la dirección en registros legacy).
     // ============================================================
-    const direccionAnidada = solicitud.direcciones_entrega;
-    const latCliente = solicitud.latitud_entrega !== null && solicitud.latitud_entrega !== undefined
-      ? Number(solicitud.latitud_entrega)
-      : (direccionAnidada && direccionAnidada.latitude !== null ? Number(direccionAnidada.latitude) : null);
-    const lonCliente = solicitud.longitud_entrega !== null && solicitud.longitud_entrega !== undefined
-      ? Number(solicitud.longitud_entrega)
-      : (direccionAnidada && direccionAnidada.longitude !== null ? Number(direccionAnidada.longitude) : null);
-
-    const latAlmacen = almacen.latitude !== null && almacen.latitude !== undefined ? Number(almacen.latitude) : null;
-    const lonAlmacen = almacen.longitude !== null && almacen.longitude !== undefined ? Number(almacen.longitude) : null;
-
-    // Nota: no existe patrón Number(null) aquí — las coordenadas se leen con
-    // guardas explícitas `!== null` antes de Number(). Como defensa adicional,
-    // (0,0) (Golfo de Guinea) se rechaza igual que la ausencia: nunca se
-    // calcula despacho desde coordenadas basura.
-    if (!validarCoordenadas(latCliente, lonCliente) || (latCliente === 0 && lonCliente === 0)) {
+    const coordenadasCliente = requestCoordinates(solicitud);
+    const coordenadasAlmacen = warehouseCoordinates(almacen);
+    if (!coordenadasCliente) {
       return res.status(422).json(validationError('ubicacion', 'La solicitud no tiene una ubicación de entrega verificable. No es posible calcular el despacho; solicita al cliente actualizar su dirección.'));
     }
 
-    if (!validarCoordenadas(latAlmacen, lonAlmacen)) {
+    if (!coordenadasAlmacen) {
       return res.status(422).json(validationError('almacen_id', 'Tu almacén no tiene coordenadas registradas. Actualiza tu ubicación en el perfil del almacén para poder cotizar.'));
     }
 
-    const distanciaKm = haversineKm(latAlmacen, lonAlmacen, latCliente, lonCliente);
+    const distanciaKm = haversineKm(
+      coordenadasAlmacen.latitude,
+      coordenadasAlmacen.longitude,
+      coordenadasCliente.latitude,
+      coordenadasCliente.longitude
+    );
     const tiempoDespachoMin = estimarTiempoDespachoMin(distanciaKm);
 
     const insertData = {

@@ -50,6 +50,20 @@ void main() {
     });
   });
 
+  group('formatearDistanciaKm', () {
+    test('muestra un decimal', () {
+      expect(formatearDistanciaKm(2.84), '2.8 km');
+      expect(formatearDistanciaKm('12.35'), '12.4 km');
+    });
+
+    test('oculta valores nulos, inválidos o negativos', () {
+      expect(formatearDistanciaKm(null), isNull);
+      expect(formatearDistanciaKm('n/a'), isNull);
+      expect(formatearDistanciaKm(double.infinity), isNull);
+      expect(formatearDistanciaKm(-1), isNull);
+    });
+  });
+
   group('ordenarCotizaciones', () {
     Map<String, dynamic> cot({
       String id = 'c',

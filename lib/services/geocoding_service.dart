@@ -379,8 +379,8 @@ class GeocodingService {
 
   /// Parsea el bloque `address` de Nominatim (reverse) a campos del
   /// formulario. Solo se autocompleta dentro de Ecuador (alcance actual);
-  /// busca cruces/vías alternativas para la calle secundaria y conserva los
-  /// barrios y sectores únicamente como referencia.
+  /// busca cruces/vías alternativas para la calle secundaria y usa el sector
+  /// como último respaldo cuando el proveedor no informa otra vía.
   @visibleForTesting
   static DireccionAutocompletada? parse(Map<String, dynamic> address) {
     final countryCode = address['country_code']
@@ -421,14 +421,6 @@ class GeocodingService {
       roadKeys.skip(1),
       excluding: road,
     );
-    String? secondaryRoad;
-    for (final candidate in [explicitCrossStreet, nearbyNamedRoad]) {
-      if (esCalleSecundariaValida(candidate)) {
-        secondaryRoad = candidate!.trim();
-        break;
-      }
-    }
-    final city = _parseCiudad(address);
     final suburb = address['suburb']?.toString().trim();
     final neighbourhood = address['neighbourhood']?.toString().trim();
     final quarter = address['quarter']?.toString().trim();
@@ -439,6 +431,14 @@ class GeocodingService {
         : (quarter != null && quarter.isNotEmpty)
         ? quarter
         : null;
+    String? secondaryRoad;
+    for (final candidate in [explicitCrossStreet, nearbyNamedRoad, area]) {
+      if (esCalleSecundariaValida(candidate)) {
+        secondaryRoad = candidate!.trim();
+        break;
+      }
+    }
+    final city = _parseCiudad(address);
     return DireccionAutocompletada(
       ciudad: city,
       callePrincipal: road,

@@ -14,7 +14,8 @@ const {
  * 1. Coordenadas enviadas por el cliente (GPS del dispositivo, fuente 'gps').
  * 2. Geocodificación server-side del texto de la dirección (fuente 'manual').
  *
- * Devuelve `{ latitude, longitude, coordenadasFuente }` o lanza GeocodingError.
+ * Devuelve coordenadas, fuente y si el geocoder tuvo que usar un punto
+ * aproximado, o lanza GeocodingError.
  */
 async function resolverCoordenadas({ callePrincipal, ciudad, calleSecundaria, referencia, latitude, longitude, coordenadasFuente }) {
   const lat = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
@@ -24,17 +25,19 @@ async function resolverCoordenadas({ callePrincipal, ciudad, calleSecundaria, re
     return {
       latitude: lat,
       longitude: lon,
-      coordenadasFuente: coordenadasFuente === 'manual' ? 'manual' : 'gps'
+      coordenadasFuente: coordenadasFuente === 'manual' ? 'manual' : 'gps',
+      ubicacionAproximada: false
     };
   }
 
   // Sin coordenadas del dispositivo: única vía de degradación controlada,
   // el backend geocodifica antes de aceptar el registro.
   return geocodeDireccion({ callePrincipal, ciudad, calleSecundaria, referencia }).then(
-    ({ latitude: geoLat, longitude: geoLon }) => ({
+    ({ latitude: geoLat, longitude: geoLon, ubicacionAproximada }) => ({
       latitude: geoLat,
       longitude: geoLon,
-      coordenadasFuente: 'manual'
+      coordenadasFuente: 'manual',
+      ubicacionAproximada
     })
   );
 }
@@ -93,6 +96,7 @@ const createDireccion = async (req, res) => {
     let latitud;
     let longitud;
     let fuente;
+    let ubicacionAproximada = false;
     try {
       const coords = await resolverCoordenadas({
         callePrincipal: callePrincipal.trim(),
@@ -106,6 +110,7 @@ const createDireccion = async (req, res) => {
       latitud = coords.latitude;
       longitud = coords.longitude;
       fuente = coords.coordenadasFuente;
+      ubicacionAproximada = coords.ubicacionAproximada;
     } catch (geocodeError) {
       if (geocodeError instanceof GeocodingError) {
         return res.status(422).json(validationError('ubicacion', geocodeError.message));
@@ -134,7 +139,10 @@ const createDireccion = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.status(201).json(direccion);
+    res.status(201).json({
+      ...direccion,
+      ubicacion_aproximada: ubicacionAproximada
+    });
   } catch (error) {
     console.error('Create direccion error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -176,6 +184,7 @@ const updateDireccion = async (req, res) => {
 
     // Construimos el objeto de actualización dinámicamente con los nuevos campos
     const updateData = {};
+    let ubicacionAproximada = false;
     const callePrincipalFinal = callePrincipal && callePrincipal.trim().length > 0
       ? callePrincipal.trim()
       : null;
@@ -222,6 +231,7 @@ const updateDireccion = async (req, res) => {
         updateData.latitude = coords.latitude;
         updateData.longitude = coords.longitude;
         updateData.coordenadas_fuente = coords.coordenadasFuente;
+        ubicacionAproximada = coords.ubicacionAproximada;
       } catch (geocodeError) {
         if (geocodeError instanceof GeocodingError) {
           return res.status(422).json(validationError('ubicacion', geocodeError.message));
@@ -242,7 +252,10 @@ const updateDireccion = async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    res.json(direccion);
+    res.json({
+      ...direccion,
+      ubicacion_aproximada: ubicacionAproximada
+    });
   } catch (error) {
     console.error('Update direccion error:', error);
     res.status(500).json({ error: 'Internal server error' });

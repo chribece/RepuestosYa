@@ -104,7 +104,18 @@ class _AddressesPageState extends State<AddressesPage> {
       ),
     );
 
-    if (resultado != null && mounted) _cargarDirecciones();
+    if (resultado != null && mounted) {
+      if (resultado['ubicacion_aproximada'] == true) {
+        mostrarSnackbarExitoSobrio(
+          context,
+          mensaje:
+              'No encontramos la intersección exacta. Guardamos un pin '
+              'aproximado sobre la calle en esa ciudad; puedes ajustarlo '
+              'editando la ubicación en el mapa.',
+        );
+      }
+      _cargarDirecciones();
+    }
   }
 
   Future<void> _eliminarDireccion(String id) async {

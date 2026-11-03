@@ -30,7 +30,7 @@ let nominatimQueue = Promise.resolve();
 let ultimoInicioNominatim = 0;
 
 const GEOCODING_NOT_FOUND_MESSAGE =
-  'No encontramos una coincidencia precisa de las calles en esa ciudad. Verifica la dirección; no guardamos un pin aproximado.';
+  'No encontramos la calle principal en esa ciudad. Verifica el nombre de la calle y la ciudad.';
 
 class GeocodingError extends Error {
   constructor(message, code = 'GEOCODING_FAILED') {
@@ -228,42 +228,78 @@ function coincideCiudad(resultado, ciudad) {
 
 function coincideConCalles(resultado, callePrincipal, calleSecundaria) {
   const address = resultado.address || {};
-  const vias = [
+  const roadFields = [
     address.road,
     address.pedestrian,
     address.residential,
     address.highway,
+    address.street,
+    address.unclassified,
+    address.tertiary,
+    address.secondary,
+    address.primary,
+    address.service,
     address.footway,
-    address.path,
-    address.secondary_road,
-    resultado.display_name
+    address.path
   ].filter((value) => typeof value === 'string' && value.trim());
 
-  if (!coincideNombreUbicacion(vias, callePrincipal)) return false;
+  if (!coincideNombreUbicacion([...roadFields, resultado.display_name], callePrincipal)) {
+    return false;
+  }
 
-  // Nominatim often returns the matched main road and city, but omits the
-  // crossing street from `addressdetails`. The secondary street still guides
-  // the query; require it only when the provider explicitly reports it.
   const secundariaReportada = [
     address.secondary_road,
     address.crossing,
-    address.intersection
+    address.cross_street,
+    address.cross_street_name,
+    address.street_2,
+    address.road_2,
+    address.intersection,
+    ...roadFields.filter((via) =>
+      normalizarNombreVia(via) !== normalizarNombreVia(callePrincipal)
+    )
   ].filter((value) => typeof value === 'string' && value.trim());
   return secundariaReportada.length === 0
     ? true
     : coincideNombreUbicacion(secundariaReportada, calleSecundaria);
 }
 
+function coincideCalleSecundariaReportada(resultado, calleSecundaria) {
+  if (!calleSecundaria) return false;
+  const address = resultado.address || {};
+  const vias = [
+    address.secondary_road,
+    address.crossing,
+    address.cross_street,
+    address.cross_street_name,
+    address.street_2,
+    address.road_2,
+    address.intersection,
+    address.road,
+    address.pedestrian,
+    address.residential,
+    address.highway,
+    address.street,
+    address.unclassified,
+    address.tertiary,
+    address.secondary,
+    address.primary,
+    address.service,
+    resultado.display_name
+  ].filter((value) => typeof value === 'string' && value.trim());
+
+  return coincideNombreUbicacion(vias, calleSecundaria);
+}
+
 /**
  * Geocodifica una dirección textual contra Nominatim (OpenStreetMap),
  * restringida al país configurado.
  *
- * Prueba primero la calle y ciudad, y luego agrega referencia u otras
- * variantes. Así una referencia escrita manualmente no impide guardar una
- * dirección que Nominatim sí reconoce por su vía principal y ciudad.
+ * Prioriza la intersección de ambas vías y, si no está disponible, permite
+ * un punto aproximado sobre la calle principal dentro de la ciudad.
  *
  * @param {{callePrincipal: string, ciudad?: string, calleSecundaria?: string, referencia?: string}} direccion
- * @returns {Promise<{latitude: number, longitude: number, displayName: string}>}
+ * @returns {Promise<{latitude: number, longitude: number, displayName: string, ubicacionAproximada: boolean}>}
  * @throws {GeocodingError} si la dirección no es resoluble en el país
  *   configurado, el servicio falla o tarda demasiado.
  */
@@ -284,12 +320,12 @@ async function geocodeDireccion(direccion) {
   const ciudadLimpia = typeof ciudad === 'string' ? ciudad.trim() : '';
   const queries = [];
 
-  // Try the two streets as an intersection first, without reference text
-  // that can overconstrain Nominatim. Then progressively simplify the query.
+  // Ask for the crossing first; references can distract free-form geocoders
+  // from the intersection point.
   if (secundaria) {
     queries.push(
       [
-        `${principal} y ${secundaria}`,
+        `${principal} & ${secundaria}`,
         ciudadLimpia,
         pais
       ].filter(Boolean).join(', ')
@@ -307,8 +343,10 @@ async function geocodeDireccion(direccion) {
     queries.push([principal, pais].join(', '));
   }
   const queriesUnicas = [...new Set(queries)];
+  let ubicacionAproximada = null;
 
-  for (const query of queriesUnicas) {
+  for (let queryIndex = 0; queryIndex < queriesUnicas.length; queryIndex += 1) {
+    const query = queriesUnicas[queryIndex];
     const resultados = await buscarEnNominatim(query);
     if (resultados.length === 0) continue;
 
@@ -325,13 +363,27 @@ async function geocodeDireccion(direccion) {
       if (!coincideCiudad(resultado, ciudadLimpia)) continue;
       if (!coincideConCalles(resultado, principal, secundaria)) continue;
 
-      return {
+      const ubicacion = {
         latitude,
         longitude,
-        displayName: resultado.display_name || null
+        displayName: resultado.display_name || null,
+        ubicacionAproximada: !coincideCalleSecundariaReportada(
+          resultado,
+          secundaria
+        )
       };
+      if (!ubicacion.ubicacionAproximada) return ubicacion;
+      if (!ubicacionAproximada) ubicacionAproximada = ubicacion;
+    }
+
+    if (queryIndex === queriesUnicas.length - 1 && ubicacionAproximada) {
+      return ubicacionAproximada;
     }
   }
+
+  // If the provider cannot resolve the crossing, keep a matching point on the
+  // requested main road in the specified city rather than rejecting the form.
+  if (ubicacionAproximada) return ubicacionAproximada;
 
   throw new GeocodingError(GEOCODING_NOT_FOUND_MESSAGE, 'GEOCODING_NOT_FOUND');
 }

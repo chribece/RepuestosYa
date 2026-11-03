@@ -37,7 +37,7 @@ void main() {
     expect(resultado.referencia, 'Iñaquito');
   });
 
-  test('conserva el sector como referencia, no como calle secundaria', () {
+  test('usa el sector como calle secundaria cuando no hay otra vía', () {
     final resultado = GeocodingService.parse({
       'road': 'Av. Amazonas',
       'neighbourhood': 'Iñaquito',
@@ -45,8 +45,21 @@ void main() {
     });
 
     expect(resultado, isNotNull);
-    expect(resultado!.calleSecundaria, isNull);
+    expect(resultado!.calleSecundaria, 'Iñaquito');
     expect(resultado.referencia, 'Iñaquito');
+  });
+
+  test('usa suburb/neighbourhood como respaldo de la calle secundaria', () {
+    final resultado = GeocodingService.parse({
+      'road': 'Av. 6 de Diciembre',
+      'neighbourhood': 'La Carolina',
+      'city': 'Quito',
+      'country_code': 'ec',
+    });
+
+    expect(resultado, isNotNull);
+    expect(resultado!.callePrincipal, 'Av. 6 de Diciembre');
+    expect(resultado.calleSecundaria, 'La Carolina');
   });
 
   test('no acepta un barrio detectado como ciudad', () {
@@ -93,7 +106,7 @@ void main() {
     });
 
     expect(resultado, isNotNull);
-    expect(resultado!.calleSecundaria, isNull);
+    expect(resultado!.calleSecundaria, 'San Isidro del Inca');
     expect(resultado.referencia, 'San Isidro del Inca');
   });
 
@@ -162,7 +175,7 @@ void main() {
 
     expect(resultado, isNotNull);
     expect(resultado!.callePrincipal, isNull);
-    expect(resultado.calleSecundaria, isNull);
+    expect(resultado.calleSecundaria, 'La Carolina');
     expect(resultado.referencia, 'La Carolina');
   });
 

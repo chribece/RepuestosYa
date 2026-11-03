@@ -11,6 +11,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/api_error_handler.dart';
 import '../utils/ry_snackbar.dart';
 import 'ry_button.dart';
 import 'ry_location_picker.dart';
@@ -392,7 +393,13 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _guardando = false);
-      mostrarSnackbarError(context, mensaje: 'Error al guardar dirección: $e');
+      final validationErrors = ApiErrorHandler.mapValidationErrors(e);
+      mostrarSnackbarError(
+        context,
+        mensaje:
+            validationErrors['ubicacion'] ??
+            'No se pudo guardar la dirección: ${ApiErrorHandler.userMessage(e)}',
+      );
     }
   }
 

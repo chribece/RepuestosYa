@@ -31,7 +31,7 @@ class DireccionAutocompletada {
 /// proveedor con API key (Google/Mapbox) sin romper el resto del flujo —
 /// mismo criterio que el geocoding del backend. El resultado solo prellena
 /// los campos del formulario; la validación dura sigue siendo la del backend
-/// al guardar (forward geocoding restringido a Quito).
+/// al guardar (forward geocoding restringido al país y ciudad registrados).
 class GeocodingService {
   static const Map<String, String> _ciudadesEcuador = {
     'quito': 'Quito',

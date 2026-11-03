@@ -1,18 +1,15 @@
 /**
  * Utilidades de geolocalización para el flujo obligatorio de ubicación.
  *
- * ALCANCE ACTUAL: SOLO QUITO. El campo opcional `ciudad` ayuda a precisar la
- * búsqueda textual, pero el resultado sigue restringido al viewbox de Quito.
+ * Alcance: Ecuador. La ciudad indicada por el usuario participa en las
+ * búsquedas manuales y Nominatim restringe los resultados por country code.
  *
  * - geocodeDireccion: geocodifica server-side la dirección textual del
  *   cliente vía Nominatim (OpenStreetMap) cuando el GPS del dispositivo está
  *   inoperable (hardware roto, permiso permanentemente denegado tras agotar
  *   el flujo de reintento/Ajustes). Es la única vía de degradación
  *   controlada: el registro NUNCA se guarda sin coordenadas de algún origen.
- *   Las búsquedas se limitan al viewbox del Distrito Metropolitano de Quito
- *   (`bounded=1`) y, como doble check, las coordenadas devueltas se validan
- *   dentro de esa caja antes de aceptarlas; fuera de Quito se rechaza como
- *   "no encontrado" (422 con field 'ubicacion').
+ *   Las búsquedas respetan el país configurado y la ciudad indicada.
  * - haversineKm / estimarTiempoDespachoMin: distancia real (km) y tiempo de
  *   despacho estimado (min) entre el almacén y el punto de entrega, usados
  *   por el backend al crear una cotización.
@@ -23,26 +20,17 @@
  */
 
 const GEOCODING_TIMEOUT_MS = 8000;
+const NOMINATIM_MIN_INTERVAL_MS = 1000;
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_USER_AGENT = 'RepuestosYaApp/1.0 (soporte@repuestosya.com)';
 const RADIO_TIERRA_KM = 6371;
 const VELOCIDAD_PROMEDIO_KMH = 30; // Traslado urbano conservador
 const TIEMPO_PREPARACION_MIN = 20; // Alistamiento/embalaje antes del traslado
+let nominatimQueue = Promise.resolve();
+let ultimoInicioNominatim = 0;
 
-// Viewbox del Distrito Metropolitano de Quito (límites oficiales de OSM,
-// relación 113714, verificado contra el boundingbox y el polígono de
-// Nominatim el 2026-09-19). Formato Nominatim: viewbox=left,top,right,bottom.
-const QUITO_VIEWBOX = {
-  minLat: -0.5956779,
-  maxLat: 0.2562735,
-  minLon: -78.9476819,
-  maxLon: -78.1649035
-};
-
-// Mensaje único para direcciones que no se pueden ubicar DENTRO de Quito
-// (no encontradas o fuera del viewbox). Se mapea a 422 con field 'ubicacion'.
-const GEOCODING_FUERA_DE_QUITO_MESSAGE =
-  'No pudimos ubicar esa dirección dentro de Quito. Verifica el texto ingresado.';
+const GEOCODING_NOT_FOUND_MESSAGE =
+  'No pudimos ubicar esa dirección en Ecuador. Verifica la ciudad y la calle ingresadas.';
 
 class GeocodingError extends Error {
   constructor(message, code = 'GEOCODING_FAILED') {
@@ -68,24 +56,6 @@ function validarCoordenadas(latitude, longitude) {
   if (latitude < -90 || latitude > 90) return false;
   if (longitude < -180 || longitude > 180) return false;
   return true;
-}
-
-/**
- * Verifica que un par de coordenadas caiga dentro del viewbox del
- * Distrito Metropolitano de Quito (doble check sobre la respuesta de
- * Nominatim: no se confía solo en el parámetro bounded=1).
- * @param {number} latitude
- * @param {number} longitude
- * @returns {boolean}
- */
-function dentroDeViewboxQuito(latitude, longitude) {
-  if (!validarCoordenadas(latitude, longitude)) return false;
-  return (
-    latitude >= QUITO_VIEWBOX.minLat &&
-    latitude <= QUITO_VIEWBOX.maxLat &&
-    longitude >= QUITO_VIEWBOX.minLon &&
-    longitude <= QUITO_VIEWBOX.maxLon
-  );
 }
 
 /**
@@ -132,27 +102,19 @@ function formatearDireccionParaGeocoding({ callePrincipal, ciudad, calleSecundar
 
 /**
  * Ejecuta una búsqueda simple contra Nominatim y devuelve los resultados.
- * La búsqueda está acotada al viewbox del Distrito Metropolitano de Quito
- * (bounded=1): solo se consideran resultados dentro de esa caja.
+ * La búsqueda se limita al país configurado (`countrycodes`, Ecuador por
+ * defecto); no usa un viewbox urbano fijo para admitir otras ciudades.
  * Lanza GeocodingError si el servicio responde con error o tarda demasiado.
  */
 async function buscarEnNominatim(query) {
-  // Formato Nominatim: viewbox=left,top,right,bottom (lon_min,lat_max,lon_max,lat_min)
-  const viewbox = [
-    QUITO_VIEWBOX.minLon,
-    QUITO_VIEWBOX.maxLat,
-    QUITO_VIEWBOX.maxLon,
-    QUITO_VIEWBOX.minLat
-  ].join(',');
-
+  await esperarTurnoNominatim();
   const params = new URLSearchParams({
     q: query,
     format: 'json',
     limit: '1',
+    addressdetails: '1',
     countrycodes: process.env.GEOCODING_COUNTRYCODES || 'ec',
-    'accept-language': 'es',
-    viewbox,
-    bounded: '1'
+    'accept-language': 'es'
   });
 
   const controller = new AbortController();
@@ -193,23 +155,39 @@ async function buscarEnNominatim(query) {
   }
 }
 
+async function esperarTurnoNominatim() {
+  let liberarTurno;
+  const turno = new Promise((resolve) => {
+    liberarTurno = resolve;
+  });
+  const turnoAnterior = nominatimQueue;
+  nominatimQueue = turno;
+  await turnoAnterior;
+
+  try {
+    const espera = NOMINATIM_MIN_INTERVAL_MS -
+      (Date.now() - ultimoInicioNominatim);
+    if (espera > 0) {
+      await new Promise((resolve) => setTimeout(resolve, espera));
+    }
+    ultimoInicioNominatim = Date.now();
+  } finally {
+    liberarTurno();
+  }
+}
+
 /**
  * Geocodifica una dirección textual contra Nominatim (OpenStreetMap),
- * restringida al Distrito Metropolitano de Quito.
+ * restringida al país configurado.
  *
- * Estrategia de búsqueda:
- * 1. Texto completo (calles + referencia + país), para capturar la precisión
- *    de la referencia cuando el buscador la entiende.
- * 2. Fallback a la calle principal + país, que es el formato más confiable
- *    (las intersecciones tipo "Calle A y Calle B" no son resolubles).
- * Ambos intentos usan el mismo viewbox de Quito (bounded=1) y el resultado
- * se valida en código dentro de la caja; fuera de ella se rechaza como
- * "no encontrado" (mismo mensaje de error).
+ * Prueba primero la calle y ciudad, y luego agrega referencia u otras
+ * variantes. Así una referencia escrita manualmente no impide guardar una
+ * dirección que Nominatim sí reconoce por su vía principal y ciudad.
  *
  * @param {{callePrincipal: string, ciudad?: string, calleSecundaria?: string, referencia?: string}} direccion
  * @returns {Promise<{latitude: number, longitude: number, displayName: string}>}
- * @throws {GeocodingError} si la dirección no es resoluble (incluye fuera de
- *   Quito), el servicio falla o tarda demasiado.
+ * @throws {GeocodingError} si la dirección no es resoluble en el país
+ *   configurado, el servicio falla o tarda demasiado.
  */
 async function geocodeDireccion(direccion) {
   const { callePrincipal, ciudad, calleSecundaria, referencia } = direccion;
@@ -218,20 +196,41 @@ async function geocodeDireccion(direccion) {
   }
 
   const pais = process.env.GEOCODING_COUNTRY || 'Ecuador';
-  const partesCompletas = [callePrincipal.trim(), calleSecundaria && calleSecundaria.trim(), referencia && referencia.trim(), ciudad && ciudad.trim()]
-    .filter((p) => typeof p === 'string' && p.length > 0);
-
+  const principal = callePrincipal.trim();
+  const secundaria = typeof calleSecundaria === 'string'
+    ? calleSecundaria.trim()
+    : '';
+  const referenciaLimpia = typeof referencia === 'string'
+    ? referencia.trim()
+    : '';
+  const ciudadLimpia = typeof ciudad === 'string' ? ciudad.trim() : '';
   const queries = [];
-  if (partesCompletas.length > 1) {
-    queries.push([...partesCompletas, pais].join(', '));
-  }
-  queries.push(
-    [callePrincipal.trim(), ciudad && ciudad.trim(), pais]
-      .filter(Boolean)
-      .join(', ')
-  );
 
-  for (const query of queries) {
+  // Try the two streets as an intersection first, without reference text
+  // that can overconstrain Nominatim. Then progressively simplify the query.
+  if (secundaria) {
+    queries.push(
+      [
+        `${principal} y ${secundaria}`,
+        ciudadLimpia,
+        pais
+      ].filter(Boolean).join(', ')
+    );
+  }
+  if (secundaria || referenciaLimpia) {
+    queries.push(
+      [principal, secundaria, referenciaLimpia, ciudadLimpia, pais]
+        .filter(Boolean)
+        .join(', ')
+    );
+  }
+  queries.push([principal, ciudadLimpia, pais].filter(Boolean).join(', '));
+  if (!ciudadLimpia) {
+    queries.push([principal, pais].join(', '));
+  }
+  const queriesUnicas = [...new Set(queries)];
+
+  for (const query of queriesUnicas) {
     const resultados = await buscarEnNominatim(query);
     if (resultados.length === 0) continue;
 
@@ -246,10 +245,12 @@ async function geocodeDireccion(direccion) {
       );
     }
 
-    // Doble check: aunque la petición usó bounded=1, se valida en código que
-    // el resultado caiga dentro del viewbox de Quito. Fuera → "no encontrado".
-    if (!dentroDeViewboxQuito(latitude, longitude)) {
-      throw new GeocodingError(GEOCODING_FUERA_DE_QUITO_MESSAGE, 'GEOCODING_NOT_FOUND');
+    const countryCode = mejor.address?.country_code?.toLowerCase();
+    const allowedCountryCodes = (
+      process.env.GEOCODING_COUNTRYCODES || 'ec'
+    ).split(',').map((code) => code.trim().toLowerCase());
+    if (countryCode && !allowedCountryCodes.includes(countryCode)) {
+      continue;
     }
 
     return {
@@ -259,17 +260,13 @@ async function geocodeDireccion(direccion) {
     };
   }
 
-  // Sin resultados dentro de Quito (o dirección inexistente): mismo mensaje
-  // de rechazo, mapeado a 422 con field 'ubicacion' por los controladores.
-  throw new GeocodingError(GEOCODING_FUERA_DE_QUITO_MESSAGE, 'GEOCODING_NOT_FOUND');
+  throw new GeocodingError(GEOCODING_NOT_FOUND_MESSAGE, 'GEOCODING_NOT_FOUND');
 }
 
 module.exports = {
   GeocodingError,
   validarCoordenadas,
-  dentroDeViewboxQuito,
-  QUITO_VIEWBOX,
-  GEOCODING_FUERA_DE_QUITO_MESSAGE,
+  GEOCODING_NOT_FOUND_MESSAGE,
   haversineKm,
   estimarTiempoDespachoMin,
   formatearDireccionParaGeocoding,

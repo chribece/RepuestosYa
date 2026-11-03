@@ -569,11 +569,12 @@ class _AddressDialogState extends State<AddressDialog> {
       }
     } catch (e) {
       if (mounted) {
+        final validationErrors = ApiErrorHandler.mapValidationErrors(e);
         mostrarSnackbarError(
           context,
-          mensaje:
-              'Error al guardar la dirección: '
-              '${ApiErrorHandler.userMessage(e)}',
+          mensaje: validationErrors['ubicacion'] ??
+              'No se pudo guardar la dirección: '
+                  '${ApiErrorHandler.userMessage(e)}',
         );
       }
     } finally {

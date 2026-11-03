@@ -239,10 +239,19 @@ function coincideConCalles(resultado, callePrincipal, calleSecundaria) {
     resultado.display_name
   ].filter((value) => typeof value === 'string' && value.trim());
 
-  return (
-    coincideNombreUbicacion(vias, callePrincipal) &&
-    coincideNombreUbicacion(vias, calleSecundaria)
-  );
+  if (!coincideNombreUbicacion(vias, callePrincipal)) return false;
+
+  // Nominatim often returns the matched main road and city, but omits the
+  // crossing street from `addressdetails`. The secondary street still guides
+  // the query; require it only when the provider explicitly reports it.
+  const secundariaReportada = [
+    address.secondary_road,
+    address.crossing,
+    address.intersection
+  ].filter((value) => typeof value === 'string' && value.trim());
+  return secundariaReportada.length === 0
+    ? true
+    : coincideNombreUbicacion(secundariaReportada, calleSecundaria);
 }
 
 /**

@@ -52,6 +52,37 @@ test('geocodifica dirección manual con calle secundaria, referencia y ciudad', 
   }
 });
 
+test('acepta la coincidencia de calle y ciudad cuando Nominatim omite la transversal', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => [{
+      lat: '-0.20',
+      lon: '-78.50',
+      display_name: 'Calle Venezuela, Quito, Ecuador',
+      address: {
+        country_code: 'ec',
+        road: 'Venezuela',
+        city: 'Quito'
+      }
+    }]
+  });
+
+  try {
+    const result = await geocodeDireccion({
+      callePrincipal: 'Venezuela',
+      calleSecundaria: 'Buenos Aires',
+      referencia: 'diagonal al mercado América',
+      ciudad: 'Quito'
+    });
+
+    assert.equal(result.latitude, -0.2);
+    assert.equal(result.longitude, -78.5);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('acepta ciudades ecuatorianas distintas de Quito', async () => {
   const originalFetch = global.fetch;
   global.fetch = async () => ({

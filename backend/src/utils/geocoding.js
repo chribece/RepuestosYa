@@ -30,7 +30,7 @@ let nominatimQueue = Promise.resolve();
 let ultimoInicioNominatim = 0;
 
 const GEOCODING_NOT_FOUND_MESSAGE =
-  'No pudimos ubicar esa dirección en Ecuador. Verifica la ciudad y la calle ingresadas.';
+  'No encontramos una coincidencia precisa de las calles en esa ciudad. Verifica la dirección; no guardamos un pin aproximado.';
 
 class GeocodingError extends Error {
   constructor(message, code = 'GEOCODING_FAILED') {
@@ -111,7 +111,7 @@ async function buscarEnNominatim(query) {
   const params = new URLSearchParams({
     q: query,
     format: 'json',
-    limit: '1',
+    limit: '5',
     addressdetails: '1',
     countrycodes: process.env.GEOCODING_COUNTRYCODES || 'ec',
     'accept-language': 'es'
@@ -176,6 +176,75 @@ async function esperarTurnoNominatim() {
   }
 }
 
+function normalizarTextoUbicacion(value) {
+  return typeof value === 'string'
+    ? value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ')
+    : '';
+}
+
+function normalizarNombreVia(value) {
+  return normalizarTextoUbicacion(value)
+    .replace(/\b(avenida|av|calle|cl|callejon|via|carretera)\b/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function coincideNombreUbicacion(candidatos, solicitado) {
+  const objetivo = normalizarNombreVia(solicitado);
+  if (!objetivo) return true;
+  return candidatos.some((candidato) => {
+    const nombre = normalizarNombreVia(candidato);
+    return nombre && (nombre === objetivo || nombre.includes(objetivo));
+  });
+}
+
+function coincideCiudad(resultado, ciudad) {
+  const objetivo = normalizarTextoUbicacion(ciudad);
+  if (!objetivo) return true;
+
+  const address = resultado.address || {};
+  const candidatos = [
+    address.city,
+    address.town,
+    address.village,
+    address.municipality,
+    address.city_district,
+    address.county,
+    resultado.display_name
+  ].filter((value) => typeof value === 'string' && value.trim());
+
+  return candidatos.some((candidato) => {
+    const nombre = normalizarTextoUbicacion(candidato);
+    return nombre &&
+      (nombre === objetivo || nombre.includes(objetivo) || objetivo.includes(nombre));
+  });
+}
+
+function coincideConCalles(resultado, callePrincipal, calleSecundaria) {
+  const address = resultado.address || {};
+  const vias = [
+    address.road,
+    address.pedestrian,
+    address.residential,
+    address.highway,
+    address.footway,
+    address.path,
+    address.secondary_road,
+    resultado.display_name
+  ].filter((value) => typeof value === 'string' && value.trim());
+
+  return (
+    coincideNombreUbicacion(vias, callePrincipal) &&
+    coincideNombreUbicacion(vias, calleSecundaria)
+  );
+}
+
 /**
  * Geocodifica una dirección textual contra Nominatim (OpenStreetMap),
  * restringida al país configurado.
@@ -234,30 +303,25 @@ async function geocodeDireccion(direccion) {
     const resultados = await buscarEnNominatim(query);
     if (resultados.length === 0) continue;
 
-    const mejor = resultados[0];
-    const latitude = parseFloat(mejor.lat);
-    const longitude = parseFloat(mejor.lon);
-
-    if (!validarCoordenadas(latitude, longitude)) {
-      throw new GeocodingError(
-        'La ubicación obtenida no es válida. Intenta con otra dirección o activa el GPS.',
-        'GEOCODING_INVALID'
-      );
-    }
-
-    const countryCode = mejor.address?.country_code?.toLowerCase();
     const allowedCountryCodes = (
       process.env.GEOCODING_COUNTRYCODES || 'ec'
     ).split(',').map((code) => code.trim().toLowerCase());
-    if (countryCode && !allowedCountryCodes.includes(countryCode)) {
-      continue;
-    }
+    for (const resultado of resultados) {
+      const latitude = parseFloat(resultado.lat);
+      const longitude = parseFloat(resultado.lon);
+      if (!validarCoordenadas(latitude, longitude)) continue;
 
-    return {
-      latitude,
-      longitude,
-      displayName: mejor.display_name || null
-    };
+      const countryCode = resultado.address?.country_code?.toLowerCase();
+      if (countryCode && !allowedCountryCodes.includes(countryCode)) continue;
+      if (!coincideCiudad(resultado, ciudadLimpia)) continue;
+      if (!coincideConCalles(resultado, principal, secundaria)) continue;
+
+      return {
+        latitude,
+        longitude,
+        displayName: resultado.display_name || null
+      };
+    }
   }
 
   throw new GeocodingError(GEOCODING_NOT_FOUND_MESSAGE, 'GEOCODING_NOT_FOUND');

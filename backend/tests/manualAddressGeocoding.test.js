@@ -20,8 +20,13 @@ test('geocodifica dirección manual con calle secundaria, referencia y ciudad', 
         : [{
           lat: '-0.20',
           lon: '-78.50',
-          display_name: 'Calle Venezuela, Quito, Ecuador',
-          address: { country_code: 'ec' }
+          display_name: 'Calle Venezuela y Buenos Aires, Quito, Ecuador',
+          address: {
+            country_code: 'ec',
+            road: 'Venezuela',
+            secondary_road: 'Buenos Aires',
+            city: 'Quito'
+          }
         }]
     };
   };
@@ -37,7 +42,7 @@ test('geocodifica dirección manual con calle secundaria, referencia y ciudad', 
     assert.deepEqual(result, {
       latitude: -0.2,
       longitude: -78.5,
-      displayName: 'Calle Venezuela, Quito, Ecuador'
+      displayName: 'Calle Venezuela y Buenos Aires, Quito, Ecuador'
     });
     assert.equal(queries.length, 3);
     assert.equal(queries[0], 'Venezuela y Buenos Aires, Quito, Ecuador');
@@ -87,6 +92,33 @@ test('rechaza resultados fuera del país permitido', async () => {
     await assert.rejects(
       geocodeDireccion({
         callePrincipal: 'Calle',
+        ciudad: 'Quito'
+      }),
+      (error) => error instanceof GeocodingError &&
+        error.code === 'GEOCODING_NOT_FOUND'
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('no acepta un punto genérico de ciudad sin coincidencia de calle', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => [{
+      lat: '-0.20',
+      lon: '-78.50',
+      display_name: 'Quito, Ecuador',
+      address: { country_code: 'ec', city: 'Quito' }
+    }]
+  });
+
+  try {
+    await assert.rejects(
+      geocodeDireccion({
+        callePrincipal: 'Venezuela',
+        calleSecundaria: 'Buenos Aires',
         ciudad: 'Quito'
       }),
       (error) => error instanceof GeocodingError &&

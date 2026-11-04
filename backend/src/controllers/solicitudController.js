@@ -99,6 +99,7 @@ async function resolverCoordenadasEntrega({ direccion, latitude, longitude, coor
 
   // Degradación controlada: geocodificar el texto de la dirección.
   const geocodificada = await geocodeDireccion({
+    ciudad: direccion.ciudad,
     callePrincipal: direccion.calle_principal,
     calleSecundaria: direccion.calle_secundaria,
     referencia: direccion.referencia
@@ -384,7 +385,7 @@ const createSolicitud = async (req, res) => {
     // almacén sugerido; nunca se guarda una solicitud sin ellas.
     const { data: direccion, error: direccionError } = await supabase
       .from('direcciones_entrega')
-      .select('id, cliente_id, calle_principal, calle_secundaria, referencia, latitude, longitude, coordenadas_fuente')
+      .select('id, cliente_id, ciudad, calle_principal, calle_secundaria, referencia, latitude, longitude, coordenadas_fuente')
       .eq('id', direccion_entrega_id)
       .maybeSingle();
 

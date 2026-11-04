@@ -6,6 +6,8 @@ const {
 const {
   GeocodingError,
   validarCoordenadas,
+  limpiarTextoDireccion,
+  normalizarCamposDireccion,
   geocodeDireccion
 } = require('../utils/geocoding');
 
@@ -32,7 +34,19 @@ async function resolverCoordenadas({ callePrincipal, ciudad, calleSecundaria, re
 
   // Sin coordenadas del dispositivo: única vía de degradación controlada,
   // el backend geocodifica antes de aceptar el registro.
-  return geocodeDireccion({ callePrincipal, ciudad, calleSecundaria, referencia }).then(
+  const direccionLimpia = normalizarCamposDireccion({
+    callePrincipal,
+    ciudad,
+    calleSecundaria,
+    referencia
+  });
+  if (!direccionLimpia.ciudad) {
+    throw new GeocodingError(
+      'Indica la ciudad para ubicar la dirección manualmente.',
+      'GEOCODING_CITY_REQUIRED'
+    );
+  }
+  return geocodeDireccion(direccionLimpia).then(
     ({ latitude: geoLat, longitude: geoLon, ubicacionAproximada }) => ({
       latitude: geoLat,
       longitude: geoLon,
@@ -76,14 +90,26 @@ const createDireccion = async (req, res) => {
       longitude,
       coordenadasFuente
     } = req.body;
-    const ciudadNormalizada = typeof ciudad === 'string' ? ciudad.trim() : '';
+    const aliasLimpio = limpiarTextoDireccion(alias);
+    const campos = normalizarCamposDireccion({
+      ciudad,
+      callePrincipal,
+      calleSecundaria,
+      referencia
+    });
+    const {
+      ciudad: ciudadNormalizada,
+      callePrincipal: callePrincipalLimpia,
+      calleSecundaria: calleSecundariaLimpia,
+      referencia: referenciaLimpia
+    } = campos;
 
     // 2. Validación de campos obligatorios según el nuevo diseño del formulario
     const errors = [];
-    if (!alias || !alias.trim()) {
+    if (!aliasLimpio) {
       errors.push({ field: 'alias', message: 'El alias (ej. Casa) es obligatorio.' });
     }
-    if (!callePrincipal || !callePrincipal.trim()) {
+    if (!callePrincipalLimpia) {
       errors.push({ field: 'callePrincipal', message: 'La calle principal es obligatoria.' });
     }
     if (errors.length > 0) {
@@ -99,10 +125,10 @@ const createDireccion = async (req, res) => {
     let ubicacionAproximada = false;
     try {
       const coords = await resolverCoordenadas({
-        callePrincipal: callePrincipal.trim(),
+        callePrincipal: callePrincipalLimpia,
         ciudad: ciudadNormalizada || undefined,
-        calleSecundaria,
-        referencia,
+        calleSecundaria: calleSecundariaLimpia,
+        referencia: referenciaLimpia,
         latitude,
         longitude,
         coordenadasFuente
@@ -123,11 +149,11 @@ const createDireccion = async (req, res) => {
       .from('direcciones_entrega')
       .insert({
         cliente_id: req.user.id,
-        alias: alias.trim(),
-        calle_principal: callePrincipal.trim(),
+        alias: aliasLimpio,
+        calle_principal: callePrincipalLimpia,
         ciudad: ciudadNormalizada || null,
-        calle_secundaria: calleSecundaria && calleSecundaria.trim().length > 0 ? calleSecundaria.trim() : null,
-        referencia: referencia && referencia.trim().length > 0 ? referencia.trim() : null,
+        calle_secundaria: calleSecundariaLimpia || null,
+        referencia: referenciaLimpia || null,
         latitude: latitud,
         longitude: longitud,
         coordenadas_fuente: fuente
@@ -164,9 +190,6 @@ const updateDireccion = async (req, res) => {
       longitude,
       coordenadasFuente
     } = req.body;
-    const ciudadNormalizada =
-      typeof ciudad === 'string' ? ciudad.trim() : ciudad;
-
     // Verificar pertenencia del registro (Seguridad)
     const { data: existing, error: checkError } = await supabase
       .from('direcciones_entrega')
@@ -185,23 +208,53 @@ const updateDireccion = async (req, res) => {
     // Construimos el objeto de actualización dinámicamente con los nuevos campos
     const updateData = {};
     let ubicacionAproximada = false;
-    const callePrincipalFinal = callePrincipal && callePrincipal.trim().length > 0
-      ? callePrincipal.trim()
-      : null;
-    const calleSecundariaFinal = calleSecundaria !== undefined
-      ? (calleSecundaria && calleSecundaria.trim().length > 0 ? calleSecundaria.trim() : null)
-      : undefined;
-    const referenciaFinal = referencia !== undefined
-      ? (referencia && referencia.trim().length > 0 ? referencia.trim() : null)
-      : undefined;
+    const aliasLimpio = limpiarTextoDireccion(alias);
+    const camposFinales = normalizarCamposDireccion({
+      callePrincipal:
+        limpiarTextoDireccion(callePrincipal) || existing.calle_principal,
+      ciudad: ciudad !== undefined ? ciudad : existing.ciudad,
+      calleSecundaria:
+        calleSecundaria !== undefined
+          ? calleSecundaria
+          : existing.calle_secundaria,
+      referencia: referencia !== undefined ? referencia : existing.referencia
+    });
+    const callePrincipalFinal =
+      callePrincipal !== undefined && limpiarTextoDireccion(callePrincipal)
+        ? camposFinales.callePrincipal
+        : null;
+    const calleSecundariaFinal =
+      calleSecundaria !== undefined
+        ? camposFinales.calleSecundaria || null
+        : undefined;
+    const referenciaFinal =
+      referencia !== undefined
+        ? camposFinales.referencia || null
+        : undefined;
+    const secundariaExistenteLimpia = limpiarTextoDireccion(
+      existing.calle_secundaria
+    );
+    const referenciaExistenteLimpia = limpiarTextoDireccion(
+      existing.referencia
+    );
 
-    if (alias) updateData.alias = alias.trim();
+    if (aliasLimpio) updateData.alias = aliasLimpio;
     if (callePrincipalFinal) updateData.calle_principal = callePrincipalFinal;
     if (ciudad !== undefined) {
-      updateData.ciudad = ciudadNormalizada || null;
+      updateData.ciudad = camposFinales.ciudad || null;
     }
-    if (calleSecundariaFinal !== undefined) updateData.calle_secundaria = calleSecundariaFinal;
-    if (referenciaFinal !== undefined) updateData.referencia = referenciaFinal;
+    if (
+      calleSecundariaFinal !== undefined ||
+      camposFinales.calleSecundaria !== secundariaExistenteLimpia
+    ) {
+      updateData.calle_secundaria = camposFinales.calleSecundaria || null;
+    }
+    if (
+      referenciaFinal !== undefined ||
+      camposFinales.referencia !== referenciaExistenteLimpia
+    ) {
+      updateData.referencia = camposFinales.referencia || null;
+    }
 
     // Coordenadas: si el cliente envía GPS se usan; si el texto de la
     // dirección cambió y no hay coordenadas, se re-geocodifica server-side
@@ -214,19 +267,17 @@ const updateDireccion = async (req, res) => {
       updateData.longitude = lon;
       updateData.coordenadas_fuente = coordenadasFuente === 'manual' ? 'manual' : 'gps';
     } else if (
-      updateData.calle_principal ||
-      updateData.ciudad !== undefined ||
-      updateData.calle_secundaria !== undefined ||
-      updateData.referencia !== undefined
+      callePrincipal !== undefined ||
+      ciudad !== undefined ||
+      calleSecundaria !== undefined ||
+      referencia !== undefined
     ) {
       try {
         const coords = await resolverCoordenadas({
-          callePrincipal: callePrincipalFinal || existing.calle_principal,
-          ciudad: updateData.ciudad !== undefined
-            ? updateData.ciudad
-            : existing.ciudad,
-          calleSecundaria: calleSecundariaFinal !== undefined ? calleSecundariaFinal : existing.calle_secundaria,
-          referencia: referenciaFinal !== undefined ? referenciaFinal : existing.referencia
+          callePrincipal: camposFinales.callePrincipal,
+          ciudad: camposFinales.ciudad,
+          calleSecundaria: camposFinales.calleSecundaria,
+          referencia: camposFinales.referencia
         });
         updateData.latitude = coords.latitude;
         updateData.longitude = coords.longitude;

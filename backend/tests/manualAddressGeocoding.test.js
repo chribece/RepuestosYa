@@ -4,7 +4,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   GeocodingError,
-  geocodeDireccion
+  geocodeDireccion,
+  normalizarCamposDireccion
 } = require('../src/utils/geocoding');
 
 test('geocodifica dirección manual con calle secundaria, referencia y ciudad', async () => {
@@ -47,13 +48,16 @@ test('geocodifica dirección manual con calle secundaria, referencia y ciudad', 
     });
     assert.equal(queries.length, 3);
     assert.equal(queries[0], 'Venezuela & Buenos Aires, Quito, Ecuador');
-    assert.equal(queries[2], 'Venezuela, Quito, Ecuador');
+    assert.equal(
+      queries[2],
+      'Venezuela, Buenos Aires, diagonal al mercado América, Quito, Ecuador'
+    );
   } finally {
     global.fetch = originalFetch;
   }
 });
 
-test('acepta la coincidencia de calle y ciudad cuando Nominatim omite la transversal', async () => {
+test('rechaza resultados que solo coinciden con la calle principal', async () => {
   const originalFetch = global.fetch;
   global.fetch = async () => ({
     ok: true,
@@ -70,22 +74,55 @@ test('acepta la coincidencia de calle y ciudad cuando Nominatim omite la transve
   });
 
   try {
-    const result = await geocodeDireccion({
-      callePrincipal: 'Venezuela',
-      calleSecundaria: 'Buenos Aires',
-      referencia: 'diagonal al mercado América',
-      ciudad: 'Quito'
-    });
-
-    assert.equal(result.latitude, -0.2);
-    assert.equal(result.longitude, -78.5);
-    assert.equal(result.ubicacionAproximada, true);
+    await assert.rejects(
+      geocodeDireccion({
+        callePrincipal: 'Venezuela',
+        calleSecundaria: 'Buenos Aires',
+        referencia: 'diagonal al mercado América',
+        ciudad: 'Quito'
+      }),
+      (error) => error instanceof GeocodingError &&
+        error.code === 'GEOCODING_NOT_FOUND' &&
+        error.message.includes('cruce exacto')
+    );
   } finally {
     global.fetch = originalFetch;
   }
 });
 
-test('usa un punto de la calle principal en la ciudad como respaldo aproximado', async () => {
+test('rechaza un cruce reportado con una calle secundaria distinta', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => [{
+      lat: '-0.20',
+      lon: '-78.50',
+      display_name: 'Venezuela y otra calle, Quito, Ecuador',
+      address: {
+        country_code: 'ec',
+        road: 'Venezuela',
+        secondary_road: 'Otra calle',
+        city: 'Quito'
+      }
+    }]
+  });
+
+  try {
+    await assert.rejects(
+      geocodeDireccion({
+        callePrincipal: 'Venezuela',
+        calleSecundaria: 'Buenos Aires',
+        ciudad: 'Quito'
+      }),
+      (error) => error instanceof GeocodingError &&
+        error.code === 'GEOCODING_NOT_FOUND'
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('no usa un punto aproximado cuando se indica una calle secundaria', async () => {
   const originalFetch = global.fetch;
   const queries = [];
   global.fetch = async (url) => {
@@ -108,15 +145,15 @@ test('usa un punto de la calle principal en la ciudad como respaldo aproximado',
   };
 
   try {
-    const result = await geocodeDireccion({
-      callePrincipal: 'Venezuela',
-      calleSecundaria: 'Buenos Aires',
-      ciudad: 'Quito'
-    });
-
-    assert.equal(result.latitude, -0.201);
-    assert.equal(result.longitude, -78.501);
-    assert.equal(result.ubicacionAproximada, true);
+    await assert.rejects(
+      geocodeDireccion({
+        callePrincipal: 'Venezuela',
+        calleSecundaria: 'Buenos Aires',
+        ciudad: 'Quito'
+      }),
+      (error) => error instanceof GeocodingError &&
+        error.code === 'GEOCODING_NOT_FOUND'
+    );
     assert.equal(queries[0], 'Venezuela & Buenos Aires, Quito, Ecuador');
   } finally {
     global.fetch = originalFetch;
@@ -190,6 +227,47 @@ test('acepta ciudades ecuatorianas distintas de Quito', async () => {
     });
     assert.equal(result.latitude, -2.17);
     assert.equal(result.longitude, -79.92);
+    assert.equal(result.ubicacionAproximada, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('limpia espacios y elimina referencias o calles secundarias duplicadas', () => {
+  assert.deepEqual(
+    normalizarCamposDireccion({
+      ciudad: '  Quito   ',
+      callePrincipal: ' Av. 10  de Agosto ',
+      calleSecundaria: 'av. 10 de agosto',
+      referencia: ' Sector AV.   10 de Agosto '
+    }),
+    {
+      ciudad: 'Quito',
+      callePrincipal: 'Av. 10 de Agosto',
+      calleSecundaria: '',
+      referencia: ''
+    }
+  );
+});
+
+test('exige ciudad para validar un cruce de dos calles', async () => {
+  const originalFetch = global.fetch;
+  let llamada = false;
+  global.fetch = async () => {
+    llamada = true;
+    throw new Error('No debe consultar el proveedor sin ciudad');
+  };
+
+  try {
+    await assert.rejects(
+      geocodeDireccion({
+        callePrincipal: 'Venezuela',
+        calleSecundaria: 'Buenos Aires'
+      }),
+      (error) => error instanceof GeocodingError &&
+        error.code === 'GEOCODING_CITY_REQUIRED'
+    );
+    assert.equal(llamada, false);
   } finally {
     global.fetch = originalFetch;
   }

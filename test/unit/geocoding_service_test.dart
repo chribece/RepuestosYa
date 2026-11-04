@@ -46,7 +46,7 @@ void main() {
 
     expect(resultado, isNotNull);
     expect(resultado!.calleSecundaria, 'Iñaquito');
-    expect(resultado.referencia, 'Iñaquito');
+    expect(resultado.referencia, isNull);
   });
 
   test('usa suburb/neighbourhood como respaldo de la calle secundaria', () {
@@ -107,7 +107,7 @@ void main() {
 
     expect(resultado, isNotNull);
     expect(resultado!.calleSecundaria, 'San Isidro del Inca');
-    expect(resultado.referencia, 'San Isidro del Inca');
+    expect(resultado.referencia, isNull);
   });
 
   test(
@@ -176,7 +176,21 @@ void main() {
     expect(resultado, isNotNull);
     expect(resultado!.callePrincipal, isNull);
     expect(resultado.calleSecundaria, 'La Carolina');
-    expect(resultado.referencia, 'La Carolina');
+    expect(resultado.referencia, isNull);
+  });
+
+  test('limpia espacios y elimina campos de dirección duplicados', () {
+    final campos = GeocodingService.normalizarCamposDireccion(
+      ciudad: '  Quito  ',
+      callePrincipal: ' Av. 10  de Agosto ',
+      calleSecundaria: 'av. 10 de agosto',
+      referencia: ' Sector Av.   10 de Agosto ',
+    );
+
+    expect(campos.ciudad, 'Quito');
+    expect(campos.callePrincipal, 'Av. 10 de Agosto');
+    expect(campos.calleSecundaria, isEmpty);
+    expect(campos.referencia, isEmpty);
   });
 
   test('country_code ausente → null (no autocompletar sin contexto)', () {

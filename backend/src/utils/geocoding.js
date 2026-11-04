@@ -93,9 +93,18 @@ function estimarTiempoDespachoMin(distanciaKm) {
  * @returns {string}
  */
 function formatearDireccionParaGeocoding({ callePrincipal, ciudad, calleSecundaria, referencia }) {
-  const partes = [callePrincipal, calleSecundaria, referencia, ciudad].filter(
-    (p) => typeof p === 'string' && p.trim().length > 0
-  );
+  const campos = normalizarCamposDireccion({
+    callePrincipal,
+    ciudad,
+    calleSecundaria,
+    referencia
+  });
+  const partes = [
+    campos.callePrincipal,
+    campos.calleSecundaria,
+    campos.referencia,
+    campos.ciudad
+  ].filter(Boolean);
   const pais = process.env.GEOCODING_COUNTRY || 'Ecuador';
   return [...partes, pais].join(', ');
 }
@@ -188,6 +197,44 @@ function normalizarTextoUbicacion(value) {
     : '';
 }
 
+function limpiarTextoDireccion(value) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+}
+
+function claveTextoDireccion(value) {
+  return normalizarTextoUbicacion(limpiarTextoDireccion(value))
+    .replace(/^(sector|barrio|urbanizacion|lotizacion|conjunto|ciudadela)\s+/, '')
+    .replace(/\b(avenida|av|calle|cl|callejon|via|carretera)\b/g, ' ')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizarCamposDireccion(direccion = {}) {
+  const principal = limpiarTextoDireccion(direccion.callePrincipal);
+  let secundaria = limpiarTextoDireccion(direccion.calleSecundaria);
+  let referencia = limpiarTextoDireccion(direccion.referencia);
+  const principalKey = claveTextoDireccion(principal);
+
+  if (principalKey && principalKey === claveTextoDireccion(secundaria)) {
+    secundaria = '';
+  }
+  const referenciaKey = claveTextoDireccion(referencia);
+  if (
+    referenciaKey &&
+    (referenciaKey === principalKey ||
+      referenciaKey === claveTextoDireccion(secundaria) ||
+      referenciaKey === claveTextoDireccion(direccion.calleSecundaria))
+  ) {
+    referencia = '';
+  }
+
+  return {
+    ciudad: limpiarTextoDireccion(direccion.ciudad),
+    callePrincipal: principal,
+    calleSecundaria: secundaria,
+    referencia
+  };
+}
+
 function normalizarNombreVia(value) {
   return normalizarTextoUbicacion(value)
     .replace(/\b(avenida|av|calle|cl|callejon|via|carretera)\b/g, ' ')
@@ -216,13 +263,14 @@ function coincideCiudad(resultado, ciudad) {
     address.municipality,
     address.city_district,
     address.county,
-    resultado.display_name
+    ...(typeof resultado.display_name === 'string'
+      ? resultado.display_name.split(',')
+      : [])
   ].filter((value) => typeof value === 'string' && value.trim());
 
   return candidatos.some((candidato) => {
     const nombre = normalizarTextoUbicacion(candidato);
-    return nombre &&
-      (nombre === objetivo || nombre.includes(objetivo) || objetivo.includes(nombre));
+    return nombre === objetivo;
   });
 }
 
@@ -288,15 +336,23 @@ function coincideCalleSecundariaReportada(resultado, calleSecundaria) {
     resultado.display_name
   ].filter((value) => typeof value === 'string' && value.trim());
 
-  return coincideNombreUbicacion(vias, calleSecundaria);
+  const solicitada = normalizarNombreVia(calleSecundaria);
+  if (!solicitada) return false;
+  return vias.some((via) => {
+    const partes = via
+      .split(/[,;]/)
+      .flatMap((parte) => parte.split(/\s+(?:y|and|con|&)\s+|\s*\/\s*/i));
+    return partes.some((parte) => normalizarNombreVia(parte) === solicitada);
+  });
 }
 
 /**
  * Geocodifica una dirección textual contra Nominatim (OpenStreetMap),
  * restringida al país configurado.
  *
- * Prioriza la intersección de ambas vías y, si no está disponible, permite
- * un punto aproximado sobre la calle principal dentro de la ciudad.
+ * Si se indican ambas vías, solo devuelve resultados que reportan ambas
+ * dentro de la ciudad. Sin calle secundaria, admite un punto aproximado en la
+ * calle principal.
  *
  * @param {{callePrincipal: string, ciudad?: string, calleSecundaria?: string, referencia?: string}} direccion
  * @returns {Promise<{latitude: number, longitude: number, displayName: string, ubicacionAproximada: boolean}>}
@@ -304,20 +360,25 @@ function coincideCalleSecundariaReportada(resultado, calleSecundaria) {
  *   configurado, el servicio falla o tarda demasiado.
  */
 async function geocodeDireccion(direccion) {
-  const { callePrincipal, ciudad, calleSecundaria, referencia } = direccion;
-  if (!callePrincipal || !callePrincipal.trim()) {
+  const campos = normalizarCamposDireccion(direccion);
+  const {
+    callePrincipal,
+    ciudad: ciudadLimpia,
+    calleSecundaria: secundaria,
+    referencia: referenciaLimpia
+  } = campos;
+  if (!callePrincipal) {
     throw new GeocodingError('La dirección está vacía y no se puede ubicar.');
   }
 
   const pais = process.env.GEOCODING_COUNTRY || 'Ecuador';
-  const principal = callePrincipal.trim();
-  const secundaria = typeof calleSecundaria === 'string'
-    ? calleSecundaria.trim()
-    : '';
-  const referenciaLimpia = typeof referencia === 'string'
-    ? referencia.trim()
-    : '';
-  const ciudadLimpia = typeof ciudad === 'string' ? ciudad.trim() : '';
+  const principal = callePrincipal;
+  if (secundaria && !ciudadLimpia) {
+    throw new GeocodingError(
+      'Indica la ciudad para validar la intersección de las dos calles.',
+      'GEOCODING_CITY_REQUIRED'
+    );
+  }
   const queries = [];
 
   // Ask for the crossing first; references can distract free-form geocoders
@@ -330,6 +391,13 @@ async function geocodeDireccion(direccion) {
         pais
       ].filter(Boolean).join(', ')
     );
+    queries.push(
+      [
+        `${principal} y ${secundaria}`,
+        ciudadLimpia,
+        pais
+      ].filter(Boolean).join(', ')
+    );
   }
   if (secundaria || referenciaLimpia) {
     queries.push(
@@ -338,15 +406,15 @@ async function geocodeDireccion(direccion) {
         .join(', ')
     );
   }
-  queries.push([principal, ciudadLimpia, pais].filter(Boolean).join(', '));
-  if (!ciudadLimpia) {
-    queries.push([principal, pais].join(', '));
+  if (!secundaria) {
+    queries.push([principal, ciudadLimpia, pais].filter(Boolean).join(', '));
+    if (!ciudadLimpia) {
+      queries.push([principal, pais].join(', '));
+    }
   }
   const queriesUnicas = [...new Set(queries)];
-  let ubicacionAproximada = null;
 
-  for (let queryIndex = 0; queryIndex < queriesUnicas.length; queryIndex += 1) {
-    const query = queriesUnicas[queryIndex];
+  for (const query of queriesUnicas) {
     const resultados = await buscarEnNominatim(query);
     if (resultados.length === 0) continue;
 
@@ -363,28 +431,34 @@ async function geocodeDireccion(direccion) {
       if (!coincideCiudad(resultado, ciudadLimpia)) continue;
       if (!coincideConCalles(resultado, principal, secundaria)) continue;
 
+      const coincideViaPrincipal = coincideCalleSecundariaReportada(
+        resultado,
+        principal
+      );
+      const coincideViaSecundaria = coincideCalleSecundariaReportada(
+        resultado,
+        secundaria
+      );
+      if (secundaria && (!coincideViaPrincipal || !coincideViaSecundaria)) {
+        continue;
+      }
+
       const ubicacion = {
         latitude,
         longitude,
         displayName: resultado.display_name || null,
-        ubicacionAproximada: !coincideCalleSecundariaReportada(
-          resultado,
-          secundaria
-        )
+        ubicacionAproximada: !secundaria
       };
-      if (!ubicacion.ubicacionAproximada) return ubicacion;
-      if (!ubicacionAproximada) ubicacionAproximada = ubicacion;
-    }
-
-    if (queryIndex === queriesUnicas.length - 1 && ubicacionAproximada) {
-      return ubicacionAproximada;
+      return ubicacion;
     }
   }
 
-  // If the provider cannot resolve the crossing, keep a matching point on the
-  // requested main road in the specified city rather than rejecting the form.
-  if (ubicacionAproximada) return ubicacionAproximada;
-
+  if (secundaria) {
+    throw new GeocodingError(
+      'No encontramos el cruce exacto de las dos calles dentro de esa ciudad. Verifica los nombres de ambas vías.',
+      'GEOCODING_NOT_FOUND'
+    );
+  }
   throw new GeocodingError(GEOCODING_NOT_FOUND_MESSAGE, 'GEOCODING_NOT_FOUND');
 }
 
@@ -392,6 +466,8 @@ module.exports = {
   GeocodingError,
   validarCoordenadas,
   GEOCODING_NOT_FOUND_MESSAGE,
+  limpiarTextoDireccion,
+  normalizarCamposDireccion,
   haversineKm,
   estimarTiempoDespachoMin,
   formatearDireccionParaGeocoding,

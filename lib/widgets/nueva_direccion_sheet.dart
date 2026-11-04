@@ -103,20 +103,20 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     super.initState();
     final direccion = widget.direccion;
     if (direccion != null) {
-      _aliasController.text = direccion['alias']?.toString() ?? '';
+      final campos = GeocodingService.normalizarCamposDireccion(
+        ciudad: direccion['ciudad']?.toString() ?? '',
+        callePrincipal: direccion['calle_principal']?.toString() ?? '',
+        calleSecundaria: direccion['calle_secundaria']?.toString() ?? '',
+        referencia: direccion['referencia']?.toString() ?? '',
+      );
+      _aliasController.text = GeocodingService.limpiarTextoDireccion(
+        direccion['alias']?.toString(),
+      );
       _ciudadController.text =
-          GeocodingService.ciudadEcuadorValida(
-            direccion['ciudad']?.toString(),
-          ) ??
-          '';
-      _callePrincipalController.text =
-          direccion['calle_principal']?.toString() ?? '';
-      final calleSecundariaGuardada = direccion['calle_secundaria']?.toString();
-      _calleSecundariaController.text =
-          GeocodingService.esCalleSecundariaValida(calleSecundariaGuardada)
-          ? calleSecundariaGuardada!.trim()
-          : '';
-      _referenciaController.text = direccion['referencia']?.toString() ?? '';
+          GeocodingService.ciudadEcuadorValida(campos.ciudad) ?? campos.ciudad;
+      _callePrincipalController.text = campos.callePrincipal;
+      _calleSecundariaController.text = campos.calleSecundaria;
+      _referenciaController.text = campos.referencia;
       _coordsLat = double.tryParse(direccion['latitude']?.toString() ?? '');
       _coordsLng = double.tryParse(direccion['longitude']?.toString() ?? '');
       if (_coordsLat != null && _coordsLng != null) {
@@ -254,6 +254,12 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     setState(() {
       _aplicandoAutocompletado = true;
       _calleSecundariaController.text = calleSecundaria!.trim();
+      if (GeocodingService.mismosCamposDireccion(
+        _referenciaController.text,
+        calleSecundaria,
+      )) {
+        _referenciaController.clear();
+      }
       _aplicandoAutocompletado = false;
     });
   }
@@ -272,27 +278,34 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     );
     if (!mounted || seq != _autocompletarSeq) return;
 
+    final campos = resultado == null
+        ? null
+        : GeocodingService.normalizarCamposDireccion(
+            ciudad: resultado.ciudad ?? _ciudadController.text,
+            callePrincipal:
+                resultado.callePrincipal ?? _callePrincipalController.text,
+            calleSecundaria: resultado.calleSecundaria ?? '',
+            referencia: resultado.referencia ?? '',
+          );
+
     setState(() {
       _autocompletando = false;
       if (resultado == null) return; // degradación: escribir a mano
 
       _aplicandoAutocompletado = true;
       if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
-        _ciudadController.text = resultado.ciudad!;
+        _ciudadController.text = campos!.ciudad;
       }
       if (!_calleEditadaPorUsuario &&
           resultado.callePrincipal != null &&
           resultado.callePrincipal!.isNotEmpty) {
-        _callePrincipalController.text = resultado.callePrincipal!;
+        _callePrincipalController.text = campos!.callePrincipal;
       }
-      if (!_calleSecundariaEditadaPorUsuario &&
-          GeocodingService.esCalleSecundariaValida(resultado.calleSecundaria)) {
-        _calleSecundariaController.text = resultado.calleSecundaria!.trim();
+      if (!_calleSecundariaEditadaPorUsuario) {
+        _calleSecundariaController.text = campos!.calleSecundaria;
       }
-      if (!_referenciaEditadaPorUsuario &&
-          resultado.referencia != null &&
-          resultado.referencia!.isNotEmpty) {
-        _referenciaController.text = resultado.referencia!;
+      if (!_referenciaEditadaPorUsuario) {
+        _referenciaController.text = campos!.referencia;
       }
       _aplicandoAutocompletado = false;
     });
@@ -352,6 +365,12 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
 
   Future<void> _guardar() async {
     if (!_puedeGuardar || !_formKey.currentState!.validate()) return;
+    final campos = GeocodingService.normalizarCamposDireccion(
+      ciudad: _ciudadController.text,
+      callePrincipal: _callePrincipalController.text,
+      calleSecundaria: _calleSecundariaController.text,
+      referencia: _referenciaController.text,
+    );
     setState(() => _guardando = true);
     try {
       final direccionEditada =
@@ -363,11 +382,13 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       final enviarCoordenadas = _coordenadasConfirmadas && !direccionEditada;
       final nueva = widget.direccion == null
           ? await widget.direccionService.createDireccion(
-              alias: _aliasController.text.trim(),
-              ciudad: _ciudadController.text.trim(),
-              callePrincipal: _callePrincipalController.text.trim(),
-              calleSecundaria: _calleSecundariaController.text.trim(),
-              referencia: _referenciaController.text.trim(),
+              alias: GeocodingService.limpiarTextoDireccion(
+                _aliasController.text,
+              ),
+              ciudad: campos.ciudad,
+              callePrincipal: campos.callePrincipal,
+              calleSecundaria: campos.calleSecundaria,
+              referencia: campos.referencia,
               // Sin coordenadas, el backend geocodifica la dirección manual.
               latitude: enviarCoordenadas ? _coordsLat : null,
               longitude: enviarCoordenadas ? _coordsLng : null,
@@ -377,11 +398,13 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
             )
           : await widget.direccionService.updateDireccion(
               id: widget.direccion!['id']?.toString() ?? '',
-              alias: _aliasController.text.trim(),
-              ciudad: _ciudadController.text.trim(),
-              callePrincipal: _callePrincipalController.text.trim(),
-              calleSecundaria: _calleSecundariaController.text.trim(),
-              referencia: _referenciaController.text.trim(),
+              alias: GeocodingService.limpiarTextoDireccion(
+                _aliasController.text,
+              ),
+              ciudad: campos.ciudad,
+              callePrincipal: campos.callePrincipal,
+              calleSecundaria: campos.calleSecundaria,
+              referencia: campos.referencia,
               latitude: enviarCoordenadas ? _coordsLat : null,
               longitude: enviarCoordenadas ? _coordsLng : null,
               coordenadasFuente: enviarCoordenadas

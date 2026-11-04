@@ -1,5 +1,6 @@
 import '../utils/api_error_handler.dart';
 import 'api_client.dart';
+import 'geocoding_service.dart';
 
 class DireccionService {
   final ApiClient _apiClient = ApiClient();
@@ -33,19 +34,25 @@ class DireccionService {
     String? coordenadasFuente,
   }) async {
     try {
+      final campos = GeocodingService.normalizarCamposDireccion(
+        ciudad: ciudad ?? '',
+        callePrincipal: callePrincipal,
+        calleSecundaria: calleSecundaria ?? '',
+        referencia: referencia ?? '',
+      );
       final data = <String, dynamic>{
-        'alias': alias,
-        'callePrincipal': callePrincipal,
+        'alias': GeocodingService.limpiarTextoDireccion(alias),
+        'callePrincipal': campos.callePrincipal,
       };
 
-      if (ciudad != null && ciudad.trim().isNotEmpty) {
-        data['ciudad'] = ciudad.trim();
+      if (campos.ciudad.isNotEmpty) {
+        data['ciudad'] = campos.ciudad;
       }
-      if (calleSecundaria != null && calleSecundaria.trim().isNotEmpty) {
-        data['calleSecundaria'] = calleSecundaria;
+      if (campos.calleSecundaria.isNotEmpty) {
+        data['calleSecundaria'] = campos.calleSecundaria;
       }
-      if (referencia != null && referencia.trim().isNotEmpty) {
-        data['referencia'] = referencia;
+      if (campos.referencia.isNotEmpty) {
+        data['referencia'] = campos.referencia;
       }
       if (latitude != null && longitude != null) {
         data['latitude'] = latitude;
@@ -79,24 +86,29 @@ class DireccionService {
     String? coordenadasFuente,
   }) async {
     try {
+      final campos = GeocodingService.normalizarCamposDireccion(
+        ciudad: ciudad ?? '',
+        callePrincipal: callePrincipal ?? '',
+        calleSecundaria: calleSecundaria ?? '',
+        referencia: referencia ?? '',
+      );
       final data = <String, dynamic>{};
 
-      if (alias != null && alias.trim().isNotEmpty) {
-        data['alias'] = alias.trim();
+      final aliasLimpio = GeocodingService.limpiarTextoDireccion(alias);
+      if (aliasLimpio.isNotEmpty) {
+        data['alias'] = aliasLimpio;
       }
-      if (callePrincipal != null && callePrincipal.trim().isNotEmpty) {
-        data['callePrincipal'] = callePrincipal.trim();
+      if (callePrincipal != null && campos.callePrincipal.isNotEmpty) {
+        data['callePrincipal'] = campos.callePrincipal;
       }
-      if (ciudad != null && ciudad.trim().isNotEmpty) {
-        data['ciudad'] = ciudad.trim();
+      if (ciudad != null && campos.ciudad.isNotEmpty) {
+        data['ciudad'] = campos.ciudad;
       }
       if (calleSecundaria != null) {
-        data['calleSecundaria'] = calleSecundaria.trim().isEmpty
-            ? ''
-            : calleSecundaria.trim();
+        data['calleSecundaria'] = campos.calleSecundaria;
       }
       if (referencia != null) {
-        data['referencia'] = referencia.trim().isEmpty ? '' : referencia.trim();
+        data['referencia'] = campos.referencia;
       }
       if (latitude != null && longitude != null) {
         data['latitude'] = latitude;

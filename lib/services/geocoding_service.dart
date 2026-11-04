@@ -33,6 +33,61 @@ class DireccionAutocompletada {
 /// los campos del formulario; la validación dura sigue siendo la del backend
 /// al guardar (forward geocoding restringido al país y ciudad registrados).
 class GeocodingService {
+  static String limpiarTextoDireccion(String? value) =>
+      value?.trim().replaceAll(RegExp(r'\s+'), ' ') ?? '';
+
+  static String _claveTextoDireccion(String? value) =>
+      _normalizarTextoGeografico(limpiarTextoDireccion(value))
+          .replaceFirst(
+            RegExp(
+              r'^(sector|barrio|urbanizacion|lotizacion|conjunto|ciudadela)\s+',
+            ),
+            '',
+          )
+          .replaceAll(
+            RegExp(r'\b(avenida|av|calle|cl|callejon|via|carretera)\b'),
+            ' ',
+          )
+          .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+
+  static bool mismosCamposDireccion(String? first, String? second) {
+    final firstKey = _claveTextoDireccion(first);
+    return firstKey.isNotEmpty && firstKey == _claveTextoDireccion(second);
+  }
+
+  static ({
+    String ciudad,
+    String callePrincipal,
+    String calleSecundaria,
+    String referencia,
+  })
+  normalizarCamposDireccion({
+    required String ciudad,
+    required String callePrincipal,
+    required String calleSecundaria,
+    required String referencia,
+  }) {
+    final ciudadLimpia = limpiarTextoDireccion(ciudad);
+    final principalLimpia = limpiarTextoDireccion(callePrincipal);
+    var secundariaLimpia = limpiarTextoDireccion(calleSecundaria);
+    var referenciaLimpia = limpiarTextoDireccion(referencia);
+
+    if (mismosCamposDireccion(principalLimpia, secundariaLimpia)) {
+      secundariaLimpia = '';
+    }
+    if (mismosCamposDireccion(referenciaLimpia, principalLimpia) ||
+        mismosCamposDireccion(referenciaLimpia, secundariaLimpia)) {
+      referenciaLimpia = '';
+    }
+
+    return (
+      ciudad: ciudadLimpia,
+      callePrincipal: principalLimpia,
+      calleSecundaria: secundariaLimpia,
+      referencia: referenciaLimpia,
+    );
+  }
+
   static const Map<String, String> _ciudadesEcuador = {
     'quito': 'Quito',
     'distrito metropolitano de quito': 'Quito',
@@ -165,7 +220,15 @@ class GeocodingService {
       callePrincipal: resultado.callePrincipal,
       calleSecundaria: calleCercana,
       sector: resultado.sector,
-      referencia: resultado.referencia ?? resultado.sector,
+      referencia:
+          resultado.referencia != null &&
+              !mismosCamposDireccion(resultado.referencia, calleCercana) &&
+              !mismosCamposDireccion(
+                resultado.referencia,
+                resultado.callePrincipal,
+              )
+          ? resultado.referencia
+          : null,
     );
   }
 
@@ -444,7 +507,12 @@ class GeocodingService {
       callePrincipal: road,
       calleSecundaria: secondaryRoad,
       sector: area,
-      referencia: area,
+      referencia:
+          area != null &&
+              !mismosCamposDireccion(area, road) &&
+              !mismosCamposDireccion(area, secondaryRoad)
+          ? area
+          : null,
     );
   }
 

@@ -109,9 +109,8 @@ class _AddressesPageState extends State<AddressesPage> {
         mostrarSnackbarExitoSobrio(
           context,
           mensaje:
-              'No encontramos la intersección exacta. Guardamos un pin '
-              'aproximado sobre la calle en esa ciudad; puedes ajustarlo '
-              'editando la ubicación en el mapa.',
+              'La ubicación manual se guardó con un pin aproximado sobre '
+              'la calle en esa ciudad; puedes ajustarlo desde el mapa.',
         );
       }
       _cargarDirecciones();

@@ -12,7 +12,6 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
-import '../utils/ry_snackbar.dart';
 import 'ry_button.dart';
 import 'ry_location_picker.dart';
 import 'ry_text_field.dart';
@@ -87,6 +86,10 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   bool _calleSecundariaEditadaPorUsuario = false;
   bool _referenciaEditadaPorUsuario = false;
   bool _autocompletando = false; // indicador en vivo
+  bool _obteniendoGps = false;
+  bool _avisoCamposPendientes = false;
+  String? _aviso; // error de GPS o de geocodificación, visible en el sheet
+  String? _errorGuardado; // error al guardar, visible sobre las acciones
 
   bool get _coordenadasConfirmadas => _coordsLat != null && _coordsLng != null;
 
@@ -193,11 +196,26 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   }
 
   Future<void> _usarUbicacionActual() async {
+    if (_obteniendoGps) return;
+    setState(() {
+      _obteniendoGps = true;
+      _aviso = null;
+    });
     // Reutiliza UbicacionService + los diálogos del flujo principal
     // (progreso, Reintentar, Abrir Ajustes, Usar dirección manual).
-    final resultado = await widget.resolverUbicacion();
+    late final UbicacionResultado resultado;
+    try {
+      resultado = await widget.resolverUbicacion();
+    } catch (_) {
+      resultado = const UbicacionResultado(
+        estado: UbicacionEstado.noDisponible,
+        mensaje:
+            'No pudimos obtener tu ubicación. Ingresa la dirección manualmente.',
+      );
+    }
     if (!mounted) return;
     setState(() {
+      _obteniendoGps = false;
       if (resultado.disponible) {
         _pinLat = resultado.latitude;
         _pinLng = resultado.longitude;
@@ -206,10 +224,15 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
         _coordenadasFuente = null;
         _mapaVisible = true;
         _modoManual = false;
+        _avisoCamposPendientes = true;
       } else {
         // Fallback: texto manual, sin mapa (el backend geocodifica).
         _mapaVisible = false;
         _modoManual = true;
+        _aviso = resultado.estado == UbicacionEstado.cancelado
+            ? null
+            : resultado.mensaje ??
+                  'No pudimos obtener tu ubicación. Ingresa la dirección manualmente.';
       }
     });
     if (resultado.disponible) {
@@ -290,7 +313,14 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
 
     setState(() {
       _autocompletando = false;
-      if (resultado == null) return; // degradación: escribir a mano
+      _avisoCamposPendientes = true;
+      if (resultado == null) {
+        // Degradación: el usuario escribe la dirección a mano.
+        _aviso =
+            'No pudimos obtener la dirección desde el mapa. Complétala manualmente.';
+        return;
+      }
+      _aviso = null;
 
       _aplicandoAutocompletado = true;
       if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
@@ -371,7 +401,10 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       calleSecundaria: _calleSecundariaController.text,
       referencia: _referenciaController.text,
     );
-    setState(() => _guardando = true);
+    setState(() {
+      _guardando = true;
+      _errorGuardado = null;
+    });
     try {
       final direccionEditada =
           widget.direccion != null &&
@@ -379,7 +412,14 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
               _calleEditadaPorUsuario ||
               _calleSecundariaEditadaPorUsuario ||
               _referenciaEditadaPorUsuario);
-      final enviarCoordenadas = _coordenadasConfirmadas && !direccionEditada;
+      // Al crear, el pin del GPS es la ubicación de entrega: se envía aunque
+      // no esté confirmado. Sin coordenadas el backend geocodifica el cruce de
+      // calles autocompletado, que puede no existir y rechaza el guardado.
+      final lat = widget.direccion == null ? _pinLat : _coordsLat;
+      final lng = widget.direccion == null ? _pinLng : _coordsLng;
+      final enviarCoordenadas = widget.direccion == null
+          ? lat != null && lng != null
+          : _coordenadasConfirmadas && !direccionEditada;
       final nueva = widget.direccion == null
           ? await widget.direccionService.createDireccion(
               alias: GeocodingService.limpiarTextoDireccion(
@@ -390,8 +430,8 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
               calleSecundaria: campos.calleSecundaria,
               referencia: campos.referencia,
               // Sin coordenadas, el backend geocodifica la dirección manual.
-              latitude: enviarCoordenadas ? _coordsLat : null,
-              longitude: enviarCoordenadas ? _coordsLng : null,
+              latitude: enviarCoordenadas ? lat : null,
+              longitude: enviarCoordenadas ? lng : null,
               coordenadasFuente: enviarCoordenadas
                   ? _coordenadasFuente ?? 'gps'
                   : null,
@@ -405,8 +445,8 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
               callePrincipal: campos.callePrincipal,
               calleSecundaria: campos.calleSecundaria,
               referencia: campos.referencia,
-              latitude: enviarCoordenadas ? _coordsLat : null,
-              longitude: enviarCoordenadas ? _coordsLng : null,
+              latitude: enviarCoordenadas ? lat : null,
+              longitude: enviarCoordenadas ? lng : null,
               coordenadasFuente: enviarCoordenadas
                   ? _coordenadasFuente ?? 'gps'
                   : null,
@@ -415,14 +455,14 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       Navigator.pop(context, nueva);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _guardando = false);
+      // El snackbar se dibujaría detrás del sheet modal: el error va dentro.
       final validationErrors = ApiErrorHandler.mapValidationErrors(e);
-      mostrarSnackbarError(
-        context,
-        mensaje:
+      setState(() {
+        _guardando = false;
+        _errorGuardado =
             validationErrors['ubicacion'] ??
-            'No se pudo guardar la dirección: ${ApiErrorHandler.userMessage(e)}',
-      );
+            'No se pudo guardar la dirección: ${ApiErrorHandler.userMessage(e)}';
+      });
     }
   }
 
@@ -484,6 +524,10 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
                 ),
               ),
               const SizedBox(height: AppSpacing.spacingLg),
+              if (_errorGuardado != null) ...[
+                _buildAvisoBox(_errorGuardado!),
+                const SizedBox(height: AppSpacing.spacingSm),
+              ],
               _buildAcciones(),
               const SizedBox(height: AppSpacing.spacingSm),
             ],
@@ -493,10 +537,67 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     );
   }
 
+  /// Campos obligatorios que el GPS/mapa no logró completar (se recalcula al
+  /// escribir, así el aviso desaparece cuando el usuario los llena).
+  String? get _mensajeCamposPendientes {
+    if (!_avisoCamposPendientes) return null;
+    final faltan = [
+      if (_ciudadController.text.trim().isEmpty) 'la ciudad',
+      if (_callePrincipalController.text.trim().isEmpty) 'la calle principal',
+    ];
+    if (faltan.isEmpty) return null;
+    return 'No pudimos completar ${faltan.join(' y ')} automáticamente. '
+        '${faltan.length > 1 ? 'Ingrésalas' : 'Ingrésala'} para poder guardar.';
+  }
+
+  Widget _buildAvisoBox(String mensaje, {bool cargando = false}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingSm,
+        vertical: AppSpacing.spacingXs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          cargando
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: AppColors.warning,
+                ),
+          const SizedBox(width: AppSpacing.spacingXs),
+          Expanded(
+            child: Text(
+              mensaje,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCamposDireccion() {
+    final mensajeCampos = _mensajeCamposPendientes;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (mensajeCampos != null) ...[
+          _buildAvisoBox(mensajeCampos),
+          const SizedBox(height: AppSpacing.spacingSm),
+        ],
         if (_huboAutocompletado || _autocompletando) ...[
           _buildAutocompletadoHint(),
           const SizedBox(height: AppSpacing.spacingSm),
@@ -615,6 +716,13 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
             ],
           ),
           const SizedBox(height: AppSpacing.spacingSm),
+          if (_obteniendoGps) ...[
+            _buildAvisoBox('Obteniendo tu ubicación por GPS…', cargando: true),
+            const SizedBox(height: AppSpacing.spacingSm),
+          ] else if (_aviso != null) ...[
+            _buildAvisoBox(_aviso!),
+            const SizedBox(height: AppSpacing.spacingSm),
+          ],
           if (_mapaVisible)
             _buildMapaConPin()
           else if (_coordenadasConfirmadas)
@@ -645,6 +753,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
           variant: RyButtonVariant.primary,
           size: RyButtonSize.small,
           isFullWidth: true,
+          isLoading: _obteniendoGps,
           horizontalPadding: AppSpacing.spacingMd,
           onPressed: _usarUbicacionActual,
         ),

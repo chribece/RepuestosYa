@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:repuestosya/services/direccion_service.dart';
+import 'package:repuestosya/utils/api_error_handler.dart';
 import 'package:repuestosya/services/geocoding_service.dart';
 import 'package:repuestosya/services/ubicacion_service.dart';
 import 'package:repuestosya/widgets/nueva_direccion_sheet.dart';
@@ -92,6 +93,136 @@ void main() {
     await tester.enterText(fields.at(1), 'Quito');
     await tester.pump();
     expect(tester.widget<RyButton>(saveButton).isDisabled, isFalse);
+  });
+
+  testWidgets('GPS apagado muestra el motivo dentro del sheet', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: DireccionService(),
+            resolverUbicacion: () async => const UbicacionResultado(
+              estado: UbicacionEstado.gpsApagado,
+              mensaje: 'El GPS del dispositivo está apagado.',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mi ubicación actual'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('El GPS del dispositivo está apagado.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('una excepción al obtener el GPS no deja el botón cargando', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: DireccionService(),
+            resolverUbicacion: () async => throw StateError('plugin roto'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mi ubicación actual'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('No pudimos obtener tu ubicación'),
+      findsOneWidget,
+    );
+    expect(find.text('Obteniendo tu ubicación por GPS…'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'con GPS, guardar envía el pin aunque el cruce sea autocompletado',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final servicio = _FakeDireccionRegistro();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: NuevaDireccionSheet(
+              direccionService: servicio,
+              resolverUbicacion: () async =>
+                  const UbicacionResultado.ok(-0.1913664, -78.4930512),
+              geocodingService: _FakeGeocoding(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mi ubicación actual'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pump();
+      await tester.enterText(find.byType(TextFormField).at(0), 'Casa');
+      await tester.pump();
+
+      await tester.tap(find.text('Guardar'));
+      await tester.pumpAndSettle();
+
+      expect(servicio.latitude, closeTo(-0.1913664, 1e-9));
+      expect(servicio.longitude, closeTo(-78.4930512, 1e-9));
+      expect(servicio.calleSecundaria, 'Calle transversal');
+    },
+  );
+
+  testWidgets('un error al guardar se muestra dentro del sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NuevaDireccionSheet(
+            direccionService: _FakeDireccionConError(),
+            resolverUbicacion: () async =>
+                const UbicacionResultado(estado: UbicacionEstado.noDisponible),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Casa');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Quito');
+    await tester.enterText(find.byType(TextFormField).at(2), 'Av. Amazonas');
+    await tester.pump();
+
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('No encontramos la calle principal'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -468,6 +599,47 @@ class _FakeGeocoding extends GeocodingService {
           ? 'Calle transversal'
           : null,
       referencia: 'La Pradera',
+    );
+  }
+}
+
+class _FakeDireccionRegistro extends DireccionService {
+  double? latitude;
+  double? longitude;
+  String? calleSecundaria;
+
+  @override
+  Future<Map<String, dynamic>> createDireccion({
+    required String alias,
+    required String callePrincipal,
+    String? ciudad,
+    String? calleSecundaria,
+    String? referencia,
+    double? latitude,
+    double? longitude,
+    String? coordenadasFuente,
+  }) async {
+    this.latitude = latitude;
+    this.longitude = longitude;
+    this.calleSecundaria = calleSecundaria;
+    return {'id': 'nueva'};
+  }
+}
+
+class _FakeDireccionConError extends DireccionService {
+  @override
+  Future<Map<String, dynamic>> createDireccion({
+    required String alias,
+    required String callePrincipal,
+    String? ciudad,
+    String? calleSecundaria,
+    String? referencia,
+    double? latitude,
+    double? longitude,
+    String? coordenadasFuente,
+  }) async {
+    throw const ApiException(
+      'No encontramos la calle principal en esa ciudad. Verifica el nombre.',
     );
   }
 }

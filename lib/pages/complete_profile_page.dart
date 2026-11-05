@@ -103,6 +103,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   // Centro inicial del mapa: núcleo urbano de Quito (alcance actual).
   static const LatLng _centroInicialQuito = LatLng(-0.2201, -78.5128);
 
+  bool get _telefonoRegistrado =>
+      tieneTelefonoMovilEcuador(_authService.currentUser?.telefono);
+
   @override
   void initState() {
     super.initState();
@@ -454,8 +457,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   _buildEmailField(),
                   const SizedBox(height: AppSpacing.spacingMd),
                   _buildRepresentanteField(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildTelefonoField(),
+                  if (!_telefonoRegistrado) ...[
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildTelefonoField(),
+                  ],
                   const SizedBox(height: AppSpacing.spacingLg),
                   _buildSectionHeading(
                     'Ubicación y cobertura',

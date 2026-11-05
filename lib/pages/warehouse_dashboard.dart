@@ -22,6 +22,7 @@ import '../widgets/flujo_notificaciones.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_notification_bell.dart';
+import '../widgets/ry_nav_drawer.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -635,108 +636,50 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
 
-      drawer: Drawer(
-        child: Container(
-          color: AppColors.background,
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: AppColors.outlineVariant,
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'RepuestosYa',
-                      style: AppTextStyles.textStyleHeading.copyWith(
-                        color: AppColors.primaryContainer,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.spacingSm),
-                    Text(
-                      'Panel de Control',
-                      style: AppTextStyles.textStyleCaption.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.dashboard,
-                  color: AppColors.primaryContainer,
-                ),
-                title: Text(
-                  'Panel Principal',
-                  style: AppTextStyles.textStyleBody,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() => _selectedIndex = 0);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.send,
-                  color: AppColors.primaryContainer,
-                ),
-                title: Text(
-                  'Cotizaciones Enviadas',
-                  style: AppTextStyles.textStyleBody,
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() => _selectedIndex = 2);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.store,
-                  color: AppColors.primaryContainer,
-                ),
-                title: Text(
-                  'Mi Establecimiento',
-                  style: AppTextStyles.textStyleBody,
-                ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final almacen = await _almacenService.obtenerMiAlmacen();
-                  if (context.mounted) {
-                    if (almacen != null) {
-                      context.pushNamed(RouteNames.profileAlmacen);
-                    } else {
-                      context.pushNamed(RouteNames.registerAlmacen);
-                    }
-                  }
-                },
-              ),
-              const Divider(color: AppColors.outlineVariant),
-              ListTile(
-                leading: const Icon(Icons.logout, color: AppColors.error),
-                title: Text(
-                  'Cerrar Sesión',
-                  style: AppTextStyles.textStyleBody.copyWith(
-                    color: AppColors.error,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmarCierreSesion();
-                },
-              ),
-            ],
+      drawer: RyNavDrawer(
+        subtitle: _nombreAlmacen != null
+            ? 'Panel de Almacén · $_nombreAlmacen'
+            : 'Panel de Almacén',
+        imageUrl: _almacenData?['logo_url']?.toString(),
+        items: [
+          RyNavItem(
+            icon: Icons.dashboard,
+            label: 'Panel Principal',
+            selected: _selectedIndex == 0,
+            onTap: () {
+              Navigator.pop(context);
+              setState(() => _selectedIndex = 0);
+            },
           ),
-        ),
+          RyNavItem(
+            icon: Icons.send,
+            label: 'Cotizaciones Enviadas',
+            selected: _selectedIndex == 2,
+            onTap: () {
+              Navigator.pop(context);
+              setState(() => _selectedIndex = 2);
+            },
+          ),
+          RyNavItem(
+            icon: Icons.store,
+            label: 'Mi Establecimiento',
+            onTap: () async {
+              Navigator.pop(context);
+              final almacen = await _almacenService.obtenerMiAlmacen();
+              if (context.mounted) {
+                if (almacen != null) {
+                  context.pushNamed(RouteNames.profileAlmacen);
+                } else {
+                  context.pushNamed(RouteNames.registerAlmacen);
+                }
+              }
+            },
+          ),
+        ],
+        onLogout: () {
+          Navigator.pop(context);
+          _confirmarCierreSesion();
+        },
       ),
 
       body: SafeArea(

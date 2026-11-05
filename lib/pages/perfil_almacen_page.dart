@@ -20,6 +20,7 @@ import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_section_card.dart';
+import '../widgets/ry_nav_drawer.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
@@ -449,87 +450,43 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   // ========== DRAWER ==========
 
   Widget _buildDrawer() {
-    return Drawer(
-      backgroundColor: AppColors.background,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'RepuestosYa',
-                  style: AppTextStyles.textStyleHeading.copyWith(
-                    color: AppColors.primaryContainer,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.spacingSm),
-                Text(
-                  'Panel de Control (Almacén)',
-                  style: AppTextStyles.textStyleCaption.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Panel Principal → WarehouseDashboard (tab solicitudes)
-          ListTile(
-            leading: const Icon(
-              Icons.dashboard,
-              color: AppColors.primaryContainer,
-            ),
-            title: Text('Panel Principal', style: AppTextStyles.textStyleBody),
-            onTap: () {
-              Navigator.pop(context);
-              context.goNamed(RouteNames.dashboard);
-            },
-          ),
-          // Cotizaciones Enviadas → WarehouseDashboard (tab cotizaciones)
-          ListTile(
-            leading: const Icon(Icons.send, color: AppColors.primaryContainer),
-            title: Text(
-              'Cotizaciones Enviadas',
-              style: AppTextStyles.textStyleBody,
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              context.goNamed(RouteNames.dashboard);
-            },
-          ),
-          // Mi Almacén → PerfilAlmacenPage (página actual)
-          ListTile(
-            leading: const Icon(Icons.store, color: AppColors.primaryContainer),
-            title: Text(
-              'Mi Establecimiento',
-              style: AppTextStyles.textStyleBody,
-            ),
-            onTap: () => Navigator.pop(context),
-          ),
-          const Divider(color: AppColors.outlineVariant),
-          ListTile(
-            leading: const Icon(Icons.logout, color: AppColors.error),
-            title: Text(
-              'Cerrar Sesión',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.error,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-        ],
-      ),
+    final nombre = _almacenData?['nombre_comercial']?.toString();
+    return RyNavDrawer(
+      subtitle: nombre != null && nombre.isNotEmpty
+          ? 'Panel de Almacén · $nombre'
+          : 'Panel de Almacén',
+      imageUrl: _almacenData?['logo_url']?.toString(),
+      items: [
+        // Panel Principal → WarehouseDashboard (tab solicitudes)
+        RyNavItem(
+          icon: Icons.dashboard,
+          label: 'Panel Principal',
+          onTap: () {
+            Navigator.pop(context);
+            context.goNamed(RouteNames.dashboard);
+          },
+        ),
+        // Cotizaciones Enviadas → WarehouseDashboard (tab cotizaciones)
+        RyNavItem(
+          icon: Icons.send,
+          label: 'Cotizaciones Enviadas',
+          onTap: () {
+            Navigator.pop(context);
+            context.goNamed(RouteNames.dashboard);
+          },
+        ),
+        // Mi Establecimiento → PerfilAlmacenPage (página actual)
+        RyNavItem(
+          icon: Icons.store,
+          label: 'Mi Establecimiento',
+          selected: true,
+          onTap: () => Navigator.pop(context),
+        ),
+      ],
+      onLogout: () {
+        Navigator.pop(context);
+        _showLogoutDialog();
+      },
     );
   }
 

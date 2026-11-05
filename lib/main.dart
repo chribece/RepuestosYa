@@ -13,6 +13,7 @@ import 'providers/notificaciones_provider.dart';
 import 'providers/profile_image_provider.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
+import 'services/last_route_store.dart';
 import 'services/realtime_notification_service.dart';
 import 'services/solicitud_repository.dart';
 import 'services/almacen_repository.dart';
@@ -54,6 +55,9 @@ void main() async {
 
   // Inicializar el cliente de API (Lectura de token rápida)
   await ApiClient().init();
+
+  // Última pantalla privada visitada, para reabrirla tras reiniciar la app
+  await LastRouteStore.load();
 
   // Inicializar validación de sesión en background (Llamada a red lenta)
   AuthService().init();
@@ -102,6 +106,7 @@ class MyApp extends StatelessWidget {
     AuthService().onLogoutCleanup = () async {
       await solicitudRepository.clearAll();
       await almacenRepository.clearAll();
+      await LastRouteStore.clear();
     };
   }
 

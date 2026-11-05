@@ -31,6 +31,7 @@ import '../pages/notificaciones_page.dart';
 import '../providers/onboarding_provider.dart';
 import '../providers/user_role_provider.dart';
 import '../services/auth_service.dart';
+import '../services/last_route_store.dart';
 import '../utils/ecuador_mobile_phone.dart';
 import 'route_names.dart';
 import '../utils/keys.dart';
@@ -114,9 +115,12 @@ class AppRouter {
         }
 
         // Si está en una ruta pública (login/welcome/etc), mandarlo a su Home
+        // o, tras reiniciar la app, a la última pantalla privada visitada.
         if (isPublicRoute) {
-          return _getHomeRoute(role);
+          final lastRoute = LastRouteStore.takeRestorable();
+          return lastRoute ?? _getHomeRoute(role);
         }
+        LastRouteStore.save(state.uri.toString());
 
         // Protección de rutas por rol (Cross-role protection)
         if (role == UserRole.cliente) {

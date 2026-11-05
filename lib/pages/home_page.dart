@@ -16,6 +16,7 @@ import '../widgets/client_bottom_navigation_bar.dart';
 import '../widgets/ry_part_card.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_notification_bell.dart';
+import '../widgets/ry_nav_drawer.dart';
 import '../widgets/flujo_notificaciones.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
@@ -305,97 +306,41 @@ class _HomePageState extends State<HomePage> {
 
   // --- DRAWER MODERNO Y LIMPIO ---
   Widget _buildNavigationDrawer(BuildContext context) {
-    return Drawer(
-      backgroundColor: AppColors.background,
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(color: AppColors.outlineVariant, width: 1),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'RepuestosYa',
-                  style: AppTextStyles.textStyleHeading.copyWith(
-                    color: AppColors.primaryContainer,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.spacingXs),
-                Text(
-                  'Menú de Opciones',
-                  style: AppTextStyles.textStyleCaption.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.home_rounded, color: AppColors.primary),
-            title: Text(
-              'Inicio',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_rounded, color: AppColors.primary),
-            title: Text(
-              'Mi Perfil',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              context.pushNamed(RouteNames.profile);
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.shopping_cart_outlined,
-              color: AppColors.primary,
-            ),
-            title: Text(
-              'Mis Órdenes',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurface,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              context.pushNamed(RouteNames.misOrdenes);
-            },
-          ),
-          const Divider(
-            color: AppColors.outlineVariant,
-            height: AppSpacing.spacingXl,
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout_rounded, color: AppColors.error),
-            title: Text(
-              'Cerrar Sesión',
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.error,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _confirmarCierreSesion();
-            },
-          ),
-        ],
-      ),
+    final nombre = _authService.currentUser?.nombreCompleto?.trim();
+    final profileImageUrl = context.watch<ProfileImageProvider?>()?.imageUrl;
+    return RyNavDrawer(
+      subtitle: nombre != null && nombre.isNotEmpty ? nombre : 'Cliente',
+      imageUrl: profileImageUrl,
+      name: nombre,
+      fallbackIcon: Icons.person_rounded,
+      items: [
+        RyNavItem(
+          icon: Icons.home_rounded,
+          label: 'Inicio',
+          selected: true,
+          onTap: () => Navigator.pop(context),
+        ),
+        RyNavItem(
+          icon: Icons.person_rounded,
+          label: 'Mi Perfil',
+          onTap: () {
+            Navigator.pop(context);
+            context.pushNamed(RouteNames.profile);
+          },
+        ),
+        RyNavItem(
+          icon: Icons.shopping_cart_outlined,
+          label: 'Mis Órdenes',
+          onTap: () {
+            Navigator.pop(context);
+            context.pushNamed(RouteNames.misOrdenes);
+          },
+        ),
+      ],
+      onLogout: () {
+        Navigator.pop(context);
+        _confirmarCierreSesion();
+      },
     );
   }
 

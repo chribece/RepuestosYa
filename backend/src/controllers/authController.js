@@ -1,7 +1,7 @@
 const supabase = require('../services/supabase');
 const { createSupabaseAuthClient } = require('../services/supabaseAuth');
 const jwt = require('jsonwebtoken');
-const { normalizarTelefono } = require('../utils/phone');
+const { normalizarTelefono, telefonoEcuadorCanonico } = require('../utils/phone');
 const {
   isGoogleIdentity,
   needsGoogleRoleSelection
@@ -279,6 +279,20 @@ const loginWithGoogle = async (req, res) => {
       console.error('Google profile fetch error:', profileError.message);
       return res.status(500).json({ error: 'Error al obtener perfil de usuario' });
     }
+
+    // Si Google trae un teléfono válido en los metadatos y el perfil no lo
+    // tiene, se guarda para no volver a pedirlo al usuario.
+    const telefonoGoogle = telefonoEcuadorCanonico(
+      authData.user.user_metadata?.phone ?? authData.user.phone
+    );
+    if (profile && telefonoGoogle && !telefonoEcuadorCanonico(profile.telefono)) {
+      const { error: phoneError } = await supabase
+        .from('profiles')
+        .update({ telefono: telefonoGoogle })
+        .eq('id', authData.user.id);
+      if (!phoneError) profile.telefono = telefonoGoogle;
+    }
+
     if (needsGoogleRoleSelection(profile, authData.user)) {
       return res.json({ success: true, needsRoleSelection: true });
     }
@@ -357,12 +371,14 @@ const completeGoogleRegistration = async (req, res) => {
         .find((name) => typeof name === 'string' && name.trim())?.trim() ||
       user.email?.split('@')[0] ||
       'Usuario Google';
+    const telefonoGoogle = telefonoEcuadorCanonico(metadata.phone ?? user.phone);
     const profileData = {
       id: user.id,
       email: user.email,
       nombre_completo: nombreCompleto,
       rol,
-      tipo_membresia: 'Regular Member'
+      tipo_membresia: 'Regular Member',
+      ...(telefonoGoogle && { telefono: telefonoGoogle })
     };
 
     const { data: profile, error: saveError } = await supabase

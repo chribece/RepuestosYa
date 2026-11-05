@@ -20,4 +20,15 @@ const telefonoValido = (value) => {
   return digits !== null && digits.length >= 9 && digits.length <= 15;
 };
 
-module.exports = { normalizarTelefono, telefonoValido };
+/**
+ * Teléfono móvil ecuatoriano en el formato almacenado (9 dígitos desde el 9),
+ * aceptando +593/593 y 09 como prefijo. Devuelve null si no es válido.
+ */
+const telefonoEcuadorCanonico = (value) => {
+  let digits = normalizarTelefono(value);
+  if (digits && digits.length === 12 && digits.startsWith('593')) digits = digits.slice(3);
+  else if (digits && digits.length === 10 && digits.startsWith('09')) digits = digits.slice(1);
+  return digits && /^9\d{8}$/.test(digits) ? digits : null;
+};
+
+module.exports = { normalizarTelefono, telefonoValido, telefonoEcuadorCanonico };

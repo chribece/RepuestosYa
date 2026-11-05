@@ -10,7 +10,18 @@ const assert = require('node:assert/strict');
 const {
   normalizarTelefono,
   telefonoValido,
+  telefonoEcuadorCanonico,
 } = require('../src/utils/phone');
+
+test('telefonoEcuadorCanonico: 9 dígitos desde el 9 (+593, 593 o 09)', () => {
+  assert.equal(telefonoEcuadorCanonico('+593 981894367'), '981894367');
+  assert.equal(telefonoEcuadorCanonico('593981894367'), '981894367');
+  assert.equal(telefonoEcuadorCanonico('0981894367'), '981894367');
+  assert.equal(telefonoEcuadorCanonico('981894367'), '981894367');
+  assert.equal(telefonoEcuadorCanonico('12345'), null);
+  assert.equal(telefonoEcuadorCanonico('0801234567'), null);
+  assert.equal(telefonoEcuadorCanonico(null), null);
+});
 
 test('normaliza "+593 998757857" (formato real Ecuador) → dígitos', () => {
   assert.equal(normalizarTelefono('+593 998757857'), '593998757857');

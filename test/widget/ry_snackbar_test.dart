@@ -30,22 +30,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('éxito: muestra título y mensaje completos', (tester) async {
-    await pumpYMostrar(
-      tester,
-      (context) => mostrarSnackbarExito(
-        context,
-        mensaje: 'Cotización aceptada correctamente',
-      ),
-    );
+  testWidgets(
+    'éxito: tarjeta oscura flotante con icono naranja y mensaje completo',
+    (tester) async {
+      await pumpYMostrar(
+        tester,
+        (context) => mostrarSnackbarExito(
+          context,
+          mensaje: 'Cotización aceptada correctamente',
+        ),
+      );
 
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.byType(AwesomeSnackbarContent), findsOneWidget);
-    expect(find.text('Éxito'), findsOneWidget);
-    expect(find.text('Cotización aceptada correctamente'), findsOneWidget);
-  });
+      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(snackBar.behavior, SnackBarBehavior.floating);
+      expect(snackBar.backgroundColor, AppColors.surfaceContainerHigh);
+      expect(find.byType(AwesomeSnackbarContent), findsNothing);
+      expect(find.text('Cotización aceptada correctamente'), findsOneWidget);
+      final icon = tester.widget<Icon>(find.byIcon(Icons.check_circle_rounded));
+      expect(icon.color, AppColors.primaryContainer);
+    },
+  );
 
-  testWidgets('éxito sobrio: usa tarjeta oscura sin banner azul', (
+  testWidgets('éxito sobrio: usa el mismo estilo global de éxito', (
     tester,
   ) async {
     await pumpYMostrar(
@@ -58,7 +64,7 @@ void main() {
     );
 
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.backgroundColor, const Color(0xFF1E1E1E));
+    expect(snackBar.backgroundColor, AppColors.surfaceContainerHigh);
     expect(find.text('¡Establecimiento Aprobado!'), findsOneWidget);
     expect(
       find.text('Ya puedes recibir y responder solicitudes de cotización'),

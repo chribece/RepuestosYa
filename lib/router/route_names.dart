@@ -14,6 +14,8 @@ class RouteNames {
   static const String home = 'home'; // Cliente Home
   static const String inicio = 'inicio'; // Alias de inicio solicitado por OAuth
   static const String dashboard = 'dashboard'; // Almacen Home
+  static const String warehouseRequests =
+      'warehouse-requests'; // Almacen: todas las solicitudes
 
   // Solicitudes (Cliente)
   static const String createRequest = 'create-request';

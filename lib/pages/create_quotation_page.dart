@@ -16,7 +16,7 @@ import '../services/almacen_service.dart';
 import '../services/almacen_repository.dart';
 import '../services/outbox.dart';
 import '../services/upload_service.dart';
-import '../widgets/ry_bottom_action_bar.dart';
+import '../widgets/ry_button.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_image_picker.dart';
 import '../widgets/ry_full_image_viewer.dart';
@@ -27,6 +27,10 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/ry_snackbar.dart';
+
+/// Comisión por transacción. Desactivada durante el lanzamiento gratuito;
+/// al activarla vuelve a mostrarse la leyenda bajo el precio.
+const bool isCommissionActive = false;
 
 class CreateQuotationPage extends StatefulWidget {
   final Map<String, dynamic> solicitud;
@@ -490,7 +494,7 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                         AppSpacing.spacingMd,
                         AppSpacing.spacingLg,
                         AppSpacing.spacingMd,
-                        110, // ajuste fino intencional: espacio para la barra de acción fija
+                        0,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,20 +506,23 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
                           // SECCIÓN DE ESPECIFICACIONES TÉCNICAS Y VIN
                           _buildVehicleTechnicalSheet(objetoInterno),
 
-                          const SizedBox(height: AppSpacing.spacingXl),
+                          const SizedBox(height: AppSpacing.spacingXxl),
                           _buildPriceField(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildConditionDropdown(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildDeliveryTimeDropdown(),
-                          const SizedBox(height: AppSpacing.spacingXl),
+                          const SizedBox(height: AppSpacing.spacingXxl),
                           _buildLogisticaDespachoSection(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildEvidenciaVisualSection(),
-                          const SizedBox(height: AppSpacing.spacingXl),
+                          const SizedBox(height: AppSpacing.spacingXxl),
                           _buildNotesField(),
                           const SizedBox(height: AppSpacing.spacingXl),
                           _buildImportantInfoBox(),
+                          const SizedBox(height: AppSpacing.spacingXl),
+                          _buildSubmitButton(),
+                          const SizedBox(height: 32),
                         ],
                       ),
                     ),
@@ -524,7 +531,6 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
               ],
             ),
           ),
-          _buildBottomActionButton(),
         ],
       ),
     );
@@ -1017,7 +1023,9 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
       type: RyTextFieldType.decimal,
       isRequired: true,
       prefixIcon: Icons.attach_money,
-      helperText: 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN',
+      helperText: isCommissionActive
+          ? 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN'
+          : null,
       // Sin helperMaxLines el InputDecorator recorta el mensaje a 1 línea
       // con ellipsis (se veía desbordado/truncado en móvil angosto).
       helperMaxLines: 2,
@@ -1425,20 +1433,17 @@ class _CreateQuotationPageState extends State<CreateQuotationPage> {
     );
   }
 
-  /// Barra de acción fija al fondo con el componente compartido del DS:
-  /// respeta el inset inferior (barra de gestos) extendiendo el fondo hasta
-  /// el borde real y eleva el botón por encima del área segura.
-  Widget _buildBottomActionButton() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: RyBottomActionBar(
-        primaryLabel: 'ENVIAR COTIZACIÓN',
-        primaryIcon: Icons.send,
-        primaryLoading: _isSubmitting,
-        onPrimaryPressed: _isSubmitting ? null : _enviarCotizacion,
-      ),
+  /// Acción final del formulario: va al término del scroll (no fija) para que
+  /// el usuario la vea después de revisar notas y advertencias.
+  Widget _buildSubmitButton() {
+    return RyButton(
+      label: 'ENVIAR COTIZACIÓN',
+      icon: Icons.send,
+      variant: RyButtonVariant.primary,
+      size: RyButtonSize.large,
+      isLoading: _isSubmitting,
+      isFullWidth: true,
+      onPressed: _isSubmitting ? null : _enviarCotizacion,
     );
   }
 }

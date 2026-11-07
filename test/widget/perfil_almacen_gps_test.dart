@@ -12,6 +12,9 @@ class _FakeAlmacenService extends AlmacenService {
   _FakeAlmacenService() : super(null);
 
   int llamadasMiAlmacen = 0;
+  double latitud = 0;
+  double longitud = 0;
+  String direccion = '';
 
   @override
   Future<Map<String, dynamic>?> obtenerMiAlmacen() async {
@@ -21,9 +24,9 @@ class _FakeAlmacenService extends AlmacenService {
       'nombre_comercial': 'Repuestos Central',
       'ruc': '1790000000001',
       'telefono': '0991234567',
-      'direccion_texto': '',
-      'latitude': 0,
-      'longitude': 0,
+      'direccion_texto': direccion,
+      'latitude': latitud,
+      'longitude': longitud,
       'verification_status': 'approved',
       'estado_abierto': true,
     };
@@ -78,8 +81,8 @@ void main() {
     geocoding = _FakeGeocodingService();
   });
 
-  Future<void> pumpPerfil(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(800, 2000);
+  Future<void> pumpPerfil(WidgetTester tester, {double ancho = 800}) async {
+    tester.view.physicalSize = Size(ancho, 2000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -130,6 +133,32 @@ void main() {
     },
   );
 
+  testWidgets(
+    'el ícono de sincronización reemplaza la dirección guardada con la del '
+    'pin actual',
+    (tester) async {
+      almacen
+        ..latitud = -0.1913664
+        ..longitud = -78.4930512
+        ..direccion = 'Dirección guardada anterior';
+      await pumpPerfil(tester);
+
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      await tester.tap(find.byTooltip('Autocompletar desde el mapa'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.text('Av. Amazonas y Naciones Unidas, Frente al parque'),
+        findsOneWidget,
+      );
+      expect(find.text('Dirección guardada anterior'), findsNothing);
+    },
+  );
+
   testWidgets('el botón GPS solo está disponible en modo edición', (
     tester,
   ) async {
@@ -142,4 +171,19 @@ void main() {
     await tester.pump();
     expect(find.text('Usar mi ubicación actual'), findsOneWidget);
   });
+
+  testWidgets(
+    'modo edición en 360px: el AppBar usa el icono de cerrar (sin overflow)',
+    (tester) async {
+      await pumpPerfil(tester, ancho: 360);
+
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Overflow de RenderFlex falla el test automáticamente.
+      expect(find.byTooltip('Cancelar edición'), findsOneWidget);
+      expect(find.widgetWithIcon(IconButton, Icons.close), findsOneWidget);
+    },
+  );
 }

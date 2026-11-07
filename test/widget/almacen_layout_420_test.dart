@@ -336,8 +336,8 @@ void main() {
   );
 
   testWidgets(
-    'create_quotation a 420px: sin overflow y el mensaje de comisión del '
-    'precio se ve completo (wrap, no truncado)',
+    'create_quotation a 420px: sin overflow, sin leyenda de comisión '
+    '(lanzamiento gratuito) y con el botón de envío al final del formulario',
     (tester) async {
       tester.view.physicalSize = const Size(420, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -388,20 +388,13 @@ void main() {
         reason: 'Overflows create_quotation 420px:\n${errores.join('\n')}',
       );
 
-      // El mensaje de comisión del precio debe existir completo y con wrap.
-      const comision = 'SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN';
-      final comisionFinder = find.text(comision);
+      // Comisión desactivada en el lanzamiento: la leyenda no se muestra.
       expect(
-        comisionFinder,
-        findsOneWidget,
-        reason: 'El mensaje de comisión completo debe estar en el árbol',
+        find.text('SE APLICARÁ UNA COMISIÓN DEL 5% POR TRANSACCIÓN'),
+        findsNothing,
       );
-      final alto = tester.getSize(comisionFinder).height;
-      expect(
-        alto,
-        greaterThan(30),
-        reason: 'El mensaje debe hacer wrap (alto $alto px = 1 línea truncada)',
-      );
+      // La acción de envío es el último elemento del scroll.
+      expect(find.text('ENVIAR COTIZACIÓN'), findsOneWidget);
     },
   );
 

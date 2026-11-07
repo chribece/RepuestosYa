@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/ubicacion_service.dart';
@@ -9,8 +11,12 @@ import 'rationale.dart';
 import 'ry_button.dart';
 
 /// Diálogo de progreso mientras se obtiene la fijación GPS. No se puede
-/// cerrar con back ni tocando fuera; solo con el pop del flujo.
-void mostrarProgresoUbicacion(BuildContext context) {
+/// cerrar con back ni tocando fuera. Con [onCancelar] muestra un botón para
+/// salir si el GPS o el permiso no responden.
+void mostrarProgresoUbicacion(
+  BuildContext context, {
+  VoidCallback? onCancelar,
+}) {
   showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -20,20 +26,36 @@ void mostrarProgresoUbicacion(BuildContext context) {
         backgroundColor: AppColors.surfaceContainerHigh,
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.spacingLg),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                  const SizedBox(width: AppSpacing.spacingMd),
+                  Expanded(
+                    child: Text(
+                      'Obteniendo tu ubicación…',
+                      style: AppTextStyles.textStyleBody,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpacing.spacingMd),
-              Expanded(
-                child: Text(
-                  'Obteniendo tu ubicación…',
-                  style: AppTextStyles.textStyleBody,
+              if (onCancelar != null)
+                TextButton(
+                  onPressed: onCancelar,
+                  child: Text(
+                    'Cancelar',
+                    style: AppTextStyles.textStyleButton.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -90,10 +112,21 @@ Future<UbicacionResultado> flujoUbicacionGps(
       if (!rationaleOk) return _cancelado;
     }
 
-    mostrarProgresoUbicacion(context);
+    final cancelacion = Completer<UbicacionResultado?>();
+    mostrarProgresoUbicacion(
+      context,
+      onCancelar: () {
+        if (!cancelacion.isCompleted) cancelacion.complete(null);
+      },
+    );
     late final UbicacionResultado resultado;
     try {
-      resultado = await service.obtenerUbicacion();
+      resultado =
+          await Future.any<UbicacionResultado?>([
+            service.obtenerUbicacion(),
+            cancelacion.future,
+          ]) ??
+          _cancelado;
     } catch (_) {
       // Un plugin que lance una excepción no debe dejar el progreso abierto.
       resultado = const UbicacionResultado(
@@ -108,6 +141,7 @@ Future<UbicacionResultado> flujoUbicacionGps(
         } catch (_) {}
       }
     }
+    if (resultado.estado == UbicacionEstado.cancelado) return resultado;
     if (resultado.disponible) {
       if (mostrarSnackbarSiNoDisponible &&
           resultado.esUltimaUbicacionConocida &&

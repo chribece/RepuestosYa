@@ -26,6 +26,15 @@ void mostrarSnackbarRy(
   Duration duracion = const Duration(seconds: 3),
   SnackBarAction? accion,
 }) {
+  if (tipo == RySnackbarTipo.exito) {
+    return mostrarSnackbarExito(
+      context,
+      titulo: titulo,
+      mensaje: mensaje,
+      duracion: duracion,
+      accion: accion,
+    );
+  }
   final (
     ContentType contentType,
     Color color,
@@ -74,7 +83,9 @@ void mostrarSnackbarRy(
     );
 }
 
-/// Atajo: notificación de éxito.
+/// Éxito flotante con la identidad oscura de la app: superficie elevada,
+/// texto claro e icono naranja de marca (sin verde saturado). Es el estilo
+/// único de TODOS los mensajes de éxito (incluido [mostrarSnackbarExitoSobrio]).
 void mostrarSnackbarExito(
   BuildContext context, {
   String? titulo,
@@ -82,29 +93,12 @@ void mostrarSnackbarExito(
   Duration duracion = const Duration(seconds: 3),
   SnackBarAction? accion,
 }) {
-  mostrarSnackbarRy(
-    context,
-    tipo: RySnackbarTipo.exito,
-    titulo: titulo,
-    mensaje: mensaje,
-    duracion: duracion,
-    accion: accion,
-  );
-}
-
-/// Éxito flotante sobrio para flujos que deben seguir la paleta oscura.
-void mostrarSnackbarExitoSobrio(
-  BuildContext context, {
-  String? titulo,
-  required String mensaje,
-  Duration duracion = const Duration(seconds: 3),
-}) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: AppColors.surfaceContainerHigh,
         elevation: 0,
         duration: duracion,
         margin: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -142,7 +136,7 @@ void mostrarSnackbarExitoSobrio(
                         Text(
                           titulo,
                           style: AppTextStyles.textStyleBody.copyWith(
-                            color: AppColors.primaryContainer,
+                            color: AppColors.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -158,8 +152,24 @@ void mostrarSnackbarExitoSobrio(
             ),
           ],
         ),
+        action: accion,
       ),
     );
+}
+
+/// Alias de [mostrarSnackbarExito]: mismo estilo global de éxito.
+void mostrarSnackbarExitoSobrio(
+  BuildContext context, {
+  String? titulo,
+  required String mensaje,
+  Duration duracion = const Duration(seconds: 3),
+}) {
+  mostrarSnackbarExito(
+    context,
+    titulo: titulo,
+    mensaje: mensaje,
+    duracion: duracion,
+  );
 }
 
 /// Notificación informativa flotante para mantener el estilo oscuro sobrio.

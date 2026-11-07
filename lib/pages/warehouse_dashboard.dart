@@ -17,7 +17,7 @@ import '../services/outbox.dart';
 import '../services/sync_engine.dart';
 import '../providers/profile_image_provider.dart';
 import '../widgets/ry_button.dart';
-import '../widgets/ry_part_card.dart';
+import '../widgets/warehouse_request_card.dart';
 import '../widgets/flujo_notificaciones.dart';
 import '../widgets/ry_state_container.dart';
 import '../widgets/ry_status_badge.dart';
@@ -60,7 +60,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   late final AlmacenService _almacenService;
 
   static const String _logName = 'WarehouseDashboard';
-  static const String _filterLogName = 'WarehouseDashboard.Filter';
 
   /// Intervalo de verificación del estado de aprobación mientras el almacén
   /// no esté aprobado. Se detiene automáticamente al pasar a `approved`.
@@ -94,16 +93,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Map<String, dynamic>? _almacenData;
   String _filtroActual = 'todas';
 
-  /// Paginación del feed de solicitudes activas (Parte 3): el endpoint
-  /// `GET /requests/active` NO soporta limit/offset reales (el parámetro
-  /// `page` solo varía la cache key y devuelve la lista completa ya
-  /// filtrada), así que se replica el patrón del home del cliente —fetch
-  /// completo + mostrar un subconjunto— con "cargar más" local de 5 en 5.
-  /// La métrica "Pendientes" del Bento sigue usando [_solicitudes] (la lista
-  /// completa), no la ventana visible.
-  static const int _paginaSolicitudesActivas = 5;
-  int _solicitudesMostradas = _paginaSolicitudesActivas;
-  bool _cargandoMasSolicitudes = false;
+  /// Vista previa del feed de solicitudes en el Home. El límite es solo de
+  /// presentación: el endpoint `GET /requests/active` filtra por ciudad en
+  /// memoria, así que no se puede limitar en la consulta. El listado completo
+  /// se muestra en [WarehouseRequestsPage] ("Ver todas"). La métrica
+  /// "Pendientes" del Bento sigue usando [_solicitudes] (la lista completa).
+  static const int _maxSolicitudesPreview = 3;
 
   /// Estado de la validación del perfil comercial al entrar al dashboard.
   /// Evita llamar a /requests/active y /quotations/my-quotations hasta
@@ -419,92 +414,29 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       );
     }
 
-    // Ventana visible (máximo 5 por página) + pie de paginación opcional:
-    // botón "Cargar más" mientras haya más, indicador mientras avanza y
-    // "No hay más solicitudes" al llegar al final (solo si hubo paginación).
-    final int visibles = _solicitudesMostradas.clamp(0, _solicitudes.length);
-    final bool hayMas = visibles < _solicitudes.length;
-    final bool finDeLista =
-        _solicitudes.length > _paginaSolicitudesActivas && !hayMas;
-    final int footerItems = (hayMas || finDeLista) ? 1 : 0;
+    // Vista previa: solo las primeras solicitudes (ya ordenadas de más nueva a
+    // más antigua por el backend). El resto está en "Ver todas".
+    final preview = _solicitudes.take(_maxSolicitudesPreview).toList();
 
     return SliverList.builder(
-      itemCount: visibles + footerItems,
+      itemCount: preview.length,
       itemBuilder: (context, index) {
-        if (index >= visibles) {
-          return _buildFeedFooter(hayMas: hayMas);
-        }
-        final solicitud = _solicitudes[index];
+        final solicitud = preview[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
-          child: _buildRequestBentoCard(solicitud: solicitud),
+          child: WarehouseRequestCard(
+            solicitud: solicitud,
+            onCotizar: () => _abrirCotizacion(solicitud),
+          ),
         );
       },
     );
   }
 
-  /// Pie del feed de solicitudes activas: indicador de carga al pedir la
-  /// página siguiente, botón "Cargar más" y estado explícito de fin de
-  /// lista. El avance es local (sin red): el indicador se muestra un breve
-  /// frame y nunca queda infinito.
-  Widget _buildFeedFooter({required bool hayMas}) {
-    if (_cargandoMasSolicitudes) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.primaryContainer,
-            ),
-          ),
-        ),
-      );
-    }
-    if (hayMas) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
-        child: Center(
-          child: RyButton(
-            label: 'Cargar más',
-            variant: RyButtonVariant.outline,
-            size: RyButtonSize.small,
-            onPressed: _cargarMasSolicitudes,
-          ),
-        ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingMd),
-      child: Center(
-        child: Text(
-          'No hay más solicitudes',
-          style: AppTextStyles.textStyleCaption.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Avanza la ventana de paginación una página (5 solicitudes). Es local:
-  /// no hay petición de red, pero se muestra el indicador para dar feedback
-  /// y evitar dobles toques en el botón.
-  Future<void> _cargarMasSolicitudes() async {
-    if (_cargandoMasSolicitudes) return;
-    setState(() => _cargandoMasSolicitudes = true);
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (!mounted) return;
-    setState(() {
-      _solicitudesMostradas =
-          (_solicitudesMostradas + _paginaSolicitudesActivas).clamp(
-            0,
-            _solicitudes.length,
-          );
-      _cargandoMasSolicitudes = false;
-    });
+  Future<void> _abrirTodasSolicitudes() async {
+    await context.pushNamed(RouteNames.warehouseRequests);
+    // Al volver, el preview refleja cualquier cambio hecho en la lista completa.
+    if (mounted) _cargarSolicitudes();
   }
 
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
@@ -535,8 +467,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       setState(() {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
         _solicitudes = List<Map<String, dynamic>>.from(solicitudes);
-        // Con datos nuevos la ventana de paginación vuelve al inicio.
-        _solicitudesMostradas = _paginaSolicitudesActivas;
         _isLoadingSolicitudes = false;
         _hadNetworkError = false;
       });
@@ -756,13 +686,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         const SizedBox(
                                           width: AppSpacing.spacingSm,
                                         ),
-                                        RyButton(
-                                          label: 'Ver todas',
-                                          variant: RyButtonVariant.text,
-                                          size: RyButtonSize.small,
+                                        TextButton(
                                           onPressed: _isApproved
-                                              ? _cargarSolicitudes
+                                              ? _abrirTodasSolicitudes
                                               : null,
+                                          child: Text(
+                                            'Ver todas',
+                                            style: AppTextStyles.textStyleButton
+                                                .copyWith(
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -827,21 +764,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         title: 'Cargando cotizaciones...',
                                         type: RyStateType.loading,
                                       )
-                                    : _cotizacionesEnviadas.isEmpty
-                                    ? const RyStateContainer(
-                                        title: 'Sin cotizaciones',
-                                        subtitle:
-                                            'Las cotizaciones que envíes aparecerán aquí.',
-                                        type: RyStateType.empty,
-                                      )
+                                    : _cotizacionesFiltradas.isEmpty
+                                    ? _buildEmptyCotizaciones()
                                     : ListView.builder(
                                         shrinkWrap: true,
                                         physics:
                                             const NeverScrollableScrollPhysics(),
-                                        itemCount: _cotizacionesEnviadas.length,
+                                        itemCount:
+                                            _cotizacionesFiltradas.length,
                                         itemBuilder: (context, index) {
                                           final cotizacion =
-                                              _cotizacionesEnviadas[index];
+                                              _cotizacionesFiltradas[index];
                                           return Padding(
                                             padding: const EdgeInsets.only(
                                               bottom: AppSpacing.spacingMd,
@@ -1324,119 +1257,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
-  Widget _buildRequestBentoCard({required Map<String, dynamic> solicitud}) {
-    // Extracción e indexación segura de datos relacionales anidados (Vehículos)
-    final solicitudObj = Solicitud(solicitud);
-    final String title = solicitudObj.displayPartName;
-
-    // Extraer nombre del cliente
-    final profiles = solicitud['profiles'] as Map<String, dynamic>?;
-    final String clienteNombre =
-        profiles?['nombre_completo'] ?? 'Cliente desconocido';
-
-    // Armar el subtítulo dinámico con datos de la marca, modelo y año del vehículo
-    final vehiculo = solicitud['vehiculos_cliente'];
-    final modelo = vehiculo != null ? vehiculo['modelos_vehiculo'] : null;
-    final marca = modelo != null ? modelo['marcas_vehiculo'] : null;
-
-    String detallesVehiculo = 'Vehículo no especificado';
-    if (marca != null && modelo != null) {
-      detallesVehiculo =
-          '${marca['nombre'] ?? ''} ${modelo['nombre'] ?? ''} • ${vehiculo['año'] ?? ''}';
-    }
-
-    final String? distance = formatearDistanciaKm(solicitud['distancia_km']);
-
-    // Calcular tiempo real desde created_at
-    final createdAt = solicitud['created_at'];
-
-    // Validamos el tag correcto desde la columna 'es_urgente' del backend en Node
-    final bool esUrgente = solicitud['es_urgente'] == true;
-
-    // Extraer cantidad de cotizaciones (lazy loading)
-    final cotizaciones = solicitud['cotizaciones'];
-    final int cantidadCotizaciones =
-        (cotizaciones is List && cotizaciones.isNotEmpty)
-        ? (cotizaciones.first['count'] ?? 0)
-        : 0;
-
-    final String imageUrl =
-        solicitud['image_url'] ?? solicitud['foto_url'] ?? '';
-
-    return RyPartCard(
-      partName: title,
-      imageUrl: imageUrl,
-      vehicleInfo: detallesVehiculo,
-      description: 'Cliente: $clienteNombre',
-      additionalPartsSummary: solicitudObj.descripcionProblema,
-      location: distance,
-      status: esUrgente ? 'urgente' : 'estandar',
-      createdAt: DateTime.tryParse('$createdAt') ?? DateTime.now(),
-      variant: RyPartCardVariant.warehouse,
-      showPrice: false,
-      showStatus: false,
-      customActions: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              if (esUrgente) ...[
-                _buildUrgencyChip(),
-                const SizedBox(width: AppSpacing.spacingSm),
-              ],
-              Flexible(child: _buildQuotationsCountChip(cantidadCotizaciones)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingSm),
-          RyButton(
-            label: 'COTIZAR',
-            variant: RyButtonVariant.primary,
-            size: RyButtonSize.small,
-            isFullWidth: true,
-            horizontalPadding: AppSpacing.spacingMd,
-            trailingIcon: Icons.arrow_forward_rounded,
-            onPressed: () => _abrirCotizacion(solicitud),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUrgencyChip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.spacingSm,
-        vertical: AppSpacing.spacingXs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primaryContainer.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-        border: Border.all(
-          color: AppColors.primaryContainer.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.bolt_rounded,
-            size: 14,
-            color: AppColors.primaryContainer,
-          ),
-          const SizedBox(width: AppSpacing.spacingXxs),
-          Text(
-            'Urgente',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.primaryContainer,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Convierte una cotización local (Outbox, creada sin conexión) al formato
   /// de tarjeta del dashboard. La fila local no guarda el nombre de la pieza
   /// ni el cliente (el servidor no la conoce aún), así que la tarjeta se
@@ -1454,61 +1274,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       },
       'pendiente_envio': true,
     };
-  }
-
-  /// Chip informativo con el número de cotizaciones recibidas por la solicitud.
-  Widget _buildQuotationsCountChip(int cantidadCotizaciones) {
-    final bool tieneCotizaciones = cantidadCotizaciones > 0;
-    final Color accent = tieneCotizaciones
-        ? AppColors.primaryContainer
-        : AppColors.onSurfaceVariant;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.spacingSm,
-        vertical: AppSpacing.spacingXs,
-      ),
-      decoration: BoxDecoration(
-        color: tieneCotizaciones
-            ? AppColors.primaryContainer.withValues(alpha: 0.1)
-            : AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-        border: Border.all(
-          color: tieneCotizaciones
-              ? AppColors.primaryContainer.withValues(alpha: 0.3)
-              : AppColors.outlineVariant,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            tieneCotizaciones
-                ? Icons.receipt_long
-                : Icons.receipt_long_outlined,
-            size: 16,
-            color: accent,
-          ),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Flexible(
-            child: Text(
-              tieneCotizaciones
-                  ? '$cantidadCotizaciones cotización${cantidadCotizaciones == 1 ? '' : 'es'}'
-                  : 'Sin cotizaciones aún',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: accent,
-                fontWeight: tieneCotizaciones
-                    ? FontWeight.w600
-                    : FontWeight.normal,
-                letterSpacing: 0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _abrirCotizacion(Map<String, dynamic> solicitud) async {
@@ -1532,6 +1297,52 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         duracion: const Duration(seconds: 2),
       );
     }
+  }
+
+  /// Cotizaciones que cumplen el filtro de la pestaña activa. Se aplica a la
+  /// lista completa (no tarjeta por tarjeta), así la pestaña vacía muestra su
+  /// estado vacío en lugar de una pantalla en blanco.
+  List<Map<String, dynamic>> get _cotizacionesFiltradas =>
+      _cotizacionesEnviadas.where(_cumpleFiltro).toList();
+
+  bool _cumpleFiltro(Map<String, dynamic> cotizacion) {
+    final estado = cotizacion['estado'] ?? 'pendiente';
+    switch (_filtroActual) {
+      case 'pendientes':
+        return estado == 'pendiente';
+      case 'ganadas':
+        // Incluye 'pendiente': el RPC `aceptar_cotizacion` crea la orden en
+        // ese estado y el badge ya la muestra como "GANADA".
+        final ordenesCompra =
+            cotizacion['ordenes_compra'] as Map<String, dynamic>?;
+        return estado == 'aceptada' &&
+            const [
+              'pendiente',
+              'confirmada',
+              'pendiente_pago',
+              'entregada',
+            ].contains(ordenesCompra?['estado']);
+      case 'rechazadas':
+        return estado == 'rechazada';
+      default:
+        return true;
+    }
+  }
+
+  /// Estado vacío según la pestaña activa.
+  Widget _buildEmptyCotizaciones() {
+    final (String titulo, String? subtitulo) = switch (_filtroActual) {
+      'pendientes' => ('No hay cotizaciones pendientes.', null),
+      'ganadas' => ('Aún no tienes cotizaciones ganadas.', null),
+      'rechazadas' => ('No tienes cotizaciones rechazadas.', null),
+      _ => ('Sin cotizaciones', 'Las cotizaciones que envíes aparecerán aquí.'),
+    };
+    return RyStateContainer(
+      title: titulo,
+      subtitle: subtitulo,
+      type: RyStateType.empty,
+      customIcon: Icons.receipt_long_outlined,
+    );
   }
 
   Widget _buildQuotationCard(Map<String, dynamic> cotizacion) {
@@ -1562,59 +1373,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final ordenesCompra = cotizacion['ordenes_compra'] as Map<String, dynamic>?;
     final String? ordenId = ordenesCompra?['id'] as String?;
     final String? ordenEstado = ordenesCompra?['estado'] as String?;
-
-    // Apply filter
-    AppLogger.debug(
-      'Filtro actual: $_filtroActual, Estado cotización: $estado, Estado orden: $ordenEstado',
-      name: _filterLogName,
-    );
-
-    if (_filtroActual == 'pendientes' && estado != 'pendiente') {
-      AppLogger.debug(
-        'Filtrando cotización (no es pendiente)',
-        name: _filterLogName,
-      );
-      return const SizedBox.shrink();
-    }
-    if (_filtroActual == 'ganadas') {
-      // Solo mostrar cotizaciones aceptadas con estados de orden específicos
-      if (estado != 'aceptada') {
-        AppLogger.debug(
-          'Filtrando cotización (no es aceptada)',
-          name: _filterLogName,
-        );
-        return const SizedBox.shrink();
-      }
-      // Verificar que el estado de la orden sea uno de los permitidos.
-      // Incluye 'pendiente': el RPC `aceptar_cotizacion` crea la orden en
-      // ese estado (verificado en la DB), y el badge de la tarjeta ya lo
-      // muestra como "GANADA". Sin este estado, la cotización recién ganada
-      // desaparecía de la pestaña y con ella su swipe "Detalle".
-      if (ordenEstado == null ||
-          ![
-            'pendiente',
-            'confirmada',
-            'pendiente_pago',
-            'entregada',
-          ].contains(ordenEstado)) {
-        AppLogger.debug(
-          'Filtrando cotización (estado de orden no válido: $ordenEstado)',
-          name: _filterLogName,
-        );
-        return const SizedBox.shrink();
-      }
-      AppLogger.debug(
-        'Mostrando cotización ganada (estado orden: $ordenEstado)',
-        name: _filterLogName,
-      );
-    }
-    if (_filtroActual == 'rechazadas' && estado != 'rechazada') {
-      AppLogger.debug(
-        'Filtrando cotización (no es rechazada)',
-        name: _filterLogName,
-      );
-      return const SizedBox.shrink();
-    }
 
     // Cotización local creada sin conexión (Outbox): aún no está en el
     // servidor. Se muestra con su propio badge y sin swipe.
@@ -1704,12 +1462,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           const SizedBox(height: AppSpacing.spacingMd),
           Row(
             children: [
-              const Icon(
-                Icons.attach_money,
-                color: AppColors.primaryContainer,
-                size: 18,
-              ),
-              const SizedBox(width: AppSpacing.spacingXxs),
               Text(
                 '\$${precio.toStringAsFixed(2)}',
                 style: AppTextStyles.textStyleBody.copyWith(

@@ -115,7 +115,22 @@ function formatearDireccionParaGeocoding({ callePrincipal, ciudad, calleSecundar
  * defecto); no usa un viewbox urbano fijo para admitir otras ciudades.
  * Lanza GeocodingError si el servicio responde con error o tarda demasiado.
  */
+const REINTENTOS_NOMINATIM_MS = [2000, 5000];
+const CODIGOS_NOMINATIM_REINTENTABLES = new Set([429, 503]);
+
 async function buscarEnNominatim(query) {
+  for (let intento = 0; ; intento++) {
+    try {
+      return await consultarNominatim(query);
+    } catch (error) {
+      const reintentable = CODIGOS_NOMINATIM_REINTENTABLES.has(error.status);
+      if (!reintentable || intento >= REINTENTOS_NOMINATIM_MS.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, REINTENTOS_NOMINATIM_MS[intento]));
+    }
+  }
+}
+
+async function consultarNominatim(query) {
   await esperarTurnoNominatim();
   const params = new URLSearchParams({
     q: query,
@@ -139,10 +154,14 @@ async function buscarEnNominatim(query) {
     });
 
     if (!response.ok) {
-      throw new GeocodingError(
-        `El servicio de geocodificación no está disponible (HTTP ${response.status}). Intenta nuevamente.`,
+      const error = new GeocodingError(
+        response.status === 429
+          ? 'El servicio de mapas está ocupado en este momento. Espera unos segundos e intenta guardar de nuevo.'
+          : `El servicio de geocodificación no está disponible (HTTP ${response.status}). Intenta nuevamente.`,
         'GEOCODING_UNAVAILABLE'
       );
+      error.status = response.status;
+      throw error;
     }
 
     const resultados = await response.json();

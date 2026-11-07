@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -14,7 +17,7 @@ import '../services/upload_service.dart';
 import '../providers/profile_image_provider.dart';
 import '../widgets/flujo_ubicacion.dart';
 import '../widgets/ry_button.dart';
-import '../widgets/ry_image_picker.dart';
+import '../widgets/ry_location_picker.dart';
 import '../widgets/ry_text_field.dart';
 import '../widgets/ry_dropdown_field.dart';
 import '../widgets/ry_state_container.dart';
@@ -29,6 +32,8 @@ import '../utils/app_logger.dart';
 import '../utils/contact_launcher.dart';
 import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
+
+enum _AccionLogo { camara, galeria, quitar }
 
 class PerfilAlmacenPage extends StatefulWidget {
   /// Servicios inyectables para tests (mismo patrón que WarehouseDashboard);
@@ -69,6 +74,14 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
   Map<String, dynamic>? _almacenData;
   File? _logoFile;
   bool _removeLogo = false;
+  LatLng? _pinMapa;
+  Timer? _debounceDireccion;
+  int _seqDireccion = 0;
+  bool _buscandoDireccion = false;
+  bool _direccionEditadaPorUsuario = false;
+
+  /// Centro del mapa cuando el almacén aún no tiene coordenadas (Quito).
+  static final LatLng _centroQuito = LatLng(-0.1807, -78.4678);
 
   late final AlmacenService _almacenService =
       widget.almacenService ??
@@ -94,6 +107,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     _ciudadController.dispose();
     _latController.dispose();
     _lonController.dispose();
+    _debounceDireccion?.cancel();
     super.dispose();
   }
 
@@ -112,6 +126,82 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         longitude >= -180 &&
         longitude <= 180 &&
         !(latitude == 0 && longitude == 0);
+  }
+
+  LatLng? _latLngDe(dynamic latitud, dynamic longitud) {
+    final lat = double.tryParse(latitud?.toString() ?? '');
+    final lng = double.tryParse(longitud?.toString() ?? '');
+    return _validWarehouseCoordinates(lat, lng) ? LatLng(lat!, lng!) : null;
+  }
+
+  /// Pin movido en el mapa: actualiza latitud y longitud y, tras una pausa,
+  /// la dirección (un arrastre dispara muchos eventos; solo se consulta al
+  /// soltar el pin para no saturar Nominatim).
+  void _moverPinMapa(LatLng punto) {
+    setState(() {
+      _pinMapa = punto;
+      _latController.text = punto.latitude.toStringAsFixed(6);
+      _lonController.text = punto.longitude.toStringAsFixed(6);
+    });
+    _debounceDireccion?.cancel();
+    _debounceDireccion = Timer(
+      const Duration(milliseconds: 800),
+      () => _autocompletarDireccion(punto.latitude, punto.longitude),
+    );
+  }
+
+  /// Escritura manual en Dirección: protege el texto del autocompletado. Si
+  /// el campo queda vacío vuelve a permitirlo.
+  void _alEditarDireccion(String texto) {
+    _direccionEditadaPorUsuario = texto.trim().isNotEmpty;
+  }
+
+  /// Acción explícita del usuario: reemplaza la dirección con la del pin
+  /// actual, aunque ya tenga texto. Tras el reemplazo vuelve a proteger el
+  /// campo si quedó con contenido.
+  Future<void> _forzarAutocompletarDireccion() async {
+    final pin = _pinMapa;
+    if (pin == null) return;
+    _debounceDireccion?.cancel();
+    _direccionEditadaPorUsuario = false;
+    await _autocompletarDireccion(pin.latitude, pin.longitude);
+    if (mounted) {
+      _direccionEditadaPorUsuario = _direccionController.text.trim().isNotEmpty;
+    }
+  }
+
+  /// Reverse geocoding (Nominatim vía GeocodingService): calle y sector del
+  /// punto. Si no hay resultado (fuera de Ecuador o sin red) conserva el
+  /// texto actual. Solo la respuesta más reciente actualiza el campo.
+  Future<void> _autocompletarDireccion(double lat, double lng) async {
+    final seq = ++_seqDireccion;
+    if (mounted) setState(() => _buscandoDireccion = true);
+    final resultado = await _geocodingService.reverseGeocode(
+      lat: lat,
+      lng: lng,
+    );
+    if (!mounted || seq != _seqDireccion) return;
+
+    final partes = <String>[];
+    for (final parte in [
+      resultado?.callePrincipal,
+      resultado?.calleSecundaria,
+      resultado?.sector,
+      resultado?.referencia,
+    ]) {
+      final texto = parte?.trim();
+      if (texto == null || texto.isEmpty) continue;
+      if (partes.any((p) => GeocodingService.mismosCamposDireccion(p, texto))) {
+        continue;
+      }
+      partes.add(texto);
+    }
+    setState(() {
+      _buscandoDireccion = false;
+      if (partes.isNotEmpty && !_direccionEditadaPorUsuario) {
+        _direccionController.text = partes.join(', ');
+      }
+    });
   }
 
   void _setCoordinateControllers(
@@ -166,6 +256,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           _tipoEstablecimiento =
               almacen['tipo_establecimiento']?.toString() ?? 'matriz';
           _setCoordinateControllers(almacen['latitude'], almacen['longitude']);
+          _pinMapa = _latLngDe(almacen['latitude'], almacen['longitude']);
+          _direccionEditadaPorUsuario = _direccionController.text
+              .trim()
+              .isNotEmpty;
           _isLoading = false;
         });
       } else {
@@ -324,14 +418,21 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       _ciudadController.text = _almacenData!['city']?.toString() ?? '';
       _tipoEstablecimiento =
           _almacenData!['tipo_establecimiento']?.toString() ?? 'matriz';
-      _logoFile = null;
-      _removeLogo = false;
       _setCoordinateControllers(
         _almacenData!['latitude'],
         _almacenData!['longitude'],
       );
+      _pinMapa = _latLngDe(
+        _almacenData!['latitude'],
+        _almacenData!['longitude'],
+      );
+      _direccionEditadaPorUsuario = _direccionController.text.trim().isNotEmpty;
     }
-    setState(() => _isEditing = false);
+    setState(() {
+      _isEditing = false;
+      _logoFile = null;
+      _removeLogo = false;
+    });
   }
 
   void _showLogoutDialog() {
@@ -419,8 +520,6 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                           children: [
                             const SizedBox(height: AppSpacing.spacingLg),
                             _buildHeader(),
-                            const SizedBox(height: AppSpacing.spacingLg),
-                            _buildLogoSection(),
                             const SizedBox(height: AppSpacing.spacingXl),
                             _buildContactSection(),
                             const SizedBox(height: AppSpacing.spacingXl),
@@ -505,56 +604,235 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(
-                    Icons.menu,
-                    color: AppColors.primaryContainer,
-                    size: 24,
+          Expanded(
+            child: Row(
+              children: [
+                Builder(
+                  builder: (context) => IconButton(
+                    icon: const Icon(
+                      Icons.menu,
+                      color: AppColors.primaryContainer,
+                      size: 24,
+                    ),
+                    tooltip: 'Abrir menú',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
-                  tooltip: 'Abrir menú',
-                  onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.spacingXxs),
-              Text('Mi Establecimiento', style: AppTextStyles.textStyleTitle),
-            ],
+                const SizedBox(width: AppSpacing.spacingXxs),
+                Flexible(
+                  child: Text(
+                    'Mi Establecimiento',
+                    style: AppTextStyles.textStyleTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
           if (!_isLoading && _almacenData != null)
-            Semantics(
-              button: true,
-              label: _isEditing ? 'Cancelar edición' : 'Editar perfil',
-              child: TextButton.icon(
-                onPressed: _isSubmitting
-                    ? null
-                    : () {
-                        if (_isEditing) {
-                          _cancelarEdicion();
-                        } else {
-                          setState(() => _isEditing = true);
-                        }
-                      },
-                icon: Icon(
-                  _isEditing ? Icons.close : Icons.edit,
-                  color: _isEditing ? AppColors.error : AppColors.primary,
-                  size: 20,
-                ),
-                label: Text(
-                  _isEditing ? 'Cancelar' : 'Editar',
-                  style: AppTextStyles.textStyleButton.copyWith(
-                    color: _isEditing ? AppColors.error : AppColors.primary,
+            _isEditing
+                ? IconButton(
+                    tooltip: 'Cancelar edición',
+                    icon: Icon(
+                      Icons.close,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    onPressed: _isSubmitting ? null : _cancelarEdicion,
+                  )
+                : Semantics(
+                    button: true,
+                    label: 'Editar perfil',
+                    child: TextButton.icon(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => setState(() => _isEditing = true),
+                      icon: const Icon(
+                        Icons.edit,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      label: Text(
+                        'Editar',
+                        style: AppTextStyles.textStyleButton.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
   // ========== HEADER ==========
+
+  /// Modo edición: elige el logo desde cámara o galería (vista previa local;
+  /// se sube al confirmar "Guardar Cambios") o lo marca para quitar.
+  Future<void> _seleccionarLogo() async {
+    final tieneLogo =
+        _logoFile != null ||
+        (!_removeLogo && _almacenData?['logo_url'] != null);
+    final accion = await showModalBottomSheet<_AccionLogo>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerHigh,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(
+                Icons.photo_camera_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Tomar foto'),
+              onTap: () => Navigator.pop(sheetContext, _AccionLogo.camara),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Elegir de la galería'),
+              onTap: () => Navigator.pop(sheetContext, _AccionLogo.galeria),
+            ),
+            if (tieneLogo)
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.error,
+                ),
+                title: const Text('Quitar logo'),
+                onTap: () => Navigator.pop(sheetContext, _AccionLogo.quitar),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (accion == null || !mounted) return;
+
+    if (accion == _AccionLogo.quitar) {
+      setState(() {
+        _logoFile = null;
+        _removeLogo = true;
+      });
+      return;
+    }
+
+    try {
+      final imagen = await ImagePicker().pickImage(
+        source: accion == _AccionLogo.camara
+            ? ImageSource.camera
+            : ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (imagen == null || !mounted) return;
+      setState(() {
+        _logoFile = File(imagen.path);
+        _removeLogo = false;
+      });
+    } catch (e) {
+      AppLogger.error(
+        'Error al seleccionar logo del almacén',
+        name: 'PerfilAlmacenPage',
+        error: e,
+      );
+      if (mounted) {
+        mostrarSnackbarError(
+          context,
+          mensaje: 'No se pudo abrir la cámara o la galería.',
+        );
+      }
+    }
+  }
+
+  /// Insignia de edición sobre el avatar (solo en modo editar).
+  Widget _buildBadgeEdicionLogo() {
+    return Positioned(
+      right: 0,
+      bottom: 0,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppColors.primaryContainer,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.background, width: 2),
+        ),
+        child: const Icon(
+          Icons.camera_alt,
+          size: 14,
+          color: AppColors.onPrimaryContainer,
+        ),
+      ),
+    );
+  }
+
+  /// Logo real del establecimiento (o la vista previa elegida en edición); si
+  /// no hay o no carga, el icono de tienda.
+  Widget _buildHeaderAvatarContent() {
+    const icono = Icon(Icons.store, size: 40, color: AppColors.primary);
+    if (_logoFile != null) {
+      return Image.file(_logoFile!, width: 80, height: 80, fit: BoxFit.cover);
+    }
+    final logoUrl = _removeLogo ? null : _almacenData?['logo_url']?.toString();
+    if (logoUrl == null || logoUrl.isEmpty) return icono;
+    return CachedNetworkImage(
+      imageUrl: logoUrl,
+      width: 80,
+      height: 80,
+      fit: BoxFit.cover,
+      placeholder: (_, _) => icono,
+      errorWidget: (_, _, _) => icono,
+    );
+  }
+
+  /// Muestra el logo en grande con zoom (pellizcar / arrastrar) y botón de
+  /// cierre. Sin logo muestra el icono de tienda ampliado.
+  void _mostrarLogoAmpliado() {
+    final logoUrl = _almacenData?['logo_url']?.toString();
+    final tieneLogo = logoUrl != null && logoUrl.isNotEmpty;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(AppSpacing.spacingMd),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Center(
+              child: tieneLogo
+                  ? InteractiveViewer(
+                      child: CachedNetworkImage(
+                        imageUrl: logoUrl,
+                        fit: BoxFit.contain,
+                        errorWidget: (_, _, _) => const Icon(
+                          Icons.store,
+                          size: 160,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.store,
+                      size: 160,
+                      color: AppColors.primary,
+                    ),
+            ),
+            IconButton(
+              tooltip: 'Cerrar',
+              icon: const Icon(Icons.close, color: AppColors.onSurface),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surfaceContainerHigh,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildHeader() {
     final nombreComercial = _almacenData?['nombre_comercial'] ?? 'Almacén';
@@ -595,28 +873,37 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           // Avatar + nombre + encargado
           Row(
             children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.primaryContainer,
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primaryContainer.withValues(alpha: 0.2),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _isEditing ? _seleccionarLogo : _mostrarLogoAmpliado,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceContainerHigh,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.primaryContainer,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primaryContainer.withValues(
+                              alpha: 0.2,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _buildHeaderAvatarContent(),
                     ),
+                    if (_isEditing) _buildBadgeEdicionLogo(),
                   ],
-                ),
-                child: const Icon(
-                  Icons.store,
-                  size: 40,
-                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(width: AppSpacing.spacingLg),
@@ -697,95 +984,49 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     );
   }
 
-  Widget _buildLogoSection() {
-    final logoUrl = _removeLogo ? null : _almacenData?['logo_url']?.toString();
-    return RySectionCard(
-      title: 'Logo del Establecimiento',
-      icon: Icons.storefront_outlined,
+  // ========== MODO LECTURA (datos sin campos de texto) ==========
+
+  /// Dato de solo lectura: icono, etiqueta y valor como texto plano. No usa
+  /// bordes de campo, asteriscos ni contadores (eso es solo del modo editar).
+  Widget _buildDatosLectura(
+    List<({IconData icon, String label, String? valor})> datos,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            if (_isEditing)
-              RyImagePicker(
-                currentImageUrl: logoUrl,
-                currentFile: _logoFile,
-                width: 112,
-                height: 112,
-                maxImageWidth: 1200,
-                maxImageHeight: 1200,
-                onImageSelected: (file) {
-                  setState(() {
-                    _logoFile = file;
-                    _removeLogo = false;
-                  });
-                },
-                onRemove: () {
-                  setState(() {
-                    _logoFile = null;
-                    _removeLogo = true;
-                  });
-                },
-                customPlaceholder: _buildLogoPlaceholder('Añadir logo'),
-              )
-            else
-              _buildReadOnlyLogoPreview(logoUrl),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Expanded(
-              child: Text(
-                _isEditing
-                    ? 'Selecciona una imagen para representar tu establecimiento. Se guardará al confirmar los cambios.'
-                    : logoUrl == null || logoUrl.isEmpty
-                    ? 'Aún no has agregado un logo.'
-                    : 'Identidad visual del establecimiento.',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: AppColors.onSurfaceVariant,
+        for (var i = 0; i < datos.length; i++) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.spacingMd),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(datos[i].icon, size: 20, color: AppColors.onSurfaceVariant),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      datos[i].label,
+                      style: AppTextStyles.textStyleCaption.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.spacingXxs),
+                    Text(
+                      datos[i].valor?.trim().isNotEmpty == true
+                          ? datos[i].valor!.trim()
+                          : 'No registrado',
+                      style: AppTextStyles.textStyleBody.copyWith(
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoPlaceholder(String label) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(
-          Icons.storefront_outlined,
-          size: 36,
-          color: AppColors.primary,
-        ),
-        const SizedBox(height: AppSpacing.spacingXxs),
-        Text(
-          label,
-          style: AppTextStyles.textStyleSmall.copyWith(
-            color: AppColors.onSurfaceVariant,
+            ],
           ),
-        ),
+        ],
       ],
-    );
-  }
-
-  Widget _buildReadOnlyLogoPreview(String? logoUrl) {
-    return Container(
-      width: 112,
-      height: 112,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      child: logoUrl == null || logoUrl.isEmpty
-          ? _buildLogoPlaceholder('Sin logo')
-          : CachedNetworkImage(
-              imageUrl: logoUrl,
-              fit: BoxFit.cover,
-              placeholder: (_, _) => _buildLogoPlaceholder(''),
-              errorWidget: (_, _, _) => _buildLogoPlaceholder('Sin logo'),
-            ),
     );
   }
 
@@ -795,115 +1036,164 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     return RySectionCard(
       title: 'Información de Contacto',
       icon: Icons.contact_phone_outlined,
-      children: [
-        RyTextField(
-          label: 'Nombre del Establecimiento',
-          prefixIcon: Icons.store_outlined,
-          controller: _nombreController,
-          isReadOnly: !_isEditing,
-          isRequired: true,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El nombre del establecimiento es requerido';
-            }
-            if (value.trim().length < 3) {
-              return 'Debe tener al menos 3 caracteres';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyDropdownField<String>(
-          label: 'Tipo de Establecimiento',
-          value: _tipoEstablecimiento,
-          items: const ['matriz', 'sucursal'],
-          itemLabelBuilder: (tipo) =>
-              tipo == 'sucursal' ? 'Sucursal' : 'Matriz',
-          onChanged: (tipo) {
-            if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
-          },
-          isRequired: true,
-          enabled: _isEditing,
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'RUC',
-          prefixIcon: Icons.badge_outlined,
-          controller: _rucController,
-          type: RyTextFieldType.number,
-          isReadOnly: !_isEditing,
-          isRequired: true,
-          maxLength: 13,
-          errorText: _fieldErrors['ruc'],
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El RUC es requerido';
-            }
-            if (value.trim().length != 13) {
-              return 'El RUC debe tener exactamente 13 dígitos';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Ciudad',
-          prefixIcon: Icons.location_city_outlined,
-          controller: _ciudadController,
-          isReadOnly: !_isEditing,
-          isRequired: true,
-          errorText: _fieldErrors['city'],
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'La ciudad es obligatoria';
-            }
-            if (value.trim().length < 2) {
-              return 'Ingresa una ciudad válida';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Teléfono',
-          prefixIcon: Icons.phone_android_outlined,
-          type: RyTextFieldType.phone,
-          controller: _telefonoController,
-          isReadOnly: !_isEditing,
-          isRequired: true,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'El teléfono es requerido';
-            }
-            // Mínimo 9 dígitos (Ecuador) y máximo 15 (E.164 internacional):
-            // coincide con el CHECK `^[0-9]{9,}$` de la tabla y con la
-            // normalización que hace el backend (solo dígitos).
-            if (!esTelefonoValido(value)) {
-              return 'Ingresa un teléfono válido (mín. 9 dígitos)';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        RyTextField(
-          label: 'Dirección',
-          prefixIcon: Icons.location_on_outlined,
-          controller: _direccionController,
-          isReadOnly: !_isEditing,
-          maxLines: 3,
-          isRequired: true,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'La dirección es requerida';
-            }
-            if (value.trim().length < 5) {
-              return 'La dirección debe tener al menos 5 caracteres';
-            }
-            return null;
-          },
-        ),
-      ],
+      children: _isEditing
+          ? _buildCamposContacto()
+          : [
+              _buildDatosLectura([
+                (
+                  icon: Icons.store_outlined,
+                  label: 'Nombre del Establecimiento',
+                  valor: _nombreController.text,
+                ),
+                (
+                  icon: Icons.category_outlined,
+                  label: 'Tipo de Establecimiento',
+                  valor: _tipoEstablecimiento == 'sucursal'
+                      ? 'Sucursal'
+                      : 'Matriz',
+                ),
+                (
+                  icon: Icons.badge_outlined,
+                  label: 'RUC',
+                  valor: _rucController.text,
+                ),
+                (
+                  icon: Icons.location_city_outlined,
+                  label: 'Ciudad',
+                  valor: _ciudadController.text,
+                ),
+                (
+                  icon: Icons.phone_android_outlined,
+                  label: 'Teléfono',
+                  valor: _telefonoController.text,
+                ),
+                (
+                  icon: Icons.location_on_outlined,
+                  label: 'Dirección',
+                  valor: _direccionController.text,
+                ),
+              ]),
+            ],
     );
+  }
+
+  List<Widget> _buildCamposContacto() {
+    return [
+      RyTextField(
+        label: 'Nombre del Establecimiento',
+        prefixIcon: Icons.store_outlined,
+        controller: _nombreController,
+        isReadOnly: !_isEditing,
+        isRequired: true,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El nombre del establecimiento es requerido';
+          }
+          if (value.trim().length < 3) {
+            return 'Debe tener al menos 3 caracteres';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppSpacing.spacingMd),
+      RyDropdownField<String>(
+        label: 'Tipo de Establecimiento',
+        value: _tipoEstablecimiento,
+        items: const ['matriz', 'sucursal'],
+        itemLabelBuilder: (tipo) => tipo == 'sucursal' ? 'Sucursal' : 'Matriz',
+        onChanged: (tipo) {
+          if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
+        },
+        isRequired: true,
+        enabled: _isEditing,
+      ),
+      const SizedBox(height: AppSpacing.spacingMd),
+      RyTextField(
+        label: 'RUC',
+        prefixIcon: Icons.badge_outlined,
+        controller: _rucController,
+        type: RyTextFieldType.number,
+        isReadOnly: !_isEditing,
+        isRequired: true,
+        maxLength: 13,
+        errorText: _fieldErrors['ruc'],
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El RUC es requerido';
+          }
+          if (value.trim().length != 13) {
+            return 'El RUC debe tener exactamente 13 dígitos';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppSpacing.spacingMd),
+      RyTextField(
+        label: 'Ciudad',
+        prefixIcon: Icons.location_city_outlined,
+        controller: _ciudadController,
+        isReadOnly: !_isEditing,
+        isRequired: true,
+        errorText: _fieldErrors['city'],
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'La ciudad es obligatoria';
+          }
+          if (value.trim().length < 2) {
+            return 'Ingresa una ciudad válida';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppSpacing.spacingMd),
+      RyTextField(
+        label: 'Teléfono',
+        prefixIcon: Icons.phone_android_outlined,
+        type: RyTextFieldType.phone,
+        controller: _telefonoController,
+        isReadOnly: !_isEditing,
+        isRequired: true,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'El teléfono es requerido';
+          }
+          // Mínimo 9 dígitos (Ecuador) y máximo 15 (E.164 internacional):
+          // coincide con el CHECK `^[0-9]{9,}$` de la tabla y con la
+          // normalización que hace el backend (solo dígitos).
+          if (!esTelefonoValido(value)) {
+            return 'Ingresa un teléfono válido (mín. 9 dígitos)';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppSpacing.spacingMd),
+      RyTextField(
+        label: 'Dirección',
+        prefixIcon: Icons.location_on_outlined,
+        controller: _direccionController,
+        isReadOnly: !_isEditing,
+        maxLines: 3,
+        helperText: _buscandoDireccion ? 'Buscando dirección…' : null,
+        onChanged: _alEditarDireccion,
+        suffixWidget: IconButton(
+          tooltip: 'Autocompletar desde el mapa',
+          icon: const Icon(Icons.sync, color: AppColors.primary),
+          onPressed: _pinMapa == null || _buscandoDireccion
+              ? null
+              : _forzarAutocompletarDireccion,
+        ),
+        isRequired: true,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return 'La dirección es requerida';
+          }
+          if (value.trim().length < 5) {
+            return 'La dirección debe tener al menos 5 caracteres';
+          }
+          return null;
+        },
+      ),
+    ];
   }
 
   // ========== SECCIÓN: UBICACIÓN ==========
@@ -930,90 +1220,94 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     setState(() {
       _latController.text = lat.toStringAsFixed(6);
       _lonController.text = lng.toStringAsFixed(6);
+      _pinMapa = LatLng(lat, lng);
     });
 
-    // Autocompletar la dirección solo si está vacía (no pisar lo escrito).
-    if (_direccionController.text.trim().isEmpty) {
-      try {
-        final geocode = await _geocodingService.reverseGeocode(
-          lat: lat,
-          lng: lng,
-        );
-        if (!mounted || geocode == null) return;
-        final partes = <String>[
-          if (geocode.callePrincipal != null &&
-              geocode.callePrincipal!.isNotEmpty)
-            geocode.callePrincipal!,
-          if (geocode.referencia != null && geocode.referencia!.isNotEmpty)
-            geocode.referencia!,
-        ];
-        if (partes.isNotEmpty) {
-          setState(() => _direccionController.text = partes.join(', '));
-        }
-      } catch (e) {
-        AppLogger.error(
-          'Error al geocodificar ubicación del almacén',
-          name: 'PerfilAlmacenPage',
-          error: e,
-        );
-        // Degradación: el usuario puede escribir la dirección a mano.
-      }
-    }
+    _debounceDireccion?.cancel();
+    await _autocompletarDireccion(lat, lng);
   }
 
   Widget _buildLocationSection() {
     return RySectionCard(
       title: 'Ubicación',
       icon: Icons.map_outlined,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: RyTextField(
-                label: 'Latitud',
-                prefixIcon: Icons.my_location,
-                controller: _latController,
-                isReadOnly: !_isEditing,
-                type: RyTextFieldType.decimal,
-                validator: _validateCoordinatePair,
+      children: _isEditing
+          ? [
+              Row(
+                children: [
+                  Expanded(
+                    child: Opacity(
+                      opacity: 0.6,
+                      child: RyTextField(
+                        label: 'Latitud',
+                        prefixIcon: Icons.my_location,
+                        suffixIcon: Icons.lock_outline,
+                        controller: _latController,
+                        isReadOnly: true,
+                        type: RyTextFieldType.decimal,
+                        validator: _validateCoordinatePair,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.spacingMd),
+                  Expanded(
+                    child: Opacity(
+                      opacity: 0.6,
+                      child: RyTextField(
+                        label: 'Longitud',
+                        prefixIcon: Icons.explore,
+                        suffixIcon: Icons.lock_outline,
+                        controller: _lonController,
+                        isReadOnly: true,
+                        type: RyTextFieldType.decimal,
+                        validator: _validateCoordinatePair,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Expanded(
-              child: RyTextField(
-                label: 'Longitud',
-                prefixIcon: Icons.explore,
-                controller: _lonController,
-                isReadOnly: !_isEditing,
-                type: RyTextFieldType.decimal,
-                validator: _validateCoordinatePair,
+              const SizedBox(height: AppSpacing.spacingSm),
+              Text(
+                'Coordenadas GPS del almacén. Solo lectura: para actualizarlas usa "Usar mi ubicación actual".',
+                style: AppTextStyles.textStyleSmall.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingSm),
-        Text(
-          'Coordenadas GPS del almacén. Edítalas si la ubicación no es precisa.',
-          style: AppTextStyles.textStyleSmall.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
-        ),
-        if (_isEditing) ...[
-          const SizedBox(height: AppSpacing.spacingSm),
-          Semantics(
-            button: true,
-            label: 'Usar mi ubicación actual para el almacén',
-            child: RyButton(
-              label: 'Usar mi ubicación actual',
-              icon: Icons.my_location,
-              variant: RyButtonVariant.outline,
-              size: RyButtonSize.small,
-              isFullWidth: true,
-              onPressed: _usarUbicacionActual,
-            ),
-          ),
-        ],
-      ],
+              const SizedBox(height: AppSpacing.spacingSm),
+              RyLocationMapPicker(
+                initialPosition: _pinMapa ?? _centroQuito,
+                height: 220,
+                showPin: _pinMapa != null,
+                onChanged: _moverPinMapa,
+              ),
+              const SizedBox(height: AppSpacing.spacingSm),
+              Semantics(
+                button: true,
+                label: 'Usar mi ubicación actual para el almacén',
+                child: RyButton(
+                  label: 'Usar mi ubicación actual',
+                  icon: Icons.my_location,
+                  variant: RyButtonVariant.outline,
+                  size: RyButtonSize.small,
+                  isFullWidth: true,
+                  onPressed: _usarUbicacionActual,
+                ),
+              ),
+            ]
+          : [
+              _buildDatosLectura([
+                (
+                  icon: Icons.my_location,
+                  label: 'Latitud',
+                  valor: _latController.text,
+                ),
+                (
+                  icon: Icons.explore,
+                  label: 'Longitud',
+                  valor: _lonController.text,
+                ),
+              ]),
+            ],
     );
   }
 
@@ -1058,14 +1352,18 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
 
   // ========== LOGOUT ==========
 
+  /// Acción secundaria: texto en rojo sin fondo sólido (el cierre de sesión
+  /// también está en el Drawer, así que no necesita protagonismo visual).
   Widget _buildLogoutButton() {
-    return RyButton(
-      label: 'Cerrar Sesión',
-      icon: Icons.logout,
-      variant: RyButtonVariant.danger,
-      size: RyButtonSize.large,
-      isFullWidth: true,
-      onPressed: _showLogoutDialog,
+    return Center(
+      child: TextButton.icon(
+        onPressed: _showLogoutDialog,
+        icon: const Icon(Icons.logout, size: 20, color: AppColors.error),
+        label: Text(
+          'Cerrar Sesión',
+          style: AppTextStyles.textStyleButton.copyWith(color: AppColors.error),
+        ),
+      ),
     );
   }
 

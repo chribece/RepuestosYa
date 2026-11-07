@@ -198,8 +198,8 @@ void main() {
   });
 
   testWidgets(
-    'estado CON DATOS: el feed pagina de 5 en 5 con "Cargar más" y muestra '
-    'fin de lista sin tocar la métrica del Bento',
+    'estado CON DATOS: el Home muestra solo 3 solicitudes de vista previa '
+    'y "Ver todas", sin tocar la métrica del Bento',
     (tester) async {
       solicitud.respuestaActivas = [
         for (var i = 1; i <= 6; i++)
@@ -211,34 +211,15 @@ void main() {
       ];
       await pumpDashboard(tester);
 
-      // Primera página: solo 5 tarjetas, la 6 no está construida.
-      expect(find.byType(RyPartCard), findsNWidgets(5));
-      expect(find.text('Pieza 6'), findsNothing);
+      // Vista previa: solo 3 tarjetas; las demás no se construyen en el Home.
+      expect(find.byType(RyPartCard), findsNWidgets(3));
+      expect(find.text('Pieza 4'), findsNothing);
+      expect(find.text('Cargar más'), findsNothing);
+      expect(find.text('Ver todas'), findsOneWidget);
 
       // La métrica "Pendientes" del Bento usa la lista COMPLETA (6), no la
-      // ventana visible (5).
+      // vista previa (3).
       expect(find.text('6'), findsOneWidget);
-
-      // El pie de paginación queda debajo del pliegue: desplazar el feed.
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
-      await tester.pump();
-      expect(find.text('Cargar más'), findsOneWidget);
-
-      // Cargar la siguiente página: indicador breve y luego la 6 + fin.
-      await tester.tap(find.text('Cargar más'));
-      await tester.pump();
-      // Indicador de carga mientras avanza la ventana.
-      expect(find.byType(CircularProgressIndicator), findsWidgets);
-      await tester.pump(const Duration(milliseconds: 250));
-
-      expect(find.byType(RyPartCard), findsNWidgets(6));
-      expect(find.text('Pieza 6'), findsOneWidget);
-      expect(find.text('Cargar más'), findsNothing);
-
-      // El fin de lista queda bajo la sexta tarjeta: desplazar para verlo.
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
-      await tester.pump();
-      expect(find.text('No hay más solicitudes'), findsOneWidget);
     },
   );
 
@@ -335,6 +316,48 @@ void main() {
       expect(find.text('NO SELECCIONADA'), findsOneWidget);
       expect(find.text('María Gómez'), findsNothing);
       expect(find.text('Sin teléfono registrado'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'cotizaciones: el precio muestra un solo símbolo de dólar y cada pestaña vacía '
+    'muestra su mensaje en lugar de una lista en blanco',
+    (tester) async {
+      solicitud.respuestaMisCotizaciones = [
+        {
+          'id': 'c-1',
+          'precio_venta': '23.00',
+          'estado': 'pendiente',
+          'created_at': '2026-10-05T10:00:00.000Z',
+          'solicitudes_repuesto': {'pieza_nombre': 'Filtro de aceite'},
+        },
+      ];
+      await pumpDashboard(tester);
+
+      await tester.tap(find.text('Cotizaciones'));
+      await tester.pumpAndSettle();
+
+      // Pestaña Todas: la tarjeta con un único símbolo de dólar.
+      expect(find.text('\$23.00'), findsOneWidget);
+      expect(find.text('\$ \$23.00'), findsNothing);
+      expect(find.text('Filtro de aceite'), findsOneWidget);
+
+      // Pestaña Pendientes: la cotización pendiente sigue visible.
+      await tester.tap(find.text('Pendientes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Filtro de aceite'), findsOneWidget);
+
+      // Pestaña Ganadas: sin cotizaciones ganadas, mensaje de estado vacío.
+      await tester.tap(find.text('Ganadas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Filtro de aceite'), findsNothing);
+      expect(find.text('Aún no tienes cotizaciones ganadas.'), findsOneWidget);
+
+      // Pestaña No seleccionadas: mensaje propio de rechazadas.
+      await tester.tap(find.text('No seleccionadas'));
+      await tester.pumpAndSettle();
+      expect(find.text('Filtro de aceite'), findsNothing);
+      expect(find.text('No tienes cotizaciones rechazadas.'), findsOneWidget);
     },
   );
 

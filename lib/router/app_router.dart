@@ -12,6 +12,7 @@ import '../pages/complete_profile_page.dart';
 import '../pages/home_page.dart';
 import '../pages/onboarding_page.dart';
 import '../pages/warehouse_dashboard.dart';
+import '../pages/warehouse_requests_page.dart';
 import '../pages/create_request_page.dart';
 import '../pages/todas_solicitudes_page.dart';
 import '../pages/received_quotations_page.dart';
@@ -311,6 +312,11 @@ class AppRouter {
           path: '/dashboard',
           name: RouteNames.dashboard,
           builder: (context, state) => const WarehouseDashboard(),
+        ),
+        GoRoute(
+          path: '/dashboard/solicitudes',
+          name: RouteNames.warehouseRequests,
+          builder: (context, state) => const WarehouseRequestsPage(),
         ),
         GoRoute(
           path: '/cotizar/:solicitudId',

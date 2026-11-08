@@ -19,7 +19,14 @@ import '../utils/ry_snackbar.dart';
 class AlmacenOrdenDetallePage extends StatefulWidget {
   final String ordenId;
 
-  const AlmacenOrdenDetallePage({super.key, required this.ordenId});
+  /// Inyectable para tests; en producción se usa el servicio real.
+  final OrdenCompraService? ordenService;
+
+  const AlmacenOrdenDetallePage({
+    super.key,
+    required this.ordenId,
+    this.ordenService,
+  });
 
   @override
   State<AlmacenOrdenDetallePage> createState() =>
@@ -27,7 +34,8 @@ class AlmacenOrdenDetallePage extends StatefulWidget {
 }
 
 class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
-  final OrdenCompraService _ordenService = OrdenCompraService();
+  late final OrdenCompraService _ordenService =
+      widget.ordenService ?? OrdenCompraService();
   OrdenCompra? _orden;
   bool _isLoading = true;
   bool _isUpdating = false;
@@ -147,6 +155,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         children: [
           RyStatusBadge(
             status: orden.estado,
+            customLabel: etiquetaEstadoOrden(orden.estado),
             style: RyStatusBadgeStyle.filled,
             size: RyStatusBadgeSize.large,
           ),

@@ -166,6 +166,14 @@ String capitalizarNombre(String texto) => texto.replaceAllMapped(
   (m) => '${m[1]}${m[2]!.toUpperCase()}',
 );
 
+/// Etiqueta legible de un estado de orden: sin guiones bajos y con mayúscula
+/// inicial ("confirmada" → "Confirmada", "pendiente_pago" → "Pendiente pago").
+String etiquetaEstadoOrden(String estado) {
+  final texto = estado.replaceAll('_', ' ').trim();
+  if (texto.isEmpty) return texto;
+  return '${texto[0].toUpperCase()}${texto.substring(1)}';
+}
+
 /// Capitaliza la primera letra de la dirección y de cada segmento separado por
 /// coma, sin tocar el resto ("taller pepito, venezuela" → "Taller pepito,
 /// Venezuela"). A diferencia de [capitalizarNombre], no pone en mayúscula cada

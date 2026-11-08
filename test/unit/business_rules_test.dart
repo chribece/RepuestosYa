@@ -266,6 +266,21 @@ void main() {
     });
   });
 
+  group('etiquetaEstadoOrden', () {
+    test('mayúscula inicial en estados simples', () {
+      expect(etiquetaEstadoOrden('confirmada'), 'Confirmada');
+      expect(etiquetaEstadoOrden('entregada'), 'Entregada');
+    });
+
+    test('guiones bajos se reemplazan por espacios', () {
+      expect(etiquetaEstadoOrden('pendiente_pago'), 'Pendiente pago');
+    });
+
+    test('vacío se devuelve vacío', () {
+      expect(etiquetaEstadoOrden(''), '');
+    });
+  });
+
   group('capitalizarDireccion', () {
     test('primera letra de la dirección y de cada segmento tras coma', () {
       expect(

@@ -304,7 +304,9 @@ void main() {
 
       // Solo la GANADA muestra la sección de datos de entrega del cliente.
       expect(find.text('Datos de entrega del cliente'), findsOneWidget);
-      expect(find.text('Juan Pérez'), findsOneWidget);
+      // El nombre va una sola vez, en el encabezado de la tarjeta.
+      expect(find.text('Cliente: Juan Pérez'), findsOneWidget);
+      expect(find.text('Juan Pérez'), findsNothing);
       expect(find.text('0991234567'), findsOneWidget);
       expect(find.textContaining('Av. Amazonas'), findsOneWidget);
       expect(find.textContaining('Frente al parque'), findsOneWidget);
@@ -404,7 +406,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Datos de entrega del cliente'), findsOneWidget);
-      expect(find.text('TestCliente'), findsOneWidget);
+      // El nombre va una sola vez, en el encabezado de la tarjeta.
+      expect(find.text('Cliente: TestCliente'), findsOneWidget);
+      expect(find.text('TestCliente'), findsNothing);
       expect(find.text('0981234512'), findsOneWidget);
       // Dirección completa: alias + calles + referencia.
       expect(find.textContaining('Taller pepito'), findsOneWidget);

@@ -166,6 +166,15 @@ String capitalizarNombre(String texto) => texto.replaceAllMapped(
   (m) => '${m[1]}${m[2]!.toUpperCase()}',
 );
 
+/// Capitaliza la primera letra de la dirección y de cada segmento separado por
+/// coma, sin tocar el resto ("taller pepito, venezuela" → "Taller pepito,
+/// Venezuela"). A diferencia de [capitalizarNombre], no pone en mayúscula cada
+/// palabra de la calle ("frente al parque" se mantiene).
+String capitalizarDireccion(String texto) => texto.replaceAllMapped(
+  RegExp(r'(^|,\s*)(\S)'),
+  (m) => '${m[1]}${m[2]!.toUpperCase()}',
+);
+
 /// Número de orden amigable a partir del UUID: últimos 6 caracteres en
 /// mayúsculas con '#' ("…b301b9" → "#B301B9").
 String formatearNumeroOrden(String id) {

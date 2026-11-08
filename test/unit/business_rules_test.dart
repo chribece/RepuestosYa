@@ -266,6 +266,19 @@ void main() {
     });
   });
 
+  group('capitalizarDireccion', () {
+    test('primera letra de la dirección y de cada segmento tras coma', () {
+      expect(
+        capitalizarDireccion('taller pepito, venezuela'),
+        'Taller pepito, Venezuela',
+      );
+    });
+
+    test('no capitaliza cada palabra de la calle', () {
+      expect(capitalizarDireccion('frente al parque'), 'Frente al parque');
+    });
+  });
+
   group('formatearNumeroOrden', () {
     test('usa los últimos 6 caracteres en mayúsculas con #', () {
       expect(formatearNumeroOrden('6f1c2a3d-4e5f-4a6b-8c7d-b301b9'), '#B301B9');

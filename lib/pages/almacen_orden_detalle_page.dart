@@ -193,7 +193,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         ),
         _buildFilaRecibo(
           'Dirección',
-          direccion == null ? 'No registrada' : capitalizarNombre(direccion),
+          direccion == null ? 'No registrada' : capitalizarDireccion(direccion),
         ),
       ],
     );

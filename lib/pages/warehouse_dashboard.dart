@@ -1602,7 +1602,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     'Dirección',
                     direccionClienteTexto == null
                         ? 'Sin dirección registrada'
-                        : capitalizarNombre(direccionClienteTexto),
+                        : capitalizarDireccion(direccionClienteTexto),
                   ),
                   _buildDatoEntrega(
                     'Teléfono',

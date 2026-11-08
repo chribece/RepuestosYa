@@ -202,14 +202,41 @@ void main() {
       );
     });
 
-    test('5 minutos → "Hace 5 min"', () {
-      final hace = now.subtract(const Duration(minutes: 5));
-      expect(formatTiempoEnvio(hace.toIso8601String(), now: now), 'Hace 5 min');
+    test('1 minuto → "Hace 1 minuto" (singular)', () {
+      final hace = now.subtract(const Duration(minutes: 1));
+      expect(
+        formatTiempoEnvio(hace.toIso8601String(), now: now),
+        'Hace 1 minuto',
+      );
     });
 
-    test('2 horas → "Hace 2 h"', () {
+    test('5 minutos → "Hace 5 minutos"', () {
+      final hace = now.subtract(const Duration(minutes: 5));
+      expect(
+        formatTiempoEnvio(hace.toIso8601String(), now: now),
+        'Hace 5 minutos',
+      );
+    });
+
+    test('1 hora → "Hace 1 hora" (singular)', () {
+      final hace = now.subtract(const Duration(hours: 1));
+      expect(
+        formatTiempoEnvio(hace.toIso8601String(), now: now),
+        'Hace 1 hora',
+      );
+    });
+
+    test('2 horas → "Hace 2 horas"', () {
       final hace = now.subtract(const Duration(hours: 2));
-      expect(formatTiempoEnvio(hace.toIso8601String(), now: now), 'Hace 2 h');
+      expect(
+        formatTiempoEnvio(hace.toIso8601String(), now: now),
+        'Hace 2 horas',
+      );
+    });
+
+    test('1 día → "Hace 1 día" (singular)', () {
+      final hace = now.subtract(const Duration(days: 1));
+      expect(formatTiempoEnvio(hace.toIso8601String(), now: now), 'Hace 1 día');
     });
 
     test('3 días → "Hace 3 días"', () {
@@ -222,6 +249,20 @@ void main() {
 
     test('fecha inválida → "Hace un momento" (no lanza)', () {
       expect(formatTiempoEnvio('no-es-fecha', now: now), 'Hace un momento');
+    });
+  });
+
+  group('capitalizarNombre', () {
+    test('primera letra de cada palabra en mayúscula', () {
+      expect(capitalizarNombre('test almaceb'), 'Test Almaceb');
+    });
+
+    test('conserva el resto de letras (siglas y mayúsculas intermedias)', () {
+      expect(capitalizarNombre('autoPartes RUC'), 'AutoPartes RUC');
+    });
+
+    test('texto vacío se devuelve igual', () {
+      expect(capitalizarNombre(''), '');
     });
   });
 

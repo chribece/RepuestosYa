@@ -132,8 +132,12 @@ List<Map<String, dynamic>> _cotizacionesPendientes(
       .toList();
 }
 
-/// Formato relativo de tiempo ("Hace un momento", "Hace 5 min", "Hace 2 h",
-/// "Hace 3 días"). [now] es inyectable para hacer el test determinista.
+String _cantidadConUnidad(int cantidad, String singular, String plural) =>
+    '$cantidad ${cantidad == 1 ? singular : plural}';
+
+/// Formato relativo de tiempo ("Hace un momento", "Hace 1 minuto", "Hace 5
+/// minutos", "Hace 1 hora", "Hace 2 horas", "Hace 1 día", "Hace 3 días").
+/// [now] es inyectable para hacer el test determinista.
 String formatTiempoEnvio(String? createdAt, {DateTime? now}) {
   if (createdAt == null) return 'Hace un momento';
 
@@ -144,16 +148,26 @@ String formatTiempoEnvio(String? createdAt, {DateTime? now}) {
     if (difference.inMinutes < 1) {
       return 'Hace un momento';
     } else if (difference.inMinutes < 60) {
-      return 'Hace ${difference.inMinutes} min';
+      final minutos = difference.inMinutes;
+      return 'Hace ${_cantidadConUnidad(minutos, 'minuto', 'minutos')}';
     } else if (difference.inHours < 24) {
-      return 'Hace ${difference.inHours} h';
+      final horas = difference.inHours;
+      return 'Hace ${_cantidadConUnidad(horas, 'hora', 'horas')}';
     } else {
-      return 'Hace ${difference.inDays} días';
+      final dias = difference.inDays;
+      return 'Hace ${_cantidadConUnidad(dias, 'día', 'días')}';
     }
   } catch (_) {
     return 'Hace un momento';
   }
 }
+
+/// Pone en mayúscula solo la primera letra de cada palabra y conserva el resto
+/// ("test almaceb" → "Test Almaceb", "AutoPartes RUC" → "AutoPartes RUC").
+String capitalizarNombre(String texto) => texto.replaceAllMapped(
+  RegExp(r'(^|\s)(\S)'),
+  (m) => '${m[1]}${m[2]!.toUpperCase()}',
+);
 
 /// Una dirección de entrega es utilizable sin flujo GPS cuando ya trae
 /// coordenadas numéricas (`latitude`/`longitude`). Un valor string ("-0.19")

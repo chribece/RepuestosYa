@@ -537,6 +537,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
     BuildContext context,
     SolicitudLocal solicitudLocal,
     bool isOffline,
+    int quotationCount,
   ) {
     final tarjeta = RyPartCard(
       partName: solicitudLocal.piezaNombre,
@@ -544,6 +545,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
       vehicleInfo: null,
       description: solicitudLocal.descripcion,
       status: solicitudLocal.estado,
+      quotationCount: quotationCount,
       createdAt: solicitudLocal.updatedAt,
       isSynced: solicitudLocal.synced,
       variant: RyPartCardVariant.client,
@@ -658,6 +660,7 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
         context,
         filteredRequests[index],
         provider.isOffline,
+        provider.cantidadCotizaciones(filteredRequests[index].id),
       ),
     );
   }

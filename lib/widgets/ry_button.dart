@@ -4,7 +4,14 @@ import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 
-enum RyButtonVariant { primary, secondary, outline, text, danger }
+enum RyButtonVariant {
+  primary,
+  secondary,
+  outline,
+  outlineDanger,
+  text,
+  danger,
+}
 
 enum RyButtonSize { small, medium, large }
 
@@ -55,6 +62,8 @@ class RyButton extends StatelessWidget {
         return SemanticColors.colorSecondaryButton;
       case RyButtonVariant.outline:
         return Colors.transparent;
+      case RyButtonVariant.outlineDanger:
+        return Colors.transparent;
       case RyButtonVariant.text:
         return Colors.transparent;
       case RyButtonVariant.danger:
@@ -70,6 +79,8 @@ class RyButton extends StatelessWidget {
         return SemanticColors.colorOnSecondaryButton;
       case RyButtonVariant.outline:
         return SemanticColors.colorOnSurface;
+      case RyButtonVariant.outlineDanger:
+        return SemanticColors.colorErrorText;
       case RyButtonVariant.text:
         return SemanticColors.colorOnSurface;
       case RyButtonVariant.danger:
@@ -84,6 +95,7 @@ class RyButton extends StatelessWidget {
       case RyButtonVariant.danger:
         return AppColors.surfaceVariant;
       case RyButtonVariant.outline:
+      case RyButtonVariant.outlineDanger:
       case RyButtonVariant.text:
         return Colors.transparent;
     }
@@ -97,6 +109,8 @@ class RyButton extends StatelessWidget {
     switch (variant) {
       case RyButtonVariant.outline:
         return const BorderSide(color: AppColors.outlineVariant);
+      case RyButtonVariant.outlineDanger:
+        return BorderSide(color: SemanticColors.colorErrorText);
       case RyButtonVariant.primary:
       case RyButtonVariant.secondary:
       case RyButtonVariant.text:

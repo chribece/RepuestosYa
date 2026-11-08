@@ -123,7 +123,7 @@ void main() {
       expect(service.deleteCalls, 1);
       expect(find.text('Vehículo eliminado'), findsOneWidget);
       final snackbar = tester.widget<SnackBar>(find.byType(SnackBar).last);
-      expect(snackbar.backgroundColor, const Color(0xFF1E1E1E));
+      expect(snackbar.backgroundColor, AppColors.surfaceContainerHigh);
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../database/app_database.dart';
 import '../models/part_catalog.dart';
 import '../theme/app_colors.dart';
 import '../services/catalog_service.dart';
@@ -247,6 +248,38 @@ class _HomePageState extends State<HomePage> {
         name: 'HomePage',
         error: e,
       );
+    }
+  }
+
+  void _abrirCotizacionesDeSolicitud(SolicitudLocal solicitud) {
+    context.pushNamed(
+      RouteNames.receivedQuotations,
+      pathParameters: {'id': solicitud.id},
+      extra: {
+        'piezaNombre': solicitud.piezaNombre,
+        'fotoUrl': solicitud.fotoUrl,
+        'ofertasPendientes': context
+            .read<SolicitudesProvider>()
+            .cantidadCotizaciones(solicitud.id),
+      },
+    );
+  }
+
+  /// Con una única solicitud abierta que tenga ofertas, abre directamente sus
+  /// cotizaciones; si hay varias (o ninguna), muestra el listado de solicitudes.
+  void _abrirCotizacionesRecibidas(SolicitudesProvider provider) {
+    final conOfertas = provider.solicitudes
+        .where(
+          (s) =>
+              s.synced &&
+              RyPartCard.esEstadoAbierto(s.estado) &&
+              provider.cantidadCotizaciones(s.id) > 0,
+        )
+        .toList();
+    if (conOfertas.length == 1) {
+      _abrirCotizacionesDeSolicitud(conOfertas.single);
+    } else {
+      context.pushNamed(RouteNames.solicitudes);
     }
   }
 
@@ -627,24 +660,35 @@ class _HomePageState extends State<HomePage> {
         final String cotizadasTxt = cotizadasCount.toString().padLeft(2, '0');
         final String enProcesoTxt = enProcesoCount.toString().padLeft(2, '0');
         final metrics =
-            <({String title, String value, IconData icon, Color color})>[
+            <
+              ({
+                String title,
+                String value,
+                IconData icon,
+                Color color,
+                VoidCallback? onTap,
+              })
+            >[
               (
                 title: 'Solicitudes Activas',
                 value: buscandoTxt,
                 icon: Icons.history_rounded,
                 color: AppColors.primaryContainer,
+                onTap: () => context.pushNamed(RouteNames.solicitudes),
               ),
               (
                 title: 'Cotizaciones Recibidas',
                 value: cotizadasTxt,
                 icon: Icons.request_quote_rounded,
                 color: AppColors.secondaryContainer,
+                onTap: () => _abrirCotizacionesRecibidas(provider),
               ),
               (
                 title: 'En Proceso',
                 value: enProcesoTxt,
                 icon: Icons.pending_rounded,
                 color: AppColors.tertiaryContainer,
+                onTap: null,
               ),
               (
                 title: 'Órdenes Realizadas',
@@ -656,6 +700,7 @@ class _HomePageState extends State<HomePage> {
                     '00'),
                 icon: Icons.shopping_cart_rounded,
                 color: AppColors.success,
+                onTap: null,
               ),
             ];
         final cardsPerPage = MediaQuery.sizeOf(context).width >= 720 ? 4 : 2;
@@ -699,6 +744,7 @@ class _HomePageState extends State<HomePage> {
                             value: pageMetrics[metricIndex].value,
                             icon: pageMetrics[metricIndex].icon,
                             color: pageMetrics[metricIndex].color,
+                            onTap: pageMetrics[metricIndex].onTap,
                           ),
                         ),
                       ],
@@ -740,58 +786,65 @@ class _HomePageState extends State<HomePage> {
     required String value,
     required IconData icon,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    return Material(
       key: ValueKey('stat-card-$title'),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.spacingMd,
-        vertical: AppSpacing.spacingXs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
+      color: AppColors.surfaceContainerHigh,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
+        side: BorderSide(color: AppColors.outlineVariant),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    letterSpacing: 0,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.spacingXxs),
-                Text(
-                  value,
-                  style: AppTextStyles.textStyleTitle.copyWith(
-                    color: color,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.spacingMd,
+            vertical: AppSpacing.spacingXs,
           ),
-          const SizedBox(width: AppSpacing.spacingXs),
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-            ),
-            child: Icon(icon, color: color, size: 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        letterSpacing: 0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.spacingXxs),
+                    Text(
+                      value,
+                      style: AppTextStyles.textStyleTitle.copyWith(
+                        color: color,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -927,19 +980,15 @@ class _HomePageState extends State<HomePage> {
                     vehicleInfo: null,
                     description: solicitudLocal.descripcion,
                     status: estado,
+                    quotationCount: provider.cantidadCotizaciones(
+                      solicitudLocal.id,
+                    ),
                     createdAt: solicitudLocal.updatedAt,
                     isSynced: solicitudLocal.synced,
                     variant: RyPartCardVariant.client,
                     onTap: () {
                       if (solicitudLocal.synced) {
-                        context.pushNamed(
-                          RouteNames.receivedQuotations,
-                          pathParameters: {'id': solicitudLocal.id},
-                          extra: {
-                            'piezaNombre': solicitudLocal.piezaNombre,
-                            'fotoUrl': solicitudLocal.fotoUrl,
-                          },
-                        );
+                        _abrirCotizacionesDeSolicitud(solicitudLocal);
                       }
                     },
                   ),

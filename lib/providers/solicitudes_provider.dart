@@ -7,6 +7,7 @@ class SolicitudesProvider with ChangeNotifier {
   final SolicitudRepositoryContract _repository;
 
   List<SolicitudLocal> _solicitudes = [];
+  final Map<String, int> _cantidadCotizaciones = {};
   bool _isLoading = false;
   bool _isOffline = false;
   DateTime? _lastSync;
@@ -26,6 +27,12 @@ class SolicitudesProvider with ChangeNotifier {
   }
 
   List<SolicitudLocal> get solicitudes => _solicitudes;
+
+  /// Cotizaciones recibidas por solicitud según el último refresco remoto
+  /// (la caché local no persiste el conteo; offline vale 0).
+  int cantidadCotizaciones(String solicitudId) =>
+      _cantidadCotizaciones[solicitudId] ?? 0;
+
   bool get isLoading => _isLoading;
   bool get isOffline => _isOffline;
   DateTime? get lastSync => _lastSync;
@@ -109,6 +116,12 @@ class SolicitudesProvider with ChangeNotifier {
         );
 
         final mappedData = remoteData.map((json) => Solicitud(json)).toList();
+        _cantidadCotizaciones
+          ..clear()
+          ..addAll({
+            for (final solicitud in mappedData)
+              solicitud.id: solicitud.cantidadCotizaciones,
+          });
         await _repository.reemplazarDesdeServidor(mappedData);
 
         // Sincronizar metadatos para uso offline (Caché)

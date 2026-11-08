@@ -157,6 +157,7 @@ class RyPartCard extends StatelessWidget {
   final String? description;
   final String? additionalPartsSummary;
   final String status;
+  final int quotationCount;
   final String? price;
   final String? location;
   final DateTime createdAt;
@@ -181,6 +182,7 @@ class RyPartCard extends StatelessWidget {
     this.description,
     this.additionalPartsSummary,
     required this.status,
+    this.quotationCount = 0,
     this.price,
     this.location,
     required this.createdAt,
@@ -223,10 +225,19 @@ class RyPartCard extends StatelessWidget {
   /// Construye el badge de estado como elemento accionable cuando
   /// `onStatusTap != null`. Garantiza área táctil ≥48×48 dp (WCAG 2.5.5)
   /// y expone `Semantics(button:, label: 'Estado: …')` para TalkBack.
+  /// Estados en los que el almacén aún puede responder: solo aquí las
+  /// cotizaciones son ofertas accionables.
+  static bool esEstadoAbierto(String estado) =>
+      estado == 'pendiente' || estado == 'en_proceso';
+
   Widget _buildStatusAction() {
+    final ofertas = esEstadoAbierto(status) ? quotationCount : 0;
+    final etiquetaOfertas = ofertas > 0
+        ? '$ofertas cotización${ofertas == 1 ? '' : 'es'}'
+        : null;
     return Semantics(
       button: onStatusTap != null,
-      label: 'Estado: $status',
+      label: 'Estado: ${etiquetaOfertas ?? status}',
       onTap: onStatusTap,
       child: InkWell(
         onTap: onStatusTap,
@@ -238,8 +249,40 @@ class RyPartCard extends StatelessWidget {
             horizontal: AppSpacing.spacingXs,
             vertical: AppSpacing.spacingXs,
           ),
-          child: RyStatusBadge(status: status),
+          child: etiquetaOfertas != null
+              ? _buildOfertasBadge(etiquetaOfertas)
+              : RyStatusBadge(status: status),
         ),
+      ),
+    );
+  }
+
+  /// Badge de llamado a la acción en estilo outline: borde y contenido en el
+  /// color de marca sobre fondo transparente (se integra con la tarjeta).
+  Widget _buildOfertasBadge(String etiqueta) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingXs,
+        vertical: AppSpacing.spacingXxs,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(color: AppColors.primary),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.receipt_long, size: 16, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.spacingXxs),
+          Text(
+            etiqueta,
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

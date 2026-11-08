@@ -805,7 +805,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                 Text(
                   '$ofertasPendientes oferta${ofertasPendientes == 1 ? '' : 's'} pendiente${ofertasPendientes == 1 ? '' : 's'}',
                   style: AppTextStyles.textStyleCaption.copyWith(
-                    color: AppColors.secondary,
+                    color: AppColors.primary,
                   ),
                 ),
               ],
@@ -938,8 +938,9 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
     bool destacarCercana = false,
   }) {
     final almacenes = cotizacion['almacenes'] as Map<String, dynamic>?;
-    final almacenNombre =
-        almacenes?['nombre_comercial'] ?? 'Almacén desconocido';
+    final almacenNombre = capitalizarNombre(
+      almacenes?['nombre_comercial']?.toString() ?? 'Almacén desconocido',
+    );
     final repuestoNombre =
         _piezaNombreOverride ?? widget.piezaNombre ?? 'el repuesto';
     final precio = _parsePrecio(cotizacion['precio_venta']);
@@ -1261,9 +1262,10 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                             child: RyButton(
                               label: 'Rechazar',
                               icon: Icons.close,
-                              variant: RyButtonVariant.danger,
+                              variant: RyButtonVariant.outlineDanger,
                               size: RyButtonSize.small,
                               isFullWidth: true,
+                              horizontalPadding: AppSpacing.spacingXs,
                               isDisabled: isLoading,
                               onPressed: isLoading
                                   ? null
@@ -1288,6 +1290,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                               variant: RyButtonVariant.primary,
                               size: RyButtonSize.small,
                               isFullWidth: true,
+                              horizontalPadding: AppSpacing.spacingXs,
                               isLoading: isLoading,
                               isDisabled: isLoading,
                               onPressed: isLoading

@@ -16,6 +16,7 @@ import 'package:repuestosya/services/almacen_service.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/notificaciones_api_service.dart';
 import 'package:repuestosya/services/profile_service.dart';
+import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_notification_bell.dart';
 
@@ -324,7 +325,7 @@ void main() {
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
 
       final snackbar = tester.widget<SnackBar>(find.byType(SnackBar).last);
-      expect(snackbar.backgroundColor, const Color(0xFF1E1E1E));
+      expect(snackbar.backgroundColor, AppColors.surfaceContainerHigh);
       expect(snackbar.shape, isA<RoundedRectangleBorder>());
     },
   );

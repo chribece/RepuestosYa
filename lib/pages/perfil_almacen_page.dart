@@ -1173,11 +1173,13 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         controller: _direccionController,
         isReadOnly: !_isEditing,
         maxLines: 3,
-        helperText: _buscandoDireccion ? 'Buscando dirección…' : null,
+        helperText: _buscandoDireccion
+            ? 'Buscando dirección…'
+            : 'Edita a mano o toca el ícono para autocompletar con el mapa',
         onChanged: _alEditarDireccion,
         suffixWidget: IconButton(
           tooltip: 'Autocompletar desde el mapa',
-          icon: const Icon(Icons.sync, color: AppColors.primary),
+          icon: const Icon(Icons.location_on, color: AppColors.primary),
           onPressed: _pinMapa == null || _buscandoDireccion
               ? null
               : _forzarAutocompletarDireccion,

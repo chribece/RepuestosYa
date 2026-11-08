@@ -83,6 +83,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
   bool _aplicandoAutocompletado = false; // evita marcar edición del usuario
   bool _ciudadEditadaPorUsuario = false;
   bool _calleEditadaPorUsuario = false;
+  bool _direccionEditadaPorUsuario = false;
   bool _calleSecundariaEditadaPorUsuario = false;
   bool _referenciaEditadaPorUsuario = false;
   bool _autocompletando = false; // indicador en vivo
@@ -120,6 +121,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       _callePrincipalController.text = campos.callePrincipal;
       _calleSecundariaController.text = campos.calleSecundaria;
       _referenciaController.text = campos.referencia;
+      _direccionEditadaPorUsuario = _callePrincipalController.text.isNotEmpty;
       _coordsLat = double.tryParse(direccion['latitude']?.toString() ?? '');
       _coordsLng = double.tryParse(direccion['longitude']?.toString() ?? '');
       if (_coordsLat != null && _coordsLng != null) {
@@ -174,6 +176,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
     } else {
       _calleEditadaPorUsuario = true;
     }
+    _direccionEditadaPorUsuario = _callePrincipalController.text.isNotEmpty;
     if (mounted) setState(() {});
   }
 
@@ -326,7 +329,7 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
         _ciudadController.text = campos!.ciudad;
       }
-      if (!_calleEditadaPorUsuario &&
+      if (!_direccionEditadaPorUsuario &&
           resultado.callePrincipal != null &&
           resultado.callePrincipal!.isNotEmpty) {
         _callePrincipalController.text = campos!.callePrincipal;
@@ -339,6 +342,24 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
       }
       _aplicandoAutocompletado = false;
     });
+  }
+
+  /// Acción explícita (ícono de la Calle principal): reemplaza la calle con la
+  /// del pin actual aunque ya tenga texto. Vuelve a proteger el campo después.
+  Future<void> _forzarAutocompletarDireccion() async {
+    final latitude = _pinLat;
+    final longitude = _pinLng;
+    if (latitude == null || longitude == null) return;
+    _debounceTimer?.cancel();
+    _direccionEditadaPorUsuario = false;
+    await _autocompletar(
+      latitude,
+      longitude,
+      buscarCalleSecundariaCercana: true,
+    );
+    if (mounted) {
+      _direccionEditadaPorUsuario = _callePrincipalController.text.isNotEmpty;
+    }
   }
 
   void _moverPin(LatLng latLng) {
@@ -626,6 +647,16 @@ class _NuevaDireccionSheetState extends State<NuevaDireccionSheet> {
           label: 'Calle principal',
           controller: _callePrincipalController,
           isRequired: true,
+          helperText: _autocompletando
+              ? 'Buscando dirección…'
+              : 'Edita a mano o toca el ícono para autocompletar con el mapa',
+          suffixWidget: IconButton(
+            tooltip: 'Autocompletar desde el mapa',
+            icon: const Icon(Icons.location_on, color: AppColors.primary),
+            onPressed: _pinLat == null || _autocompletando
+                ? null
+                : _forzarAutocompletarDireccion,
+          ),
           validator: (value) => (value == null || value.trim().isEmpty)
               ? 'Ingresa la calle principal'
               : null,

@@ -30,18 +30,25 @@ final _respuesta = <String, dynamic>{
 };
 
 class _FakeOrdenService extends OrdenCompraService {
+  _FakeOrdenService({this.estado = 'confirmada'});
+
+  final String estado;
+
   @override
   Future<OrdenCompra> getOrdenDetalle(String ordenId) async =>
-      OrdenCompra.fromJson(_respuesta);
+      OrdenCompra.fromJson({..._respuesta, 'estado': estado});
 }
 
 void main() {
-  Future<void> pumpPagina(WidgetTester tester) async {
+  Future<void> pumpPagina(
+    WidgetTester tester, {
+    String estado = 'confirmada',
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: AlmacenOrdenDetallePage(
           ordenId: _ordenId,
-          ordenService: _FakeOrdenService(),
+          ordenService: _FakeOrdenService(estado: estado),
         ),
       ),
     );
@@ -71,6 +78,20 @@ void main() {
     expect(find.text('No disponible'), findsNothing);
     expect(find.text('No registrado'), findsNothing);
     expect(find.text('No registrada'), findsNothing);
+  });
+
+  testWidgets('orden entregada: cierre de éxito en lugar del botón de acción', (
+    tester,
+  ) async {
+    await pumpPagina(tester, estado: 'entregada');
+
+    expect(find.text('¡Venta completada y entregada!'), findsOneWidget);
+    expect(
+      find.text('El ciclo con el cliente ha finalizado exitosamente.'),
+      findsOneWidget,
+    );
+    expect(find.text('Marcar como Entregada'), findsNothing);
+    expect(find.text('Marcar como Confirmada'), findsNothing);
   });
 
   testWidgets('precio con dos decimales en la fila de detalles', (

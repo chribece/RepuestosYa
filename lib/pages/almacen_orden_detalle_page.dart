@@ -155,7 +155,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         children: [
           RyStatusBadge(
             status: orden.estado,
-            customLabel: etiquetaEstadoOrden(orden.estado),
+            customLabel: etiquetaEstado(orden.estado),
             style: RyStatusBadgeStyle.filled,
             size: RyStatusBadgeSize.large,
           ),
@@ -271,7 +271,60 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
             : () => _actualizarEstado('entregada'),
       );
     }
+    if (estado == 'entregada' || estado == 'completada') {
+      return _buildCierreExitoso();
+    }
     return null;
+  }
+
+  /// Cierre visual de la venta: ocupa el lugar de la acción cuando la orden ya
+  /// está entregada/completada, para que el vendedor vea el resultado.
+  Widget _buildCierreExitoso() {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(AppSpacing.spacingMd),
+        padding: const EdgeInsets.all(AppSpacing.spacingMd),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.success,
+                  size: 28,
+                ),
+                const SizedBox(width: AppSpacing.spacingSm),
+                Flexible(
+                  child: Text(
+                    '¡Venta completada y entregada!',
+                    style: AppTextStyles.textStyleBody.copyWith(
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.spacingXs),
+            Text(
+              'El ciclo con el cliente ha finalizado exitosamente.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildTarjeta({

@@ -505,4 +505,13 @@ class _FakeOrdenRepository implements OrdenCompraRepository {
   ) async {
     return {'id': ordenId, 'estado': nuevoEstado};
   }
+
+  @override
+  Future<Map<String, dynamic>> calificarOrden(
+    String ordenId, {
+    required int estrellas,
+    String? comentario,
+  }) async {
+    return {'estrellas': estrellas, 'comentario': comentario};
+  }
 }

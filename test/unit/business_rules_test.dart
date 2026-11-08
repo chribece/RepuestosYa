@@ -266,18 +266,19 @@ void main() {
     });
   });
 
-  group('etiquetaEstadoOrden', () {
+  group('etiquetaEstado', () {
     test('mayúscula inicial en estados simples', () {
-      expect(etiquetaEstadoOrden('confirmada'), 'Confirmada');
-      expect(etiquetaEstadoOrden('entregada'), 'Entregada');
+      expect(etiquetaEstado('confirmada'), 'Confirmada');
+      expect(etiquetaEstado('entregada'), 'Entregada');
+      expect(etiquetaEstado('aceptada'), 'Aceptada');
     });
 
     test('guiones bajos se reemplazan por espacios', () {
-      expect(etiquetaEstadoOrden('pendiente_pago'), 'Pendiente pago');
+      expect(etiquetaEstado('pendiente_pago'), 'Pendiente pago');
     });
 
     test('vacío se devuelve vacío', () {
-      expect(etiquetaEstadoOrden(''), '');
+      expect(etiquetaEstado(''), '');
     });
   });
 

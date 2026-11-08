@@ -993,13 +993,30 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.spacingSm),
-                  RyStatusBadge(
-                    status: disponibilidad == 'Disponible hoy'
-                        ? 'available'
-                        : 'pending',
-                    style: RyStatusBadgeStyle.filled,
-                    size: RyStatusBadgeSize.small,
-                  ),
+                  // Badge superior: disponibilidad mientras la oferta está
+                  // pendiente; estado final (Aceptada/Rechazada) una vez decidida.
+                  if (estado == 'aceptada')
+                    RyStatusBadge(
+                      status: 'completed',
+                      customLabel: 'Aceptada',
+                      style: RyStatusBadgeStyle.filled,
+                      size: RyStatusBadgeSize.small,
+                    )
+                  else if (estado == 'rechazada')
+                    RyStatusBadge(
+                      status: 'error',
+                      customLabel: 'Rechazada',
+                      style: RyStatusBadgeStyle.filled,
+                      size: RyStatusBadgeSize.small,
+                    )
+                  else
+                    RyStatusBadge(
+                      status: disponibilidad == 'Disponible hoy'
+                          ? 'available'
+                          : 'pending',
+                      style: RyStatusBadgeStyle.filled,
+                      size: RyStatusBadgeSize.small,
+                    ),
                   if (_selectedTabIndex == 1) ...[
                     const SizedBox(width: AppSpacing.spacingXs),
                     Container(
@@ -1210,22 +1227,6 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                       ],
                     ),
                   ),
-                  if (estado != 'pendiente') ...[
-                    if (estado == 'aceptada')
-                      RyStatusBadge(
-                        status: 'completed',
-                        customLabel: 'Aceptada',
-                        style: RyStatusBadgeStyle.filled,
-                        size: RyStatusBadgeSize.small,
-                      )
-                    else if (estado == 'rechazada')
-                      RyStatusBadge(
-                        status: 'error',
-                        customLabel: 'Rechazada',
-                        style: RyStatusBadgeStyle.filled,
-                        size: RyStatusBadgeSize.small,
-                      ),
-                  ],
                 ],
               ),
             ),
@@ -1318,7 +1319,7 @@ class _ReceivedQuotationsPageState extends State<ReceivedQuotationsPage> {
                   button: true,
                   label: 'Ver datos de contacto del almacén $almacenNombre',
                   child: RyButton(
-                    label: 'Ver datos de contacto del almacén',
+                    label: 'Ver contacto del almacén',
                     icon: Icons.contact_phone_outlined,
                     variant: RyButtonVariant.outline,
                     size: RyButtonSize.small,

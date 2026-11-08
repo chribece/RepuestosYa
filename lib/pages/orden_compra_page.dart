@@ -12,6 +12,7 @@ import '../theme/app_text_styles.dart';
 import '../utils/business_rules.dart';
 import '../utils/formato_fecha.dart';
 import '../utils/ry_snackbar.dart';
+import '../widgets/ry_calificacion_orden.dart';
 import '../widgets/ry_check_exito.dart';
 import '../router/route_names.dart';
 
@@ -39,6 +40,23 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
         provider.cargarOrden(ordenId);
       }
     });
+  }
+
+  Future<String?> _calificarOrden(
+    String ordenId,
+    int estrellas,
+    String? comentario,
+  ) async {
+    final provider = context.read<OrdenCompraProvider>();
+    final error = await provider.calificarOrden(
+      ordenId,
+      estrellas: estrellas,
+      comentario: comentario,
+    );
+    if (error != null && mounted) {
+      mostrarSnackbarError(context, mensaje: error);
+    }
+    return error;
   }
 
   @override
@@ -102,21 +120,31 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header de éxito sin contenedor: check animado + titular
-                  Column(
-                    children: [
-                      const RyCheckExito(),
-                      const SizedBox(height: AppSpacing.spacingMd),
-                      Text(
-                        '¡Orden Generada con Éxito!',
-                        style: AppTextStyles.textStyleTitle.copyWith(
-                          color: AppColors.onSurface,
-                          fontWeight: FontWeight.bold,
+                  // Entregada: la calificación reemplaza el encabezado de éxito.
+                  if (orden.estado == 'entregada' ||
+                      orden.estado == 'completada')
+                    RyCalificacionOrden(
+                      key: ValueKey('calificacion-${orden.id}'),
+                      estrellasIniciales: orden.calificacionEstrellas,
+                      onEnviar: (estrellas, comentario) =>
+                          _calificarOrden(orden.id, estrellas, comentario),
+                    )
+                  else
+                    // Header de éxito sin contenedor: check animado + titular
+                    Column(
+                      children: [
+                        const RyCheckExito(),
+                        const SizedBox(height: AppSpacing.spacingMd),
+                        Text(
+                          '¡Orden Generada con Éxito!',
+                          style: AppTextStyles.textStyleTitle.copyWith(
+                            color: AppColors.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   const SizedBox(height: AppSpacing.spacingLg),
 
                   // Tarjeta de Detalles del Repuesto (incluye el estado)

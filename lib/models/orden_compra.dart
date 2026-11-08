@@ -16,6 +16,9 @@ class OrdenCompra {
   final String? clienteNombre;
   final String? clienteTelefono;
   final String? direccionEntrega;
+  // Calificación del cliente al almacén (null mientras no haya sido enviada).
+  final int? calificacionEstrellas;
+  final String? calificacionComentario;
 
   OrdenCompra({
     required this.id,
@@ -32,6 +35,8 @@ class OrdenCompra {
     this.clienteNombre,
     this.clienteTelefono,
     this.direccionEntrega,
+    this.calificacionEstrellas,
+    this.calificacionComentario,
   });
 
   factory OrdenCompra.fromJson(Map<String, dynamic> json) {
@@ -40,10 +45,22 @@ class OrdenCompra {
     final perfil = solicitud?['profiles'] as Map<String, dynamic>?;
     final direccion =
         solicitud?['direcciones_entrega'] as Map<String, dynamic>?;
+    // PostgREST devuelve el embed como lista; aceptamos también un objeto.
+    final calificacionRaw = json['calificaciones_orden'];
+    final calificacion = calificacionRaw is List
+        ? (calificacionRaw.isEmpty ? null : calificacionRaw.first)
+        : calificacionRaw;
+    final estrellas = calificacion is Map
+        ? int.tryParse(calificacion['estrellas']?.toString() ?? '')
+        : null;
     return OrdenCompra(
       clienteNombre: perfil?['nombre_completo']?.toString(),
       clienteTelefono: perfil?['telefono']?.toString(),
       direccionEntrega: formatearDireccionEntrega(direccion),
+      calificacionEstrellas: estrellas,
+      calificacionComentario: calificacion is Map
+          ? calificacion['comentario']?.toString()
+          : null,
       id: json['id']?.toString() ?? '',
       clienteId: json['cliente_id']?.toString() ?? '',
       almacenId: json['almacen_id']?.toString() ?? '',
@@ -75,6 +92,27 @@ class OrdenCompra {
         'direccion_texto': direccionTextoAlmacen,
       },
     };
+  }
+
+  OrdenCompra conCalificacion({required int estrellas, String? comentario}) {
+    return OrdenCompra(
+      id: id,
+      clienteId: clienteId,
+      almacenId: almacenId,
+      solicitudId: solicitudId,
+      cotizacionId: cotizacionId,
+      detalles: detalles,
+      estado: estado,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      nombreComercialAlmacen: nombreComercialAlmacen,
+      direccionTextoAlmacen: direccionTextoAlmacen,
+      clienteNombre: clienteNombre,
+      clienteTelefono: clienteTelefono,
+      direccionEntrega: direccionEntrega,
+      calificacionEstrellas: estrellas,
+      calificacionComentario: comentario,
+    );
   }
 
   // Helpers para extraer datos del JSONB detalles

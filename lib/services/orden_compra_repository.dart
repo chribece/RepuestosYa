@@ -8,6 +8,12 @@ abstract class OrdenCompraRepository {
     String ordenId,
     String nuevoEstado,
   );
+
+  Future<Map<String, dynamic>> calificarOrden(
+    String ordenId, {
+    required int estrellas,
+    String? comentario,
+  });
 }
 
 class OrdenCompraRepositoryImpl implements OrdenCompraRepository {
@@ -19,6 +25,19 @@ class OrdenCompraRepositoryImpl implements OrdenCompraRepository {
   @override
   Future<OrdenCompra> getOrdenDetalle(String ordenId) {
     return _remote.getOrdenDetalle(ordenId);
+  }
+
+  @override
+  Future<Map<String, dynamic>> calificarOrden(
+    String ordenId, {
+    required int estrellas,
+    String? comentario,
+  }) {
+    return _remote.calificarOrden(
+      ordenId,
+      estrellas: estrellas,
+      comentario: comentario,
+    );
   }
 
   @override

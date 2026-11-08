@@ -52,6 +52,30 @@ class OrdenCompraProvider extends ChangeNotifier {
     }
   }
 
+  /// Envía la calificación del almacén. Devuelve `null` si se guardó, o el
+  /// mensaje de error para mostrarlo sin alterar el estado de carga.
+  Future<String?> calificarOrden(
+    String ordenId, {
+    required int estrellas,
+    String? comentario,
+  }) async {
+    try {
+      await _repository.calificarOrden(
+        ordenId,
+        estrellas: estrellas,
+        comentario: comentario,
+      );
+      _orden = _orden?.conCalificacion(
+        estrellas: estrellas,
+        comentario: comentario,
+      );
+      notifyListeners();
+      return null;
+    } catch (e) {
+      return ApiErrorHandler.userMessage(e);
+    }
+  }
+
   void reset() {
     _isLoading = false;
     _errorMessage = null;

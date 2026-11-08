@@ -24,6 +24,22 @@ class OrdenCompraService {
     }
   }
 
+  Future<Map<String, dynamic>> calificarOrden(
+    String ordenId, {
+    required int estrellas,
+    String? comentario,
+  }) {
+    return _apiClient.post(
+      '/orders/$ordenId/rating',
+      body: {
+        'estrellas': estrellas,
+        if (comentario != null && comentario.isNotEmpty)
+          'comentario': comentario,
+      },
+      requireAuth: true,
+    );
+  }
+
   Future<Map<String, dynamic>> actualizarEstadoOrden(
     String ordenId,
     String nuevoEstado,

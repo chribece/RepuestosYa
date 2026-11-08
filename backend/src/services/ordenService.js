@@ -21,6 +21,13 @@ class BadRequestError extends Error {
   }
 }
 
+class ConflictError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ConflictError';
+  }
+}
+
 const getOrdenDetalle = async (ordenId, clienteAutenticadoId) => {
   try {
     // Validar que la orden existe y pertenece al cliente autenticado
@@ -39,6 +46,10 @@ const getOrdenDetalle = async (ordenId, clienteAutenticadoId) => {
         almacenes (
           nombre_comercial,
           direccion_texto
+        ),
+        calificaciones_orden (
+          estrellas,
+          comentario
         )
       `)
       .eq('id', ordenId)
@@ -159,11 +170,80 @@ const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId) => {
   }
 };
 
+/**
+ * Guarda la calificación del almacén de una orden entregada. Una orden admite
+ * una sola calificación (restricción única en `orden_id`).
+ */
+const calificarOrden = async (ordenId, clienteAutenticadoId, { estrellas, comentario }, opciones = {}) => {
+  const db = opciones.supabase || supabase;
+  try {
+    const { data: orden, error: ordenError } = await db
+      .from('ordenes_compra')
+      .select('id, cliente_id, almacen_id, estado')
+      .eq('id', ordenId)
+      .single();
+
+    if (ordenError || !orden) {
+      throw new NotFoundError('Orden de compra no encontrada');
+    }
+    if (orden.cliente_id !== clienteAutenticadoId) {
+      throw new ForbiddenError('No tienes permiso para calificar esta orden');
+    }
+    if (orden.estado !== 'entregada') {
+      throw new BadRequestError('Solo puedes calificar una orden entregada');
+    }
+
+    const { data: existente, error: existenteError } = await db
+      .from('calificaciones_orden')
+      .select('id')
+      .eq('orden_id', ordenId)
+      .maybeSingle();
+    if (existenteError) throw existenteError;
+    if (existente) {
+      throw new ConflictError('Esta orden ya fue calificada');
+    }
+
+    const { data, error: insertError } = await db
+      .from('calificaciones_orden')
+      .insert({
+        orden_id: ordenId,
+        almacen_id: orden.almacen_id,
+        cliente_id: clienteAutenticadoId,
+        estrellas,
+        comentario: comentario || null,
+      })
+      .select('estrellas, comentario, created_at')
+      .single();
+
+    if (insertError) {
+      // 23505: unique_violation (dos envíos simultáneos de la misma orden).
+      if (insertError.code === '23505') {
+        throw new ConflictError('Esta orden ya fue calificada');
+      }
+      throw new BadRequestError('No se pudo guardar la calificación');
+    }
+    return data;
+  } catch (error) {
+    if (
+      error instanceof NotFoundError ||
+      error instanceof ForbiddenError ||
+      error instanceof BadRequestError ||
+      error instanceof ConflictError
+    ) {
+      throw error;
+    }
+    console.error('Error en calificarOrden:', error);
+    throw new Error('Error interno del servidor al guardar la calificación');
+  }
+};
+
 module.exports = {
   getOrdenDetalle,
   getOrdenDetalleParaAlmacen,
   updateOrdenEstado,
+  calificarOrden,
   NotFoundError,
   ForbiddenError,
-  BadRequestError
+  BadRequestError,
+  ConflictError
 };

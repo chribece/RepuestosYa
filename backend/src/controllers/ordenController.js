@@ -1,4 +1,4 @@
-const { getOrdenDetalle, getOrdenDetalleParaAlmacen, updateOrdenEstado, NotFoundError, ForbiddenError, BadRequestError } = require('../services/ordenService');
+const { getOrdenDetalle, getOrdenDetalleParaAlmacen, updateOrdenEstado, calificarOrden, NotFoundError, ForbiddenError, BadRequestError, ConflictError } = require('../services/ordenService');
 const supabase = require('../services/supabase');
 const { crearNotificacion } = require('../services/notificacionService');
 
@@ -128,7 +128,55 @@ const updateOrdenEstadoController = async (req, res) => {
   }
 };
 
+const COMENTARIO_MAX_LENGTH = 500;
+
+const calificarOrdenController = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+      return res.status(400).json({ error: 'ID de orden inválido' });
+    }
+
+    const estrellas = Number(req.body?.estrellas);
+    if (!Number.isInteger(estrellas) || estrellas < 1 || estrellas > 5) {
+      return res.status(400).json({ error: 'Las estrellas deben ser un número entero entre 1 y 5' });
+    }
+
+    const comentario = typeof req.body?.comentario === 'string'
+      ? req.body.comentario.trim()
+      : '';
+    if (comentario.length > COMENTARIO_MAX_LENGTH) {
+      return res.status(400).json({ error: `El comentario no puede superar ${COMENTARIO_MAX_LENGTH} caracteres` });
+    }
+
+    const calificacion = await calificarOrden(id, req.user.id, { estrellas, comentario });
+
+    res.status(201).json({
+      success: true,
+      data: calificacion
+    });
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof ForbiddenError) {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error instanceof BadRequestError) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error instanceof ConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+    console.error('Calificar orden error:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   getOrdenDetalleController,
-  updateOrdenEstadoController
+  updateOrdenEstadoController,
+  calificarOrdenController
 };

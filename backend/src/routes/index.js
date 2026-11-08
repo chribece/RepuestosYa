@@ -87,6 +87,7 @@ router.post('/quotations/:id/reject', auth, cotizacionController.rechazarCotizac
 // Orden de compra routes (protected)
 router.get('/orders', auth, solicitudController.getMisOrdenes);
 router.get('/orders/:id', auth, ordenController.getOrdenDetalleController);
+router.post('/orders/:id/rating', auth, requireRole('cliente'), ordenController.calificarOrdenController);
 router.patch('/orders/:id/status', auth, requireRole('almacen'), ordenController.updateOrdenEstadoController);
 
 // Admin routes (solo admin)

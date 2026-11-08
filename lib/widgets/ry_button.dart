@@ -11,6 +11,7 @@ enum RyButtonVariant {
   outlineDanger,
   text,
   danger,
+  whatsapp,
 }
 
 enum RyButtonSize { small, medium, large }
@@ -19,6 +20,10 @@ class RyButton extends StatelessWidget {
   final String label;
   final IconData? icon;
   final IconData? trailingIcon;
+
+  /// Ícono como widget (p. ej. `FaIcon` de font_awesome_flutter, que no es
+  /// un `IconData`). Hereda el color y tamaño del botón vía `IconTheme`.
+  final Widget? iconWidget;
   final RyButtonVariant variant;
   final RyButtonSize size;
   final bool isLoading;
@@ -33,6 +38,7 @@ class RyButton extends StatelessWidget {
     required this.label,
     this.icon,
     this.trailingIcon,
+    this.iconWidget,
     this.variant = RyButtonVariant.primary,
     this.size = RyButtonSize.medium,
     this.isLoading = false,
@@ -68,6 +74,8 @@ class RyButton extends StatelessWidget {
         return Colors.transparent;
       case RyButtonVariant.danger:
         return SemanticColors.colorErrorBackground;
+      case RyButtonVariant.whatsapp:
+        return SemanticColors.colorWhatsApp;
     }
   }
 
@@ -81,6 +89,8 @@ class RyButton extends StatelessWidget {
         return SemanticColors.colorOnSurface;
       case RyButtonVariant.outlineDanger:
         return SemanticColors.colorErrorText;
+      case RyButtonVariant.whatsapp:
+        return SemanticColors.colorOnWhatsApp;
       case RyButtonVariant.text:
         return SemanticColors.colorOnSurface;
       case RyButtonVariant.danger:
@@ -93,6 +103,7 @@ class RyButton extends StatelessWidget {
       case RyButtonVariant.primary:
       case RyButtonVariant.secondary:
       case RyButtonVariant.danger:
+      case RyButtonVariant.whatsapp:
         return AppColors.surfaceVariant;
       case RyButtonVariant.outline:
       case RyButtonVariant.outlineDanger:
@@ -115,6 +126,7 @@ class RyButton extends StatelessWidget {
       case RyButtonVariant.secondary:
       case RyButtonVariant.text:
       case RyButtonVariant.danger:
+      case RyButtonVariant.whatsapp:
         return null;
     }
   }
@@ -152,7 +164,13 @@ class RyButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null) ...[
+          if (iconWidget != null) ...[
+            IconTheme(
+              data: IconThemeData(color: foregroundColor, size: 20),
+              child: iconWidget!,
+            ),
+            const SizedBox(width: AppSpacing.spacingSm),
+          ] else if (icon != null) ...[
             Icon(icon, size: 20),
             const SizedBox(width: AppSpacing.spacingSm),
           ],

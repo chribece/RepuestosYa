@@ -1,3 +1,5 @@
+import '../utils/business_rules.dart';
+
 class OrdenCompra {
   final String id;
   final String clienteId;
@@ -10,6 +12,10 @@ class OrdenCompra {
   final DateTime updatedAt;
   final String nombreComercialAlmacen;
   final String? direccionTextoAlmacen;
+  // Datos del cliente y de entrega (solo los ve el almacén dueño de la orden).
+  final String? clienteNombre;
+  final String? clienteTelefono;
+  final String? direccionEntrega;
 
   OrdenCompra({
     required this.id,
@@ -23,11 +29,21 @@ class OrdenCompra {
     required this.updatedAt,
     required this.nombreComercialAlmacen,
     this.direccionTextoAlmacen,
+    this.clienteNombre,
+    this.clienteTelefono,
+    this.direccionEntrega,
   });
 
   factory OrdenCompra.fromJson(Map<String, dynamic> json) {
     final almacenes = json['almacenes'] as Map<String, dynamic>?;
+    final solicitud = json['solicitudes_repuesto'] as Map<String, dynamic>?;
+    final perfil = solicitud?['profiles'] as Map<String, dynamic>?;
+    final direccion =
+        solicitud?['direcciones_entrega'] as Map<String, dynamic>?;
     return OrdenCompra(
+      clienteNombre: perfil?['nombre_completo']?.toString(),
+      clienteTelefono: perfil?['telefono']?.toString(),
+      direccionEntrega: formatearDireccionEntrega(direccion),
       id: json['id']?.toString() ?? '',
       clienteId: json['cliente_id']?.toString() ?? '',
       almacenId: json['almacen_id']?.toString() ?? '',

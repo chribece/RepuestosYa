@@ -424,6 +424,48 @@ void main() {
       reason: 'Overflows orden_compra 800px:\n${errores.join('\n')}',
     );
   });
+
+  testWidgets(
+    'orden_compra: los valores de las filas de detalle terminan en el mismo '
+    'borde derecho en 360, 420 y 800 px',
+    (tester) async {
+      for (final ancho in [360.0, 420.0, 800.0]) {
+        tester.view.physicalSize = Size(ancho, 1200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final provider = OrdenCompraProvider(
+          repository: _FakeOrdenRepository(),
+        );
+        await tester.pumpWidget(
+          ChangeNotifierProvider<OrdenCompraProvider>.value(
+            key: ValueKey('ancho-$ancho'),
+            value: provider,
+            child: const MaterialApp(home: OrdenCompraPage(ordenId: 'ord-1')),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        final valores = find.byWidgetPredicate(
+          (w) => w is Text && w.textAlign == TextAlign.right,
+        );
+        final cantidad = valores.evaluate().length;
+        expect(cantidad, greaterThanOrEqualTo(4), reason: 'ancho $ancho');
+        final derechas = [
+          for (var i = 0; i < cantidad; i++)
+            tester.getRect(valores.at(i)).right,
+        ];
+        for (final derecha in derechas) {
+          expect(
+            derecha,
+            closeTo(derechas.first, 1),
+            reason: 'ancho $ancho: valores desalineados $derechas',
+          );
+        }
+      }
+    },
+  );
 }
 
 /// Repositorio falso de orden de compra (sin red) para la geometría.

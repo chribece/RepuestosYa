@@ -13,6 +13,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import '../router/route_names.dart';
 
 class MisOrdenesPage extends StatefulWidget {
@@ -176,14 +177,16 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
                 final almacen =
                     cotizacion?['almacenes'] as Map<String, dynamic>?;
 
-                final precio =
-                    cotizacion?['precio_venta']?.toString() ?? '0.00';
+                final precio = parsePrecioVenta(
+                  cotizacion?['precio_venta'],
+                ).toStringAsFixed(2);
                 final piezaNombre =
                     solicitud?['repuesto_nombre_snapshot'] ??
                     solicitud?['pieza_nombre'] as String? ??
                     'Repuesto';
-                final almacenNombre =
-                    almacen?['nombre_comercial'] as String? ?? 'Almacén';
+                final almacenNombre = capitalizarNombre(
+                  almacen?['nombre_comercial'] as String? ?? 'Almacén',
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
@@ -270,12 +273,6 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
             const SizedBox(height: AppSpacing.spacingXxs),
             Row(
               children: [
-                const Icon(
-                  Icons.attach_money,
-                  color: AppColors.onSurfaceVariant,
-                  size: 16,
-                ),
-                const SizedBox(width: AppSpacing.spacingXxs),
                 Text(
                   '\$$precio',
                   style: AppTextStyles.textStyleBody.copyWith(
@@ -290,7 +287,7 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
               children: [
                 if (createdAt != null)
                   Text(
-                    _formatTime(createdAt),
+                    formatTiempoRelativo(createdAt),
                     style: AppTextStyles.textStyleSmall.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -337,18 +334,5 @@ class _MisOrdenesPageState extends State<MisOrdenesPage> {
         ],
       ),
     );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final difference = DateTime.now().difference(dateTime);
-    if (difference.inHours < 1) {
-      return 'Hace ${difference.inMinutes} min';
-    } else if (difference.inHours < 24) {
-      return 'Hace ${difference.inHours}h';
-    } else if (difference.inDays == 1) {
-      return 'Ayer';
-    } else {
-      return 'Hace ${difference.inDays} días';
-    }
   }
 }

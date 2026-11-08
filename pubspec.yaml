@@ -59,6 +59,7 @@ dependencies:
   flutter_slidable: ^4.0.3
   url_launcher: ^6.3.3
   awesome_snackbar_content: ^0.1.8
+  font_awesome_flutter: 11.0.0
 
 dev_dependencies:
   flutter_test:

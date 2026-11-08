@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -568,7 +569,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
       drawer: RyNavDrawer(
         subtitle: _nombreAlmacen != null
-            ? 'Panel de Almacén · $_nombreAlmacen'
+            ? 'Panel de Almacén · ${capitalizarNombre(_nombreAlmacen!)}'
             : 'Panel de Almacén',
         imageUrl: _almacenData?['logo_url']?.toString(),
         items: [
@@ -860,7 +861,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Text(
-              _nombreAlmacen ?? 'Establecimiento',
+              capitalizarNombre(_nombreAlmacen ?? 'Establecimiento'),
               key: const ValueKey('warehouse-establishment-title'),
               style: AppTextStyles.textStyleTitle.copyWith(
                 color: AppColors.onSurface,
@@ -991,13 +992,13 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
   }
 
+  /// Avatar por defecto del establecimiento cuando no hay logo: solo depende
+  /// del almacén actual, nunca de imágenes cacheadas de otra cuenta.
   Widget _buildEstablishmentLogoFallback() {
-    return const Center(
-      child: Icon(
-        Icons.storefront_outlined,
-        size: 20,
-        color: AppColors.primary,
-      ),
+    return const CircleAvatar(
+      radius: 28,
+      backgroundColor: AppColors.surfaceContainerHigh,
+      child: Icon(Icons.store, size: 26, color: AppColors.primary),
     );
   }
 
@@ -1076,6 +1077,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   Widget _buildBentoStatsGrid() {
+    final pendientes = _solicitudes.length;
     return Row(
       children: [
         Expanded(
@@ -1083,14 +1085,24 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             'Ventas',
             '$_ventasCount',
             AppColors.onSurface,
+            Icons.monetization_on_outlined,
+            // Ventas = cotizaciones aceptadas: se abre la pestaña de
+            // cotizaciones ya filtrada por "ganadas".
+            onTap: () => setState(() {
+              _selectedIndex = 2;
+              _filtroActual = 'ganadas';
+            }),
           ),
         ),
         const SizedBox(width: AppSpacing.spacingSm),
         Expanded(
           child: _buildBentoStatCard(
             'Pendientes',
-            '${_solicitudes.length}',
-            AppColors.primaryContainer,
+            '$pendientes',
+            pendientes > 0 ? AppColors.warning : AppColors.onSurface,
+            Icons.pending_actions,
+            // Pendientes = solicitudes sin responder: su lista completa.
+            onTap: () => context.pushNamed(RouteNames.warehouseRequests),
           ),
         ),
         const SizedBox(width: AppSpacing.spacingSm),
@@ -1099,38 +1111,22 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             'Vistas',
             '$_vistasCount',
             AppColors.onSurface,
+            Icons.visibility_outlined,
           ),
         ),
       ],
     );
   }
 
-  String _formatTiempo(String? createdAt) {
-    if (createdAt == null) return 'Hace un momento';
-
-    try {
-      final dateTime = DateTime.parse(createdAt);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-
-      if (difference.inMinutes < 1) {
-        return 'Hace un momento';
-      } else if (difference.inMinutes < 60) {
-        return 'Hace ${difference.inMinutes} min';
-      } else if (difference.inHours < 24) {
-        return 'Hace ${difference.inHours} h';
-      } else {
-        return 'Hace ${difference.inDays} días';
-      }
-    } catch (e) {
-      return 'Hace un momento';
-    }
-  }
-
-  Widget _buildBentoStatCard(String label, String value, Color valueColor) {
+  Widget _buildBentoStatCard(
+    String label,
+    String value,
+    Color valueColor,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
     return Container(
       height: 112,
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
@@ -1143,32 +1139,51 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+      child: Material(
+        color: AppColors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: AppColors.onSurfaceVariant),
+                      const SizedBox(width: AppSpacing.spacingXxs),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: AppTextStyles.textStyleSmall.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  value,
+                  // fontFamily monoespaciado intencional para métricas numéricas (sin token equivalente)
+                  style: AppTextStyles.textStyleHeading.copyWith(
+                    color: valueColor,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'JetBrains Mono',
+                  ),
+                ),
+              ],
             ),
           ),
-          Text(
-            value,
-            // fontFamily monoespaciado intencional para métricas numéricas (sin token equivalente)
-            style: AppTextStyles.textStyleHeading.copyWith(
-              color: valueColor,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'JetBrains Mono',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1360,7 +1375,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       telefonoCliente = profiles?['telefono']?.toString();
       final direccion =
           solicitud['direcciones_entrega'] as Map<String, dynamic>?;
-      direccionClienteTexto = _formatearDireccion(direccion);
+      direccionClienteTexto = formatearDireccionEntrega(direccion);
     }
 
     final precio = parsePrecioVenta(cotizacion['precio_venta']);
@@ -1477,7 +1492,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               ),
               const SizedBox(width: AppSpacing.spacingXxs),
               Text(
-                _formatTiempo(createdAt),
+                formatTiempoEnvio(createdAt),
                 style: AppTextStyles.textStyleCaption.copyWith(
                   color: AppColors.onSurfaceVariant,
                 ),
@@ -1583,14 +1598,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.spacingSm),
-                  _buildDatoEntrega('Cliente', clienteNombre),
                   _buildDatoEntrega(
                     'Dirección',
-                    direccionClienteTexto ?? 'Sin dirección registrada',
+                    direccionClienteTexto == null
+                        ? 'Sin dirección registrada'
+                        : capitalizarNombre(direccionClienteTexto),
                   ),
                   _buildDatoEntrega(
                     'Teléfono',
-                    telefonoCliente ?? 'Sin teléfono registrado',
+                    telefonoCliente == null
+                        ? 'Sin teléfono registrado'
+                        : formatearTelefonoParaMostrar(telefonoCliente),
                   ),
                   const SizedBox(height: AppSpacing.spacingSm),
                   Row(
@@ -1602,6 +1620,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                           variant: RyButtonVariant.primary,
                           size: RyButtonSize.small,
                           isFullWidth: true,
+                          horizontalPadding: AppSpacing.spacingXs,
                           isDisabled: !isValidPhone(telefonoCliente),
                           onPressed: () => _llamarCliente(
                             telefonoCliente,
@@ -1614,10 +1633,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                       Expanded(
                         child: RyButton(
                           label: 'WhatsApp',
-                          icon: Icons.chat,
-                          variant: RyButtonVariant.secondary,
+                          iconWidget: const FaIcon(FontAwesomeIcons.whatsapp),
+                          variant: RyButtonVariant.whatsapp,
                           size: RyButtonSize.small,
                           isFullWidth: true,
+                          horizontalPadding: AppSpacing.spacingXs,
                           isDisabled: !isValidPhone(telefonoCliente),
                           onPressed: () => _enviarWhatsAppCliente(
                             telefonoCliente,
@@ -1671,24 +1691,6 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     }
 
     return cardContent;
-  }
-
-  /// Construye el texto legible de la dirección de entrega del cliente
-  /// (alias, calle principal, calle secundaria y referencia).
-  String? _formatearDireccion(Map<String, dynamic>? direccion) {
-    if (direccion == null) return null;
-    final partes = <String>[
-      if (direccion['alias']?.toString().trim().isNotEmpty ?? false)
-        direccion['alias'].toString().trim(),
-      if (direccion['calle_principal']?.toString().trim().isNotEmpty ?? false)
-        direccion['calle_principal'].toString().trim(),
-      if (direccion['calle_secundaria']?.toString().trim().isNotEmpty ?? false)
-        direccion['calle_secundaria'].toString().trim(),
-      if (direccion['referencia']?.toString().trim().isNotEmpty ?? false)
-        direccion['referencia'].toString().trim(),
-    ];
-    if (partes.isEmpty) return null;
-    return partes.join(', ');
   }
 
   Widget _buildDatoEntrega(String label, String value) {

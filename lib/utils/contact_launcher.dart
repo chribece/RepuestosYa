@@ -58,6 +58,18 @@ bool isValidPhone(String? phone) {
 /// Alias semántico para los validators de formulario (misma regla).
 bool esTelefonoValido(String? phone) => isValidPhone(phone);
 
+/// Formato para mostrar un celular ecuatoriano guardado sin el 0 inicial:
+/// `"985245128"` → `"0985245128"`. Solo cambia números de 9 dígitos que
+/// empiezan por 9 (celulares locales); internacionales y el resto se muestran
+/// tal cual.
+String formatearTelefonoParaMostrar(String phone) {
+  final trimmed = phone.trim();
+  if (trimmed.startsWith('+') || trimmed.startsWith('00')) return trimmed;
+  final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 9 && digits.startsWith('9')) return '0$digits';
+  return trimmed;
+}
+
 /// URI de WhatsApp: `https://wa.me/<numero>?text=<mensaje codificado>`.
 Uri buildWhatsAppUri(String phone, String message) {
   final normalized = normalizePhoneForWhatsApp(phone);

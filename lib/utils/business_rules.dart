@@ -139,27 +139,24 @@ String _cantidadConUnidad(int cantidad, String singular, String plural) =>
 /// minutos", "Hace 1 hora", "Hace 2 horas", "Hace 1 día", "Hace 3 días").
 /// [now] es inyectable para hacer el test determinista.
 String formatTiempoEnvio(String? createdAt, {DateTime? now}) {
-  if (createdAt == null) return 'Hace un momento';
+  final dateTime = createdAt == null ? null : DateTime.tryParse(createdAt);
+  if (dateTime == null) return 'Hace un momento';
+  return formatTiempoRelativo(dateTime, now: now);
+}
 
-  try {
-    final dateTime = DateTime.parse(createdAt);
-    final difference = (now ?? DateTime.now()).difference(dateTime);
+/// Tiempo transcurrido desde [dateTime] en palabras completas, con singular y
+/// plural ("Hace 59 minutos", "Hace 1 hora", "Hace 3 días").
+String formatTiempoRelativo(DateTime dateTime, {DateTime? now}) {
+  final difference = (now ?? DateTime.now()).difference(dateTime);
 
-    if (difference.inMinutes < 1) {
-      return 'Hace un momento';
-    } else if (difference.inMinutes < 60) {
-      final minutos = difference.inMinutes;
-      return 'Hace ${_cantidadConUnidad(minutos, 'minuto', 'minutos')}';
-    } else if (difference.inHours < 24) {
-      final horas = difference.inHours;
-      return 'Hace ${_cantidadConUnidad(horas, 'hora', 'horas')}';
-    } else {
-      final dias = difference.inDays;
-      return 'Hace ${_cantidadConUnidad(dias, 'día', 'días')}';
-    }
-  } catch (_) {
+  if (difference.inMinutes < 1) {
     return 'Hace un momento';
+  } else if (difference.inMinutes < 60) {
+    return 'Hace ${_cantidadConUnidad(difference.inMinutes, 'minuto', 'minutos')}';
+  } else if (difference.inHours < 24) {
+    return 'Hace ${_cantidadConUnidad(difference.inHours, 'hora', 'horas')}';
   }
+  return 'Hace ${_cantidadConUnidad(difference.inDays, 'día', 'días')}';
 }
 
 /// Pone en mayúscula solo la primera letra de cada palabra y conserva el resto
@@ -168,6 +165,24 @@ String capitalizarNombre(String texto) => texto.replaceAllMapped(
   RegExp(r'(^|\s)(\S)'),
   (m) => '${m[1]}${m[2]!.toUpperCase()}',
 );
+
+/// Número de orden amigable a partir del UUID: últimos 6 caracteres en
+/// mayúsculas con '#' ("…b301b9" → "#B301B9").
+String formatearNumeroOrden(String id) {
+  final sufijo = id.length <= 6 ? id : id.substring(id.length - 6);
+  return '#${sufijo.toUpperCase()}';
+}
+
+/// Dirección de entrega legible (alias, calle principal, calle secundaria y
+/// referencia). Devuelve `null` si no hay ningún dato.
+String? formatearDireccionEntrega(Map<String, dynamic>? direccion) {
+  if (direccion == null) return null;
+  final partes = ['alias', 'calle_principal', 'calle_secundaria', 'referencia']
+      .map((clave) => direccion[clave]?.toString().trim() ?? '')
+      .where((t) => t.isNotEmpty);
+  final texto = partes.join(', ');
+  return texto.isEmpty ? null : texto;
+}
 
 /// Una dirección de entrega es utilizable sin flujo GPS cuando ya trae
 /// coordenadas numéricas (`latitude`/`longitude`). Un valor string ("-0.19")

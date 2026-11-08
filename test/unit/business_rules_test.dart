@@ -266,6 +266,49 @@ void main() {
     });
   });
 
+  group('formatearNumeroOrden', () {
+    test('usa los últimos 6 caracteres en mayúsculas con #', () {
+      expect(formatearNumeroOrden('6f1c2a3d-4e5f-4a6b-8c7d-b301b9'), '#B301B9');
+    });
+
+    test('id corto se muestra completo', () {
+      expect(formatearNumeroOrden('ab12'), '#AB12');
+    });
+  });
+
+  group('formatearDireccionEntrega', () {
+    test('une alias, calles y referencia omitiendo vacíos', () {
+      expect(
+        formatearDireccionEntrega({
+          'alias': 'Taller',
+          'calle_principal': 'Av. Amazonas',
+          'calle_secundaria': '',
+          'referencia': 'Frente al parque',
+        }),
+        'Taller, Av. Amazonas, Frente al parque',
+      );
+    });
+
+    test('null o sin datos → null', () {
+      expect(formatearDireccionEntrega(null), isNull);
+      expect(formatearDireccionEntrega({'alias': '  '}), isNull);
+    });
+  });
+
+  group('formatTiempoRelativo', () {
+    final now = DateTime.parse('2026-09-25T12:00:00.000Z');
+
+    test('59 minutos → "Hace 59 minutos" (palabras completas)', () {
+      final hace = now.subtract(const Duration(minutes: 59));
+      expect(formatTiempoRelativo(hace, now: now), 'Hace 59 minutos');
+    });
+
+    test('1 día → "Hace 1 día" (sin "Ayer")', () {
+      final hace = now.subtract(const Duration(days: 1));
+      expect(formatTiempoRelativo(hace, now: now), 'Hace 1 día');
+    });
+  });
+
   group('direccionTieneCoordenadas', () {
     test('null → false', () {
       expect(direccionTieneCoordenadas(null), isFalse);

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../models/orden_compra.dart';
 import '../services/orden_compra_service.dart';
 import '../utils/api_error_handler.dart';
+import '../utils/business_rules.dart';
+import '../utils/contact_launcher.dart';
 import '../widgets/ry_bottom_action_bar.dart';
 import '../widgets/ry_status_badge.dart';
 import '../widgets/ry_state_container.dart';
@@ -25,7 +28,7 @@ class AlmacenOrdenDetallePage extends StatefulWidget {
 
 class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
   final OrdenCompraService _ordenService = OrdenCompraService();
-  Map<String, dynamic>? _orden;
+  OrdenCompra? _orden;
   bool _isLoading = true;
   bool _isUpdating = false;
 
@@ -41,7 +44,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
       final orden = await _ordenService.getOrdenDetalle(widget.ordenId);
       if (mounted) {
         setState(() {
-          _orden = orden.toJson();
+          _orden = orden;
           _isLoading = false;
         });
       }
@@ -84,6 +87,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
 
   @override
   Widget build(BuildContext context) {
+    final orden = _orden;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -104,7 +108,7 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               title: 'Cargando orden...',
               type: RyStateType.loading,
             )
-          : _orden == null
+          : orden == null
           ? const RyStateContainer(
               title: 'Error',
               subtitle: 'No se pudo cargar la orden',
@@ -115,80 +119,129 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Estado Badge Grande
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.spacingLg),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                      border: Border.all(
-                        color: AppColors.outlineVariant,
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        RyStatusBadge(
-                          status: _orden?['estado'] ?? 'desconocido',
-                          style: RyStatusBadgeStyle.filled,
-                          size: RyStatusBadgeSize.large,
-                        ),
-                        const SizedBox(height: AppSpacing.spacingMd),
-                        Text(
-                          'ID: ${widget.ordenId}',
-                          style: AppTextStyles.textStyleSmall.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildCabecera(orden),
                   const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Información del Almacén
-                  _buildInfoCard(
-                    title: 'Almacén',
-                    icon: Icons.store,
-                    content:
-                        _orden?['almacenes']?['nombre_comercial'] ??
-                        'No disponible',
-                  ),
+                  _buildTarjetaCliente(orden),
                   const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Información de la Solicitud
-                  _buildInfoCard(
-                    title: 'ID de Solicitud',
-                    icon: Icons.description,
-                    content: _orden?['solicitud_id'] ?? 'No disponible',
-                  ),
-                  const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Detalles de la orden
-                  if (_orden?['detalles'] != null) ...[
-                    _buildDetallesCard(_orden?['detalles']),
-                    const SizedBox(height: AppSpacing.spacingLg),
-                  ],
-
-                  // Fechas
-                  _buildInfoCard(
-                    title: 'Creada',
-                    icon: Icons.calendar_today,
-                    content: formatFechaHora(_orden?['created_at']),
-                  ),
+                  _buildTarjetaDetalles(orden),
                   const SizedBox(height: AppSpacing.spacingXl),
                 ],
               ),
             ),
-      bottomNavigationBar: _buildActionBar(),
+      bottomNavigationBar: orden == null ? null : _buildActionBar(orden),
+    );
+  }
+
+  /// Cabecera: estado grande, número de orden amigable y, en una fila discreta,
+  /// el número de solicitud (en lugar de los UUID completos).
+  Widget _buildCabecera(OrdenCompra orden) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingLg),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+        border: Border.all(color: AppColors.outlineVariant, width: 1),
+      ),
+      child: Column(
+        children: [
+          RyStatusBadge(
+            status: orden.estado,
+            style: RyStatusBadgeStyle.filled,
+            size: RyStatusBadgeSize.large,
+          ),
+          const SizedBox(height: AppSpacing.spacingMd),
+          Text(
+            'Orden ${formatearNumeroOrden(orden.id)}',
+            style: AppTextStyles.textStyleTitle.copyWith(
+              color: AppColors.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(
+            'Solicitud ${formatearNumeroOrden(orden.solicitudId)}',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Datos que el bodeguero necesita antes de confirmar: quién recibe, cómo
+  /// contactarlo y adónde entregar. Teléfono y dirección se formatean igual
+  /// que en el panel de cotizaciones ganadas.
+  Widget _buildTarjetaCliente(OrdenCompra orden) {
+    final telefono = orden.clienteTelefono;
+    final direccion = orden.direccionEntrega;
+    return _buildTarjeta(
+      titulo: 'Cliente y entrega',
+      icono: Icons.local_shipping_outlined,
+      hijos: [
+        _buildFilaRecibo(
+          'Cliente',
+          capitalizarNombre(orden.clienteNombre ?? 'No disponible'),
+        ),
+        _buildFilaRecibo(
+          'Teléfono',
+          telefono == null || telefono.trim().isEmpty
+              ? 'No registrado'
+              : formatearTelefonoParaMostrar(telefono),
+        ),
+        _buildFilaRecibo(
+          'Dirección',
+          direccion == null ? 'No registrada' : capitalizarNombre(direccion),
+        ),
+      ],
+    );
+  }
+
+  /// Detalle de la orden en formato recibo: etiqueta a la izquierda y valor
+  /// alineado a la derecha, precio con dos decimales.
+  Widget _buildTarjetaDetalles(OrdenCompra orden) {
+    final condicion = orden.condicionRepuesto;
+    final tiempoEntrega = orden.tiempoEntrega;
+    final notas = orden.notasAdicionales;
+    final fotoUrl = orden.fotoEvidenciaUrl;
+    return _buildTarjeta(
+      titulo: 'Detalles',
+      icono: Icons.receipt_long,
+      hijos: [
+        _buildFilaRecibo('Precio', '\$${orden.precioVenta.toStringAsFixed(2)}'),
+        if (condicion != null) _buildFilaRecibo('Condición', condicion),
+        if (tiempoEntrega != null)
+          _buildFilaRecibo('Tiempo de entrega', tiempoEntrega),
+        _buildFilaRecibo(
+          'Fecha de creación',
+          formatFechaHora(orden.createdAt.toIso8601String()),
+        ),
+        if (notas != null && notas.trim().isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.spacingXs),
+          Text(
+            'Notas adicionales',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.spacingXxs),
+          Text(notas, style: AppTextStyles.textStyleCaption),
+        ],
+        if (fotoUrl != null && fotoUrl.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.spacingMd),
+          _buildFotoEvidencia(fotoUrl),
+        ],
+      ],
     );
   }
 
   /// Barra de acción inferior (componente compartido del DS): las acciones
   /// condicionales de la orden pasan de estar al final del scroll (quedaban
   /// ocultas bajo la barra de gestos) a una barra fija que respeta el inset.
-  Widget? _buildActionBar() {
-    final estado = _orden?['estado'];
+  Widget? _buildActionBar(OrdenCompra orden) {
+    final estado = orden.estado;
     if (estado == 'pendiente' || estado == 'pendiente_pago') {
       return RyBottomActionBar(
         primaryLabel: 'Marcar como Confirmada',
@@ -212,10 +265,10 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     return null;
   }
 
-  Widget _buildInfoCard({
-    required String title,
-    required IconData icon,
-    required String content,
+  Widget _buildTarjeta({
+    required String titulo,
+    required IconData icono,
+    required List<Widget> hijos,
   }) {
     return Container(
       width: double.infinity,
@@ -230,134 +283,51 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primaryContainer, size: 20),
+              Icon(icono, color: AppColors.primaryContainer, size: 20),
               const SizedBox(width: AppSpacing.spacingSm),
               Text(
-                title,
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingSm),
-          Text(content, style: AppTextStyles.textStyleBody),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetallesCard(dynamic detalles) {
-    if (detalles == null) return const SizedBox.shrink();
-
-    final Map<String, dynamic> detallesMap = detalles is Map<String, dynamic>
-        ? detalles
-        : {};
-
-    final precio = detallesMap['precio_venta'];
-    final condicion = detallesMap['condicion_repuesto'];
-    final tiempoEntrega = detallesMap['tiempo_entrega_estimado'];
-    final notas = detallesMap['notas_adicionales'];
-    final fotoUrl = detallesMap['foto_evidencia_url'];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.outlineVariant, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.list,
-                color: AppColors.primaryContainer,
-                size: 20,
-              ),
-              const SizedBox(width: AppSpacing.spacingSm),
-              Text(
-                'Detalles',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.spacingMd),
-          if (precio != null) ...[
-            _buildDetalleRow(
-              icon: Icons.attach_money,
-              label: 'Precio',
-              value: '\$${precio.toString()}',
-            ),
-            const SizedBox(height: AppSpacing.spacingMd),
-          ],
-          if (condicion != null) ...[
-            _buildDetalleRow(
-              icon: Icons.check_circle,
-              label: 'Condición',
-              value: condicion.toString(),
-            ),
-            const SizedBox(height: AppSpacing.spacingMd),
-          ],
-          if (tiempoEntrega != null) ...[
-            _buildDetalleRow(
-              icon: Icons.access_time,
-              label: 'Tiempo de entrega',
-              value: tiempoEntrega.toString(),
-            ),
-            const SizedBox(height: AppSpacing.spacingMd),
-          ],
-          if (notas != null && notas.toString().isNotEmpty) ...[
-            _buildDetalleRow(
-              icon: Icons.note,
-              label: 'Notas adicionales',
-              value: notas.toString(),
-            ),
-            const SizedBox(height: AppSpacing.spacingMd),
-          ],
-          if (fotoUrl != null && fotoUrl.toString().isNotEmpty)
-            _buildFotoEvidencia(fotoUrl.toString()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetalleRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: AppColors.primaryContainer, size: 18),
-        const SizedBox(width: AppSpacing.spacingMd),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.spacingXxs),
-              Text(
-                value,
-                style: AppTextStyles.textStyleCaption.copyWith(
+                titulo,
+                style: AppTextStyles.textStyleBody.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.spacingMd),
+          ...hijos,
+        ],
+      ),
+    );
+  }
+
+  /// Fila tipo recibo: etiqueta a la izquierda, valor alineado a la derecha.
+  Widget _buildFilaRecibo(String etiqueta, String valor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.spacingSm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              etiqueta,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: Text(
+              valor,
+              textAlign: TextAlign.right,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -365,21 +335,11 @@ class _AlmacenOrdenDetallePageState extends State<AlmacenOrdenDetallePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(
-              Icons.image,
-              color: AppColors.primaryContainer,
-              size: 18,
-            ),
-            const SizedBox(width: AppSpacing.spacingMd),
-            Text(
-              'Foto de evidencia',
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-          ],
+        Text(
+          'Foto de evidencia',
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         Container(

@@ -140,6 +140,18 @@ class _NotificacionesPageState extends State<NotificacionesPage> {
     }
   }
 
+  /// Subtítulo de la notificación: en una venta con repuesto en el payload se
+  /// nombra el repuesto; en el resto se usa el mensaje del backend.
+  String? _subtituloNotificacion(Notificacion item) {
+    final repuesto = item.payload['repuesto']?.toString().trim();
+    if (item.tipo == 'cotizacion_ganada' &&
+        repuesto != null &&
+        repuesto.isNotEmpty) {
+      return 'Un cliente aceptó tu cotización para: $repuesto';
+    }
+    return item.mensaje;
+  }
+
   String? _payloadId(Notificacion item, String key) {
     final value = item.payload[key]?.toString();
     return value == null || value.isEmpty ? null : value;
@@ -307,11 +319,11 @@ class _NotificacionesPageState extends State<NotificacionesPage> {
                               : FontWeight.w400,
                         ),
                       ),
-                      if (item.mensaje != null &&
-                          item.mensaje!.trim().isNotEmpty) ...[
+                      if (_subtituloNotificacion(item) case final subtitulo?
+                          when subtitulo.trim().isNotEmpty) ...[
                         const SizedBox(height: AppSpacing.spacingXxs),
                         Text(
-                          item.mensaje!,
+                          subtitulo,
                           style: AppTextStyles.textStyleCaption.copyWith(
                             color: AppColors.onSurfaceVariant,
                           ),

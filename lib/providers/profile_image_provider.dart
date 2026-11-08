@@ -23,9 +23,17 @@ class ProfileImageProvider extends ChangeNotifier {
   bool _isLoading = false;
   int _loadGeneration = 0;
 
-  String? get imageUrl => _imageUrl;
+  /// La imagen cacheada solo es válida para la cuenta que la cargó: si hay una
+  /// sesión activa distinta (p. ej. un almacén tras cerrar sesión como cliente),
+  /// no se expone para no mostrar la foto de la sesión anterior.
+  bool get _perteneceAUsuarioActual {
+    final actual = _authService.currentUser;
+    return actual == null || _userId == actual.id;
+  }
+
+  String? get imageUrl => _perteneceAUsuarioActual ? _imageUrl : null;
   bool get isLoading => _isLoading;
-  bool get hasLoaded => _hasLoaded;
+  bool get hasLoaded => _hasLoaded && _perteneceAUsuarioActual;
 
   Future<void> loadForCurrentUser() async {
     final user = _authService.currentUser;

@@ -25,7 +25,11 @@ const COTIZACION_PENDIENTE = {
   almacen_id: '33333333-3333-4333-8333-333333333333',
 };
 
-const SOLICITUD = { id: COTIZACION_PENDIENTE.solicitud_id, cliente_id: 'cliente-1' };
+const SOLICITUD = {
+  id: COTIZACION_PENDIENTE.solicitud_id,
+  cliente_id: 'cliente-1',
+  repuesto_nombre_snapshot: 'Alternador',
+};
 
 // Detalles que devuelve la consulta de contacto tras la aceptación
 // (construirRespuestaAceptacion). `ordenes_compra` embebido (relación 1:1).
@@ -222,6 +226,8 @@ test('aceptar cotización pendiente del dueño → OK con contacto del almacén'
     cotizacion_id: COTIZACION_PENDIENTE.id,
     ruta: '/mis-ordenes',
   });
+  // La notificación de venta al almacén ganador lleva el repuesto.
+  assert.equal(notificaciones[1].payload.repuesto, 'Alternador');
 });
 
 test('idempotencia: aceptar la misma cotización dos veces → replay sin RPC ni jobs', async () => {

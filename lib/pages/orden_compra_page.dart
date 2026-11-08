@@ -9,8 +9,10 @@ import '../widgets/ry_state_container.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
+import '../utils/business_rules.dart';
 import '../utils/formato_fecha.dart';
 import '../utils/ry_snackbar.dart';
+import '../widgets/ry_check_exito.dart';
 import '../router/route_names.dart';
 
 class OrdenCompraPage extends StatefulWidget {
@@ -100,88 +102,52 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header verde con éxito
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.spacingLg),
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
+                  // Header de éxito sin contenedor: check animado + titular
+                  Column(
+                    children: [
+                      const RyCheckExito(),
+                      const SizedBox(height: AppSpacing.spacingMd),
+                      Text(
+                        '¡Orden Generada con Éxito!',
+                        style: AppTextStyles.textStyleTitle.copyWith(
                           color: AppColors.onSurface,
-                          size: 32,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(width: AppSpacing.spacingMd),
-                        // Flexible: en móvil angosto el texto sin wrap
-                        // desbordaba el header (RenderFlex overflow).
-                        Flexible(
-                          child: Text(
-                            '¡Orden Generada con Éxito!',
-                            style: AppTextStyles.textStyleTitle.copyWith(
-                              color: AppColors.onSurface,
-                              fontWeight: FontWeight.bold,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.spacingLg),
+
+                  // Tarjeta de Detalles del Repuesto (incluye el estado)
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.spacingMd),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+                      border: Border.all(color: AppColors.outlineVariant),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Detalles del Repuesto',
+                                // Jerarquía de cabecera de bloque (Parte 5).
+                                style: AppTextStyles.textStyleBody.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Tarjeta de Estado Actual
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.spacingMd),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                      border: Border.all(color: AppColors.outlineVariant),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Estado Actual',
-                          // Jerarquía de cabecera de bloque de detalle
-                          // (Parte 5): el token Title (20) sobredimensionaba
-                          // las cabeceras de tarjeta en móvil; se baja a
-                          // Body (16) seminegrita.
-                          style: AppTextStyles.textStyleBody.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.spacingSm),
-                        RyStatusBadge(
-                          status: orden.estado,
-                          style: RyStatusBadgeStyle.filled,
-                          size: RyStatusBadgeSize.large,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.spacingLg),
-
-                  // Tarjeta de Detalles del Repuesto
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.spacingMd),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                      border: Border.all(color: AppColors.outlineVariant),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Detalles del Repuesto',
-                          // Jerarquía de cabecera de bloque (Parte 5).
-                          style: AppTextStyles.textStyleBody.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                            const SizedBox(width: AppSpacing.spacingSm),
+                            RyStatusBadge(
+                              status: orden.estado,
+                              style: RyStatusBadgeStyle.filled,
+                              size: RyStatusBadgeSize.small,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: AppSpacing.spacingMd),
                         _buildDetailRow(
@@ -221,7 +187,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(
-                                  Icons.note,
+                                  Icons.info_outline,
                                   color: AppColors.onSurfaceVariant,
                                   size: 18,
                                 ),
@@ -231,6 +197,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                                     orden.notasAdicionales!,
                                     style: AppTextStyles.textStyleBody.copyWith(
                                       color: AppColors.onSurfaceVariant,
+                                      fontStyle: FontStyle.italic,
                                     ),
                                   ),
                                 ),
@@ -363,7 +330,7 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
                         _buildDetailRow(
                           Icons.store,
                           'Nombre',
-                          orden.nombreComercialAlmacen,
+                          capitalizarNombre(orden.nombreComercialAlmacen),
                         ),
                         if (orden.direccionTextoAlmacen != null)
                           _buildDetailRow(
@@ -395,23 +362,33 @@ class _OrdenCompraPageState extends State<OrdenCompraPage> {
     );
   }
 
+  /// Fila tipo recibo: etiqueta a la izquierda y valor alineado a la derecha.
+  /// El valor puede ocupar hasta dos líneas (p. ej. fechas o direcciones) sin
+  /// empujar el layout.
   Widget _buildDetailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.spacingSm),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: AppColors.onSurfaceVariant, size: 20),
           const SizedBox(width: AppSpacing.spacingSm),
-          Text(
-            '$label: ',
-            style: AppTextStyles.textStyleCaption.copyWith(
-              fontWeight: FontWeight.w500,
-              color: AppColors.onSurfaceVariant,
+          Expanded(
+            child: Text(
+              label,
+              style: AppTextStyles.textStyleCaption.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
+          const SizedBox(width: AppSpacing.spacingSm),
           Expanded(
             child: Text(
               value,
+              textAlign: TextAlign.right,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.textStyleCaption.copyWith(
                 fontWeight: FontWeight.w600,
               ),

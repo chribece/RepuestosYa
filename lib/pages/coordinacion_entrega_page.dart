@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 import '../models/coordinacion_entrega.dart';
@@ -13,9 +14,11 @@ import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/app_logger.dart';
+import '../utils/business_rules.dart';
 import '../utils/contact_launcher.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
+import '../widgets/ry_check_exito.dart';
 import '../widgets/ry_state_container.dart';
 
 /// Éxito y Coordinación de Entrega (rol cliente): tras aceptar una
@@ -202,7 +205,7 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
     final telefono = datos?.telefono;
     if (datos == null || telefono == null || !isValidPhone(telefono)) return;
     final mensaje = mensajeWhatsAppCliente(
-      almacenNombre: datos.almacenNombre,
+      almacenNombre: capitalizarNombre(datos.almacenNombre),
       repuestoNombre: datos.repuestoNombre,
       precio: datos.precioVenta,
     );
@@ -300,11 +303,7 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
       padding: const EdgeInsets.all(AppSpacing.spacingLg),
       children: [
         // Ícono de éxito
-        const Icon(
-          Icons.check_circle_rounded,
-          color: AppColors.success,
-          size: 72,
-        ),
+        const RyCheckExito(),
         const SizedBox(height: AppSpacing.spacingMd),
 
         // Mensaje exacto de la misión
@@ -334,14 +333,18 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
               _buildContactoRow(
                 icon: Icons.store,
                 label: 'Almacén',
-                value: datos.almacenNombre,
+                value: capitalizarNombre(datos.almacenNombre),
               ),
               _buildContactoRow(
                 icon: Icons.phone,
                 label: 'Teléfono / Celular',
-                value: telefonoValido ? datos.telefono! : null,
+                value: telefonoValido
+                    ? formatearTelefonoParaMostrar(datos.telefono!)
+                    : null,
                 placeholder: 'El almacén no registró teléfono',
-                copiable: datos.telefono,
+                copiable: telefonoValido
+                    ? formatearTelefonoParaMostrar(datos.telefono!)
+                    : null,
               ),
               if (datos.email != null && datos.email!.isNotEmpty)
                 _buildContactoRow(
@@ -368,8 +371,8 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
         const SizedBox(height: AppSpacing.spacingSm),
         RyButton(
           label: 'Enviar WhatsApp',
-          icon: Icons.chat,
-          variant: RyButtonVariant.secondary,
+          iconWidget: FaIcon(FontAwesomeIcons.whatsapp),
+          variant: RyButtonVariant.whatsapp,
           isFullWidth: true,
           isDisabled: !telefonoValido,
           onPressed: _enviarWhatsApp,
@@ -397,7 +400,7 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, color: AppColors.primaryContainer, size: 20),
           const SizedBox(width: AppSpacing.spacingSm),
@@ -414,6 +417,8 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
                 const SizedBox(height: AppSpacing.spacingXxs),
                 Text(
                   value ?? placeholder ?? '—',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.textStyleBody.copyWith(
                     color: value == null
                         ? AppColors.onSurfaceVariant
@@ -426,21 +431,25 @@ class _CoordinacionEntregaPageState extends State<CoordinacionEntregaPage> {
               ],
             ),
           ),
-          if (copiable != null && copiable.isNotEmpty) ...[
-            IconButton(
-              tooltip: 'Copiar $label',
-              icon: const Icon(Icons.copy, size: 18),
-              color: AppColors.primaryContainer,
-              onPressed: () => _copiar(copiable, label),
+          if (copiable != null && copiable.isNotEmpty)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Copiar $label',
+                  icon: const Icon(Icons.copy, size: 18),
+                  color: AppColors.primaryContainer,
+                  onPressed: () => _copiar(copiable, label),
+                ),
+                if (onAbrirCorreo != null)
+                  IconButton(
+                    tooltip: 'Abrir correo',
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    color: AppColors.primaryContainer,
+                    onPressed: onAbrirCorreo,
+                  ),
+              ],
             ),
-            if (onAbrirCorreo != null)
-              IconButton(
-                tooltip: 'Abrir correo',
-                icon: const Icon(Icons.open_in_new, size: 18),
-                color: AppColors.primaryContainer,
-                onPressed: onAbrirCorreo,
-              ),
-          ],
         ],
       ),
     );

@@ -69,6 +69,11 @@ class SemanticColors {
   // surfaceContainerLow): #4DA8F5 da 5.53:1 (AA normal) vs. 4.46:1.
   static const colorInfoBadgeText = Color(0xFF4DA8F5);
 
+  // Verde de marca WhatsApp en versión oscura: el verde oficial (#25D366)
+  // da 1.98:1 con texto blanco; #0B7A3E da 5.43:1 (AA normal).
+  static const colorWhatsApp = Color(0xFF0B7A3E);
+  static const colorOnWhatsApp = Colors.white;
+
   // Estados
   static const colorSuccess = AppColors.success;
   static const colorWarning = AppColors.warning;

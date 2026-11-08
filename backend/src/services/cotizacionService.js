@@ -113,7 +113,7 @@ const aceptarCotizacion = async (cotizacionId, clienteAutenticadoId, opciones = 
     // b) Validar que solicitud.cliente_id === clienteAutenticadoId
     const { data: solicitud, error: solicitudError } = await db
       .from('solicitudes_repuesto')
-      .select('cliente_id')
+      .select('cliente_id, repuesto_nombre_snapshot, pieza_nombre')
       .eq('id', cotizacion.solicitud_id)
       .single();
 
@@ -203,6 +203,8 @@ const aceptarCotizacion = async (cotizacionId, clienteAutenticadoId, opciones = 
           orden_id: rpcResult?.orden_id || null,
           solicitud_id: cotizacion.solicitud_id,
           cotizacion_id: cotizacionId,
+          repuesto:
+            solicitud.repuesto_nombre_snapshot || solicitud.pieza_nombre || null,
           ruta: rpcResult?.orden_id
             ? `/dashboard/orden/${rpcResult.orden_id}`
             : '/dashboard',

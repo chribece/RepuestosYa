@@ -81,6 +81,10 @@ const getOrdenDetalleParaAlmacen = async (ordenId, almacenAutenticadoId) => {
         almacenes (
           nombre_comercial,
           direccion_texto
+        ),
+        solicitudes_repuesto (
+          profiles (nombre_completo, telefono),
+          direcciones_entrega (*)
         )
       `)
       .eq('id', ordenId)

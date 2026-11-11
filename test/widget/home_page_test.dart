@@ -32,9 +32,10 @@ void main() {
 
   Future<SolicitudesProvider> pumpHome(
     WidgetTester tester,
-    FakeSolicitudRepository fake,
-  ) async {
-    tester.view.physicalSize = const Size(800, 2000);
+    FakeSolicitudRepository fake, {
+    Size size = const Size(800, 2000),
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -156,6 +157,150 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(fake.llamadasObtener, greaterThanOrEqualTo(2));
+    },
+  );
+
+  testWidgets(
+    'banner sin conexión: tocarlo reintenta y se oculta al volver la red',
+    (tester) async {
+      final fake = FakeSolicitudRepository()
+        ..setOnline(false)
+        ..setUltimaSincronizacion(DateTime.now());
+      final provider = await pumpHome(tester, fake);
+      expect(provider.isOffline, isTrue);
+      expect(find.text('REINTENTAR'), findsOneWidget);
+
+      final llamadasAntes = fake.llamadasObtener;
+      fake.setOnline(true);
+      await tester.tap(find.text('Modo sin conexión'));
+      await tester.pumpAndSettle();
+
+      expect(fake.llamadasObtener, greaterThan(llamadasAntes));
+      expect(provider.isOffline, isFalse);
+      expect(find.text('Modo sin conexión'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'al volver al primer plano verifica la red y quita el banner sin tocar '
+    'nada',
+    (tester) async {
+      final fake = FakeSolicitudRepository()
+        ..setOnline(false)
+        ..setUltimaSincronizacion(DateTime.now());
+      final provider = await pumpHome(tester, fake);
+      expect(provider.isOffline, isTrue);
+
+      fake.setOnline(true);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(provider.isOffline, isFalse);
+      expect(find.text('Modo sin conexión'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'sin evento nativo, el sondeo detecta el corte: banner sin SnackBar',
+    (tester) async {
+      final fake = FakeSolicitudRepository()
+        ..setOnline(true)
+        ..setUltimaSincronizacion(DateTime.now());
+      final provider = await pumpHome(tester, fake);
+      expect(provider.isOffline, isFalse);
+
+      fake.setOnline(false);
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pump();
+
+      expect(provider.isOffline, isTrue);
+      expect(find.text('Modo sin conexión'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'al recuperar la red el banner muestra "Conexión recuperada" 3 s y luego '
+    'desaparece, sin SnackBar',
+    (tester) async {
+      final fake = FakeSolicitudRepository()
+        ..setOnline(false)
+        ..setUltimaSincronizacion(DateTime.now());
+      final provider = await pumpHome(tester, fake);
+
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pump();
+      expect(provider.isOffline, isTrue);
+
+      fake.setOnline(true);
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pump();
+
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Conexión recuperada. Actualizando...'), findsOneWidget);
+      expect(find.text('Modo sin conexión'), findsNothing);
+      expect(find.byType(SnackBar), findsNothing);
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      expect(find.text('Conexión recuperada. Actualizando...'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('pull-to-refresh vuelve a pedir las solicitudes', (tester) async {
+    final fake = FakeSolicitudRepository()
+      ..setOnline(true)
+      ..setUltimaSincronizacion(DateTime.now());
+    await pumpHome(tester, fake);
+
+    final llamadasAntes = fake.llamadasObtener;
+    await tester.drag(
+      find.byKey(const ValueKey('home-main-scroll')),
+      const Offset(0, 300),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+    expect(fake.llamadasObtener, greaterThan(llamadasAntes));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'banner y RefreshIndicator quedan contenidos en pantalla compacta',
+    (tester) async {
+      final fake = FakeSolicitudRepository()
+        ..setOnline(false)
+        ..setUltimaSincronizacion(DateTime.now());
+      await pumpHome(tester, fake, size: const Size(420, 800));
+
+      expect(find.byType(RefreshIndicator), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Modo sin conexión')).right,
+        lessThanOrEqualTo(420),
+      );
+      expect(
+        tester.getRect(find.text('REINTENTAR')).right,
+        lessThanOrEqualTo(420),
+      );
+
+      // El header "Mis Solicitudes" desborda solo con la fuente Ahem de test
+      // (ver home_page_responsive_test.dart); cualquier otra excepción falla.
+      final errores = <Object>[];
+      for (
+        var e = tester.takeException();
+        e != null;
+        e = tester.takeException()
+      ) {
+        errores.add(e);
+      }
+      expect(
+        errores.every((e) => e.toString().contains('RenderFlex overflowed')),
+        isTrue,
+        reason: errores.join('\n'),
+      );
     },
   );
 }

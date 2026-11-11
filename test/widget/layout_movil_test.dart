@@ -207,7 +207,7 @@ void main() {
       const hint =
           'Lado izquierdo/derecho, amperaje, número de pines o tamaño.';
       const helper =
-          'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad';
+          'Ej: Marca específica, lado (izq/der) o código del repuesto.';
 
       for (final width in [420.0, 800.0]) {
         await pumpForm(tester, width: width, height: width == 420 ? 900 : 1600);

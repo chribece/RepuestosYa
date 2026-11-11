@@ -275,11 +275,15 @@ class RyPartCard extends StatelessWidget {
         children: [
           const Icon(Icons.receipt_long, size: 16, color: AppColors.primary),
           const SizedBox(width: AppSpacing.spacingXxs),
-          Text(
-            etiqueta,
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              etiqueta,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -481,6 +485,56 @@ class RyPartCard extends StatelessWidget {
     );
   }
 
+  Widget _buildFooterRow() {
+    return Row(
+      children: [
+        Flexible(
+          child: Wrap(
+            spacing: AppSpacing.spacingSm,
+            runSpacing: AppSpacing.spacingXs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (showStatus) _buildStatusAction(),
+              if (!isSynced) _buildSyncIndicator(),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.spacingSm),
+        Text(
+          _formatDate(createdAt),
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSyncIndicator() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.cloud_upload_outlined,
+          size: 14,
+          color: AppColors.primary,
+        ),
+        const SizedBox(width: AppSpacing.spacingXxs),
+        Flexible(
+          child: Text(
+            'En cola',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.textStyleCaption.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildClientContent(double dpr) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,33 +581,7 @@ class RyPartCard extends StatelessWidget {
           _buildDescriptionContent(),
         ],
         const SizedBox(height: AppSpacing.spacingSm),
-        Row(
-          children: [
-            if (showStatus) ...[
-              _buildStatusAction(),
-              const SizedBox(width: AppSpacing.spacingSm),
-            ],
-            if (!isSynced) ...[
-              const Icon(Icons.sync_problem, size: 16, color: Colors.orange),
-              const SizedBox(width: AppSpacing.spacingXxs),
-              Text(
-                'Pendiente de envío',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.spacingSm),
-            ],
-            const Spacer(),
-            Text(
-              _formatDate(createdAt),
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+        _buildFooterRow(),
         if (showPrice && price != null) ...[
           const SizedBox(height: AppSpacing.spacingSm),
           Text(
@@ -644,33 +672,7 @@ class RyPartCard extends StatelessWidget {
           _buildDescriptionContent(),
         ],
         const SizedBox(height: AppSpacing.spacingSm),
-        Row(
-          children: [
-            if (showStatus) ...[
-              _buildStatusAction(),
-              const SizedBox(width: AppSpacing.spacingSm),
-            ],
-            if (!isSynced) ...[
-              const Icon(Icons.sync_problem, size: 16, color: Colors.orange),
-              const SizedBox(width: AppSpacing.spacingXxs),
-              Text(
-                'Pendiente de envío',
-                style: AppTextStyles.textStyleCaption.copyWith(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.spacingSm),
-            ],
-            const Spacer(),
-            Text(
-              _formatDate(createdAt),
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+        _buildFooterRow(),
         const SizedBox(height: AppSpacing.spacingSm),
         if (customActions != null)
           customActions!

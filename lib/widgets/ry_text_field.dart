@@ -54,6 +54,7 @@ class RyTextField extends StatefulWidget {
   final FormFieldValidator<String>? validator;
   final Widget? prefixWidget;
   final Widget? suffixWidget;
+  final FocusNode? focusNode;
 
   const RyTextField({
     super.key,
@@ -86,6 +87,7 @@ class RyTextField extends StatefulWidget {
     this.validator,
     this.prefixWidget,
     this.suffixWidget,
+    this.focusNode,
   });
 
   @override
@@ -214,6 +216,7 @@ class _RyTextFieldState extends State<RyTextField> {
       excludeSemantics: true,
       child: TextFormField(
         controller: _controller,
+        focusNode: widget.focusNode,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         keyboardType: _getKeyboardType(),
         inputFormatters: _getInputFormatters(),

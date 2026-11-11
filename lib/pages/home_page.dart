@@ -36,7 +36,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _currentMetricPage = 0;
   final PageController _metricPageController = PageController(
     initialPage: 0,
@@ -49,6 +49,9 @@ class _HomePageState extends State<HomePage> {
   );
   Map<String, dynamic> _estadisticas = {};
   Timer? _refreshTimer;
+  Timer? _sondeoConectividad;
+  Timer? _recuperadaTimer;
+  bool _conexionRecuperada = false;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   /// Estado de conectividad previo para detectar la transición offline →
@@ -57,6 +60,7 @@ class _HomePageState extends State<HomePage> {
 
   List<PartCategory> _trendingCategories = [];
   bool _isLoadingTrendingCategories = true;
+  bool _refrescando = false;
 
   late final CatalogService _catalogService =
       widget.catalogService ?? CatalogService();
@@ -67,6 +71,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _cargarEstadisticas();
     _cargarCategoriasTrending();
     _suscribirANotificaciones();
@@ -91,23 +96,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _cargarCategoriasTrending() async {
-    var categories = <PartCategory>[];
     try {
-      categories = await _catalogService.getPartCategories();
+      final categories = await _catalogService.getPartCategories();
+      if (!mounted) return;
+      setState(() {
+        _trendingCategories = categories
+            .where((category) => category.id.isNotEmpty)
+            .toList(growable: false);
+        _isLoadingTrendingCategories = false;
+      });
     } catch (error) {
       AppLogger.warning(
         'No se pudieron cargar las categorías populares: $error',
         name: 'HomePage',
       );
+      // Se conserva la última lista válida (p. ej. al refrescar sin red).
+      if (mounted) setState(() => _isLoadingTrendingCategories = false);
     }
+  }
 
-    if (!mounted) return;
-    setState(() {
-      _trendingCategories = categories
-          .where((category) => category.id.isNotEmpty)
-          .toList(growable: false);
-      _isLoadingTrendingCategories = false;
-    });
+  /// Recarga tarjetas y "Mis Solicitudes". `refreshFromServer` verifica primero
+  /// la conectividad real: si ya hay red quita el banner y sincroniza; si no,
+  /// lo mantiene. Lo usan el pull-to-refresh, el tap del banner y el resume.
+  Future<void> _refrescarDashboard() async {
+    if (_refrescando) return;
+    setState(() => _refrescando = true);
+    try {
+      await Future.wait([
+        context.read<SolicitudesProvider>().refreshFromServer(),
+        _cargarEstadisticas(),
+        _cargarCategoriasTrending(),
+      ]);
+    } finally {
+      if (mounted) setState(() => _refrescando = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refrescarDashboard());
   }
 
   IconData _iconForTrendingCategory(PartCategory category) {
@@ -161,26 +188,43 @@ class _HomePageState extends State<HomePage> {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((
       results,
     ) {
-      if (!mounted) return;
-
-      final isOffline = results.contains(ConnectivityResult.none);
-      final wasOffline = _wasOffline;
-      _wasOffline = isOffline;
-
-      if (wasOffline && !isOffline) {
-        mostrarSnackbarInfo(
-          context,
-          mensaje: '¡Has vuelto a tener conexión! Actualizando solicitudes...',
-        );
-        context.read<SolicitudesProvider>().refreshFromServer();
-        _cargarEstadisticas();
-      } else if (!wasOffline && isOffline) {
-        mostrarSnackbarAdvertencia(
-          context,
-          mensaje: 'Sin conexión. Se muestran los datos disponibles.',
-        );
-      }
+      _onConectividad(results.contains(ConnectivityResult.none));
     });
+
+    // Fallback: el stream nativo no siempre entrega los cortes (p. ej. Modo
+    // Avión en algunos dispositivos). Mientras la pantalla está abierta se
+    // consulta el estado real cada 10 s; los cambios se procesan igual que
+    // los del stream, sin duplicar SnackBars ni recargas.
+    _sondeoConectividad = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _sondearConectividad(),
+    );
+  }
+
+  Future<void> _sondearConectividad() async {
+    if (!mounted) return;
+    final provider = context.read<SolicitudesProvider>();
+    await provider.verificarConectividad();
+    if (mounted) _onConectividad(provider.isOffline);
+  }
+
+  void _onConectividad(bool isOffline) {
+    if (!mounted) return;
+    final wasOffline = _wasOffline;
+    _wasOffline = isOffline;
+    if (wasOffline == isOffline) return;
+
+    _recuperadaTimer?.cancel();
+    if (!isOffline) {
+      setState(() => _conexionRecuperada = true);
+      _recuperadaTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _conexionRecuperada = false);
+      });
+      context.read<SolicitudesProvider>().refreshFromServer();
+      _cargarEstadisticas();
+    } else {
+      setState(() => _conexionRecuperada = false);
+    }
   }
 
   Future<void> _suscribirANotificaciones() async {
@@ -285,7 +329,10 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
+    _sondeoConectividad?.cancel();
+    _recuperadaTimer?.cancel();
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
     _metricPageController.dispose();
@@ -306,27 +353,33 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildTopAppBar(),
             Expanded(
-              child: SingleChildScrollView(
-                key: const ValueKey('home-main-scroll'),
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.spacingMd,
-                  AppSpacing.spacingSm,
-                  AppSpacing.spacingMd,
-                  100,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.spacingSm),
-                    _buildNewSearchButton(),
-                    const SizedBox(height: AppSpacing.spacingLg),
-                    _buildStatsRow(),
-                    const SizedBox(height: AppSpacing.spacingLg),
-                    _buildRequestsSection(),
-                    const SizedBox(height: AppSpacing.spacingXl),
-                    _buildTrendingSection(),
-                  ],
+              child: RefreshIndicator(
+                color: AppColors.primaryContainer,
+                onRefresh: _refrescarDashboard,
+                child: SingleChildScrollView(
+                  key: const ValueKey('home-main-scroll'),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.spacingMd,
+                    AppSpacing.spacingSm,
+                    AppSpacing.spacingMd,
+                    100,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.spacingSm),
+                      _buildNewSearchButton(),
+                      const SizedBox(height: AppSpacing.spacingLg),
+                      _buildStatsRow(),
+                      const SizedBox(height: AppSpacing.spacingLg),
+                      _buildRequestsSection(),
+                      const SizedBox(height: AppSpacing.spacingXl),
+                      _buildTrendingSection(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -849,6 +902,73 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildBannerConectividad(String estado, bool isLoading) {
+    final bool offline = estado == 'offline';
+    final bool recuperada = estado == 'recuperada';
+    final Color color = offline ? AppColors.warning : AppColors.success;
+    final IconData icono = offline
+        ? Icons.cloud_off_rounded
+        : recuperada
+        ? Icons.check_circle_outline
+        : Icons.cloud_done_rounded;
+    final String texto = offline
+        ? 'Modo sin conexión'
+        : recuperada
+        ? 'Conexión recuperada. Actualizando...'
+        : 'Datos desactualizados';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+      child: InkWell(
+        onTap: recuperada ? null : _refrescarDashboard,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            vertical: 10,
+            horizontal: AppSpacing.spacingMd,
+          ),
+          color: color.withValues(alpha: 0.15),
+          child: Row(
+            children: [
+              Icon(icono, size: 16, color: color),
+              const SizedBox(width: AppSpacing.spacingMd),
+              Expanded(
+                child: Text(
+                  texto,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              if (_refrescando || isLoading)
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: color,
+                  ),
+                )
+              else if (!recuperada)
+                Text(
+                  offline ? 'REINTENTAR' : 'SINCRONIZAR',
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // --- SECCIÓN DE SOLICITUDES ---
   Widget _buildRequestsSection() {
     return Consumer<SolicitudesProvider>(
@@ -862,7 +982,13 @@ class _HomePageState extends State<HomePage> {
         // Lógica de banner (igual que en TodasSolicitudesPage)
         final bool isDataOld =
             lastSync != null && now.difference(lastSync).inMinutes >= 10;
-        final bool showBanner = isOffline || isDataOld;
+        final String? estadoBanner = isOffline
+            ? 'offline'
+            : _conexionRecuperada
+            ? 'recuperada'
+            : isDataOld
+            ? 'desactualizada'
+            : null;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -899,64 +1025,26 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            if (showBanner) ...[
-              const SizedBox(height: AppSpacing.spacingSm),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-                child: InkWell(
-                  onTap: isOffline ? null : () => provider.refreshFromServer(),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: AppSpacing.spacingMd,
-                    ),
-                    color: isOffline
-                        ? AppColors.warning.withValues(alpha: 0.15)
-                        : AppColors.success.withValues(alpha: 0.15),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isOffline
-                              ? Icons.cloud_off_rounded
-                              : Icons.cloud_done_rounded,
-                          size: 16,
-                          color: isOffline
-                              ? AppColors.warning
-                              : AppColors.success,
-                        ),
-                        const SizedBox(width: AppSpacing.spacingMd),
-                        Expanded(
-                          child: Text(
-                            isOffline
-                                ? 'Modo sin conexión'
-                                : 'Datos desactualizados',
-                            style: AppTextStyles.textStyleCaption.copyWith(
-                              color: isOffline
-                                  ? AppColors.warning
-                                  : AppColors.success,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        if (!isOffline)
-                          Text(
-                            'SINCRONIZAR',
-                            style: AppTextStyles.textStyleCaption.copyWith(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 11,
-                              letterSpacing: 0.5,
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SizeTransition(
+                  sizeFactor: animation,
+                  alignment: Alignment.topCenter,
+                  child: child,
                 ),
               ),
-            ],
+              child: estadoBanner == null
+                  ? const SizedBox.shrink(key: ValueKey('sin-banner'))
+                  : Padding(
+                      key: ValueKey(estadoBanner),
+                      padding: const EdgeInsets.only(top: AppSpacing.spacingSm),
+                      child: _buildBannerConectividad(estadoBanner, isLoading),
+                    ),
+            ),
             const SizedBox(height: AppSpacing.spacingMd),
             if (isLoading && solicitudes.isEmpty)
               const RyStateContainer(

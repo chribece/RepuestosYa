@@ -72,7 +72,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
   // Catálogo (mantener listas locales para los dropdowns)
   List<PartCategory> _categories = [];
-  List<CatalogPart> _parts = [];
+  List<CatalogPart> _catalogo = [];
   final Map<String, List<CatalogPart>> _partsByCategoryId = {};
   final Set<String> _loadingAdditionalParts = {};
   final Set<String> _expandedAdditionalParts = {};
@@ -111,7 +111,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     super.initState();
     _cargarVehiculos();
     _cargarDirecciones();
-    _cargarCategorias();
+    _cargarCategorias().then((_) {
+      if (mounted) _cargarCatalogo();
+    });
 
     // Restaurar categoría/repuestos si ya hay una seleccionada en el provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -119,9 +121,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final initialCategoryId = widget.initialCategoryId;
       if (initialCategoryId != null && initialCategoryId.isNotEmpty) {
         provider.prepareNewRequestForCategory(initialCategoryId);
-      }
-      if (provider.selectedCategoryId != null) {
-        _cargarRepuestos(provider.selectedCategoryId!);
       }
       final additionalParts = provider.additionalParts;
       final firstIncomplete = additionalParts
@@ -296,25 +295,30 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     return result;
   }
 
-  Future<void> _cargarRepuestos(String categoryId) async {
+  Future<void> _cargarCatalogo() async {
     setState(() {
       _isLoadingParts = true;
       _partError = null;
     });
 
     try {
-      final parts = await _obtenerRepuestos(categoryId);
+      final listas = await Future.wait(
+        _categories.map((categoria) => _obtenerRepuestos(categoria.id)),
+      );
       if (!mounted) return;
+      final unicos = <String, CatalogPart>{
+        for (final parte in listas.expand((lista) => lista)) parte.id: parte,
+      };
       setState(() {
-        _parts = parts;
+        _catalogo = unicos.values.toList();
         _isLoadingParts = false;
       });
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoadingParts = false;
-          if (_parts.isEmpty) {
-            _partError = 'Sin datos offline para esta categoría';
+          if (_catalogo.isEmpty) {
+            _partError = 'No se pudo cargar el catálogo de repuestos';
           }
         });
       }
@@ -951,13 +955,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
 
     // 3. Validaciones contextuales manuales (para dropdowns/estado no gestionado por Form)
     bool hasManualErrors = false;
-    if (provider.selectedCategoryId == null) {
-      setState(
-        () => _categoryError =
-            'Debes seleccionar una categoría para filtrar los repuestos.',
-      );
-      hasManualErrors = true;
-    }
     if (provider.selectedPartId == null) {
       setState(() => _partError = 'Debes seleccionar un repuesto de la lista.');
       hasManualErrors = true;
@@ -1257,46 +1254,36 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     final syncProvider = context.watch<SolicitudesProvider>();
 
     // Reconstruir objetos seleccionados desde las listas actuales por ID
-    PartCategory? selectedCategory;
-    if (provider.selectedCategoryId != null && _categories.isNotEmpty) {
-      final matches = _categories.where(
-        (c) => c.id == provider.selectedCategoryId,
-      );
-      if (matches.isNotEmpty) {
-        selectedCategory = matches.first;
-      } else {
-        // La categoría guardada ya no está en la lista (ej: eliminada del catálogo)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            mostrarSnackbarInfo(
-              context,
-              mensaje:
-                  'La categoría seleccionada ya no está disponible. Selecciona una nueva.',
-            );
-            provider.setSelectedCategoryId(null);
-          }
-        });
-      }
+    if (provider.selectedCategoryId != null &&
+        _categories.isNotEmpty &&
+        !_categories.any((c) => c.id == provider.selectedCategoryId)) {
+      // La categoría guardada ya no está en la lista (ej: eliminada del catálogo)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          mostrarSnackbarInfo(
+            context,
+            mensaje:
+                'La categoría seleccionada ya no está disponible. Selecciona una nueva.',
+          );
+          provider.setSelectedCategoryId(null);
+        }
+      });
     }
 
-    CatalogPart? selectedPart;
-    if (provider.selectedPartId != null && _parts.isNotEmpty) {
-      final matches = _parts.where((p) => p.id == provider.selectedPartId);
-      if (matches.isNotEmpty) {
-        selectedPart = matches.first;
-      } else {
-        // El repuesto guardado ya no está en la lista
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            mostrarSnackbarInfo(
-              context,
-              mensaje:
-                  'El repuesto seleccionado ya no está disponible. Selecciona uno nuevo.',
-            );
-            provider.setSelectedPartId(null, null);
-          }
-        });
-      }
+    if (provider.selectedPartId != null &&
+        _catalogo.isNotEmpty &&
+        !_catalogo.any((p) => p.id == provider.selectedPartId)) {
+      // El repuesto guardado ya no está en la lista
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          mostrarSnackbarInfo(
+            context,
+            mensaje:
+                'El repuesto seleccionado ya no está disponible. Selecciona uno nuevo.',
+          );
+          provider.setSelectedPartId(null, null);
+        }
+      });
     }
 
     return Scaffold(
@@ -1310,26 +1297,6 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           onPressed: () => context.pop(),
         ),
         title: Text('Crear Solicitud', style: AppTextStyles.textStyleHeading),
-        actions: [
-          InkWell(
-            onTap: () {
-              context.pushNamed(RouteNames.profile);
-            },
-            borderRadius: BorderRadius.circular(AppRadius.radiusXl),
-            child: Container(
-              width: 40,
-              height: 40,
-              margin: const EdgeInsets.only(right: AppSpacing.spacingMd),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.outlineVariant),
-              ),
-              child: const ClipOval(
-                child: Icon(Icons.person, color: AppColors.onSurfaceVariant),
-              ),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.spacingMd),
@@ -1363,44 +1330,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
               const SizedBox(height: AppSpacing.spacingXl),
               _buildImageSection(provider),
               const SizedBox(height: AppSpacing.spacingLg),
-              RyDropdownField<PartCategory>(
-                label: 'Categoría de repuesto',
-                hint: 'Selecciona una categoría',
-                isRequired: true,
-                items: _categories,
-                value: selectedCategory,
-                isLoading: _isLoadingCategories,
-                errorText: _categoryError ?? _fieldErrors['categoria_id'],
-                itemLabelBuilder: (c) => c.nombre,
-                onChanged: (val) {
-                  provider.setSelectedCategoryId(val?.id);
-                  setState(() {
-                    _categoryError = null;
-                    _parts = []; // Limpiar repuestos locales mientras carga
-                  });
-                  if (val != null) {
-                    _cargarRepuestos(val.id);
-                  }
-                },
-              ),
-              const SizedBox(height: AppSpacing.spacingMd),
-              RyDropdownField<CatalogPart>(
-                label: 'Repuesto',
-                hint: provider.selectedCategoryId == null
-                    ? 'Selecciona primero una categoría'
-                    : 'Selecciona el repuesto',
-                isRequired: true,
-                items: _parts,
-                value: selectedPart,
-                enabled: provider.selectedCategoryId != null,
-                isLoading: _isLoadingParts,
-                errorText: _partError ?? _fieldErrors['repuesto_id'],
-                itemLabelBuilder: (p) => p.nombre,
-                onChanged: (val) {
-                  provider.setSelectedPartId(val?.id, val?.nombre);
-                  setState(() => _partError = null);
-                },
-              ),
+              _buildBuscadorRepuesto(provider),
               const SizedBox(height: AppSpacing.spacingMd),
               RyTextField(
                 label: 'Detalles adicionales',
@@ -1411,7 +1341,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 // altera la altura si el texto real ocupa menos líneas.
                 hintMaxLines: 8,
                 helperText:
-                    'Ej: Amortiguador delantero derecho, marca original o equivalente de alta calidad',
+                    'Ej: Marca específica, lado (izq/der) o código del repuesto.',
                 helperMaxLines: 4,
                 maxLines: 4,
                 isRequired: true,
@@ -1448,6 +1378,189 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         primaryLoading: _isSubmitting,
         primaryDisabled: !provider.ubicacionResuelta,
         onPrimaryPressed: provider.ubicacionResuelta ? _handleSubmit : null,
+      ),
+    );
+  }
+
+  static const _acentos = {
+    'á': 'a',
+    'é': 'e',
+    'í': 'i',
+    'ó': 'o',
+    'ú': 'u',
+    'ü': 'u',
+    'ñ': 'n',
+  };
+
+  String _normalizarBusqueda(String texto) =>
+      texto.toLowerCase().split('').map((c) => _acentos[c] ?? c).join();
+
+  String? _nombreCategoria(String? categoriaId) =>
+      _categories.where((c) => c.id == categoriaId).firstOrNull?.nombre;
+
+  Iterable<CatalogPart> _buscarRepuestos(String texto) {
+    final tokens = _normalizarBusqueda(
+      texto,
+    ).split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    if (tokens.isEmpty) return const [];
+    return _catalogo
+        .where((parte) {
+          final indice = _normalizarBusqueda(
+            '${parte.nombre} ${parte.sinonimos.join(' ')}',
+          );
+          return tokens.every((t) => indice.contains(t));
+        })
+        .take(20);
+  }
+
+  Widget _buildOpcionesRepuesto(
+    double ancho,
+    AutocompleteOnSelected<CatalogPart> onSelected,
+    Iterable<CatalogPart> opciones,
+  ) {
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Material(
+        elevation: 4,
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        child: SizedBox(
+          width: ancho,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 240),
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: opciones.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, color: AppColors.outlineVariant),
+              itemBuilder: (context, index) {
+                final parte = opciones.elementAt(index);
+                return ListTile(
+                  title: Text(
+                    parte.nombre,
+                    style: AppTextStyles.textStyleBody.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _nombreCategoria(parte.categoriaId) ?? '',
+                    style: AppTextStyles.textStyleCaption.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                  onTap: () => onSelected(parte),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBuscadorRepuesto(CreateRequestProvider provider) {
+    final categoria = _nombreCategoria(provider.selectedCategoryId);
+    final error = _categoryError ?? _fieldErrors['categoria_id'];
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Autocomplete<CatalogPart>(
+            initialValue: TextEditingValue(
+              text: provider.partNameSnapshot ?? '',
+            ),
+            displayStringForOption: (parte) => parte.nombre,
+            optionsBuilder: (value) => _buscarRepuestos(value.text),
+            optionsViewBuilder: (context, onSelected, opciones) =>
+                _buildOpcionesRepuesto(
+                  constraints.maxWidth,
+                  onSelected,
+                  opciones,
+                ),
+            onSelected: (parte) {
+              provider.setSelectedCategoryId(parte.categoriaId);
+              provider.setSelectedPartId(parte.id, parte.nombre);
+              setState(() => _partError = null);
+            },
+            fieldViewBuilder:
+                (context, controller, focusNode, onFieldSubmitted) =>
+                    RyTextField(
+                      label: 'Repuesto',
+                      hint: _isLoadingParts && _catalogo.isEmpty
+                          ? 'Cargando catálogo...'
+                          : 'Escribe para buscar, ej: terminal',
+                      isRequired: true,
+                      controller: controller,
+                      focusNode: focusNode,
+                      prefixIcon: Icons.search,
+                      suffixWidget: _isLoadingParts
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : null,
+                      errorText: _partError ?? _fieldErrors['repuesto_id'],
+                      onChanged: (_) {
+                        if (provider.selectedPartId != null) {
+                          provider.setSelectedCategoryId(null);
+                        }
+                      },
+                      onSubmitted: (_) => onFieldSubmitted(),
+                      onTap: () =>
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (context.mounted) {
+                              Scrollable.ensureVisible(context, alignment: 0.1);
+                            }
+                          }),
+                    ),
+          ),
+          const SizedBox(height: AppSpacing.spacingXs),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.category_outlined,
+                  size: 18,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.spacingXs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Categoría de repuesto',
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      error ?? categoria ?? 'Automático según tu selección',
+                      style: AppTextStyles.textStyleBody.copyWith(
+                        color: error != null
+                            ? AppColors.error
+                            : categoria != null
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

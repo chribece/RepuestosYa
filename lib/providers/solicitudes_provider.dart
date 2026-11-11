@@ -82,6 +82,15 @@ class SolicitudesProvider with ChangeNotifier {
     // No llamamos a refreshFromServer aquí para evitar conflictos con el Home
   }
 
+  /// Consulta la conectividad real sin esperar un evento del stream (fallback
+  /// del sondeo periódico de la pantalla de inicio).
+  Future<void> verificarConectividad() async {
+    final offline = await _repository.isOffline();
+    if (_isOffline == offline) return;
+    _isOffline = offline;
+    notifyListeners();
+  }
+
   Future<void> refreshFromServer() async {
     if (_isRefreshing) return;
     _isRefreshing = true;

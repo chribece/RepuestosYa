@@ -1,17 +1,21 @@
 import 'package:connectivity_plus_platform_interface/connectivity_plus_platform_interface.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
+import 'package:repuestosya/database/app_database.dart';
 import 'package:repuestosya/models/part_catalog.dart';
 import 'package:repuestosya/pages/create_request_page.dart';
 import 'package:repuestosya/providers/create_request_provider.dart';
 import 'package:repuestosya/providers/solicitudes_provider.dart';
 import 'package:repuestosya/services/auth_service.dart';
+import 'package:repuestosya/services/solicitud_repository.dart';
 import 'package:repuestosya/services/ubicacion_service.dart';
 import 'package:repuestosya/utils/api_error_handler.dart';
 import 'package:repuestosya/widgets/ry_button.dart';
+import 'package:repuestosya/widgets/ry_text_field.dart';
 
 import '../helpers/fake_connectivity.dart';
 import '../helpers/fake_services.dart';
@@ -94,19 +98,25 @@ void main() {
     );
     addTearDown(solicitudesProvider.dispose);
 
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
     await tester.pumpWidget(
-      ChangeNotifierProvider<CreateRequestProvider>.value(
-        value: formProvider,
-        child: ChangeNotifierProvider<SolicitudesProvider>.value(
-          value: solicitudesProvider,
-          child: MaterialApp(
-            home: CreateRequestPage(
-              solicitudService: solicitud,
-              vehiculoService: vehiculos,
-              direccionService: direcciones,
-              catalogService: catalogo,
-              ubicacionService: _FakeUbicacion(),
-              isOnboardingFlow: isOnboardingFlow,
+      Provider<SolicitudRepository>.value(
+        value: _RepositorioSinCache(db),
+        child: ChangeNotifierProvider<CreateRequestProvider>.value(
+          value: formProvider,
+          child: ChangeNotifierProvider<SolicitudesProvider>.value(
+            value: solicitudesProvider,
+            child: MaterialApp(
+              home: CreateRequestPage(
+                solicitudService: solicitud,
+                vehiculoService: vehiculos,
+                direccionService: direcciones,
+                catalogService: catalogo,
+                ubicacionService: _FakeUbicacion(),
+                isOnboardingFlow: isOnboardingFlow,
+              ),
             ),
           ),
         ),
@@ -148,8 +158,8 @@ void main() {
       final orderedElements = [
         requiredLabel('Selecciona tu vehículo'),
         find.text('Toca para seleccionar'),
-        requiredLabel('Categoría de repuesto'),
-        requiredLabel('Repuesto'),
+        find.text('Repuesto'),
+        find.text('Categoría de repuesto'),
         find.text('Detalles adicionales'),
         find.text('Repuestos adicionales'),
         find.text('Prioridad de la solicitud'),
@@ -310,6 +320,99 @@ void main() {
     },
   );
 
+  testWidgets('el AppBar solo conserva retroceso y título', (tester) async {
+    await pumpForm(tester);
+
+    final appBar = find.byType(AppBar);
+    expect(
+      find.descendant(of: appBar, matching: find.byType(IconButton)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: appBar, matching: find.byIcon(Icons.person)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: appBar, matching: find.text('Crear Solicitud')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'el buscador sugiere repuestos sin importar acentos y asigna su categoría',
+    (tester) async {
+      catalogo
+        ..respuestaCategorias = [
+          PartCategory(id: 'cat-1', nombre: 'Frenos', slug: 'frenos'),
+          PartCategory(id: 'cat-2', nombre: 'Eléctrico', slug: 'electrico'),
+        ]
+        ..respuestaPartes = [
+          CatalogPart(
+            id: 'rep-1',
+            categoriaId: 'cat-1',
+            nombre: 'Pastillas de freno',
+            slug: 'pastillas',
+          ),
+          CatalogPart(
+            id: 'rep-2',
+            categoriaId: 'cat-2',
+            nombre: 'Terminal de batería',
+            slug: 'terminal-bateria',
+            sinonimos: ['Borne'],
+          ),
+        ];
+      final provider = CreateRequestProvider();
+      await pumpForm(tester, provider: provider);
+
+      final campo = find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is RyTextField && widget.label == 'Repuesto',
+        ),
+        matching: find.byType(TextField),
+      );
+      await tester.tap(campo);
+      await tester.pump();
+      await tester.enterText(campo, 'terminal');
+      await tester.pump();
+
+      expect(find.text('Terminal de batería'), findsOneWidget);
+      expect(find.text('Pastillas de freno'), findsNothing);
+
+      await tester.tap(find.text('Terminal de batería'));
+      await tester.pump();
+
+      expect(provider.selectedPartId, 'rep-2');
+      expect(provider.selectedCategoryId, 'cat-2');
+      expect(find.text('Eléctrico'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'el buscador en pantalla compacta (teclado abierto) no desborda y deja '
+    'visible el botón principal',
+    (tester) async {
+      await pumpForm(tester, viewport: const Size(320, 400));
+
+      final campo = find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is RyTextField && widget.label == 'Repuesto',
+        ),
+        matching: find.byType(TextField),
+      );
+      await tester.ensureVisible(campo);
+      await tester.pumpAndSettle();
+      await tester.tap(campo);
+      await tester.pumpAndSettle();
+      await tester.enterText(campo, 'pastillas');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pastillas de freno'), findsWidgets);
+      expect(find.text('BUSCAR REPUESTO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   group('bloqueo del envío con datos inválidos', () {
     testWidgets('campo obligatorio vacío: error visible y servicio nunca '
         'invocado', (tester) async {
@@ -423,6 +526,21 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+}
+
+/// Repositorio real sin escrituras de caché de catálogo: Drift no completa sus
+/// transacciones dentro de `testWidgets` y bloquearía la carga del catálogo.
+class _RepositorioSinCache extends SolicitudRepository {
+  _RepositorioSinCache(super.db);
+
+  @override
+  Future<void> guardarCategorias(List<PartCategory> categorias) async {}
+
+  @override
+  Future<void> guardarRepuestos(
+    String categoriaId,
+    List<CatalogPart> repuestos,
+  ) async {}
 }
 
 /// Doble de UbicacionService: nunca debería invocarse en estos tests porque

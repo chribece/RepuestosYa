@@ -455,6 +455,8 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
         return const {
           'pendiente',
           'en_proceso',
+          'aceptada',
+          'asignada',
           'in_progress',
           'enviado',
           'sent',
@@ -466,6 +468,8 @@ class _TodasSolicitudesPageState extends State<TodasSolicitudesPage> {
           'completado',
           'completada',
           'completed',
+          'cerrada',
+          'expirado',
           'entregado',
           'entregada',
           'delivered',

@@ -339,11 +339,12 @@ const updateCotizacionEstado = async (req, res) => {
       return res.status(400).json({ error: updateError.message });
     }
 
-    // If accepted, update solicitud to completado
+    // If accepted, update solicitud to aceptada (el cierre a 'completado' lo
+    // hace la entrega de la orden)
     if (estado === 'aceptada') {
       await supabase
         .from('solicitudes_repuesto')
-        .update({ estado: 'completado' })
+        .update({ estado: 'aceptada' })
         .eq('id', cotizacion.solicitud_id);
     }
 

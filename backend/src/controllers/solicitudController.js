@@ -583,12 +583,13 @@ const getEstadisticasCliente = async (req, res) => {
   try {
     const clienteId = req.user.id;
 
-    // Obtener solicitudes activas (en_proceso)
+    // Obtener solicitudes activas: esperando cotizaciones (en_proceso) o con
+    // cotización aceptada y orden en curso (aceptada)
     const { data: solicitudesActivas, error: errorActivas } = await supabase
       .from('solicitudes_repuesto')
       .select('id')
       .eq('cliente_id', clienteId)
-      .eq('estado', 'en_proceso');
+      .in('estado', ['en_proceso', 'aceptada']);
 
     if (errorActivas) {
       return res.status(400).json({ error: errorActivas.message });

@@ -124,7 +124,8 @@ const getOrdenDetalleParaAlmacen = async (ordenId, almacenAutenticadoId) => {
   }
 };
 
-const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId) => {
+const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId, opciones = {}) => {
+  const db = opciones.supabase || supabase;
   try {
     // Validar que nuevoEstado sea válido
     const estadosValidos = ['pendiente_pago', 'confirmada', 'entregada', 'cancelada'];
@@ -133,9 +134,9 @@ const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId) => {
     }
 
     // Validar que la orden existe y pertenece al almacén autenticado
-    const { data: orden, error: ordenError } = await supabase
+    const { data: orden, error: ordenError } = await db
       .from('ordenes_compra')
-      .select('id, estado, almacen_id')
+      .select('id, estado, almacen_id, solicitud_id')
       .eq('id', ordenId)
       .single();
 
@@ -149,7 +150,7 @@ const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId) => {
     }
 
     // Ejecutar el UPDATE
-    const { data: ordenActualizada, error: updateError } = await supabase
+    const { data: ordenActualizada, error: updateError } = await db
       .from('ordenes_compra')
       .update({ estado: nuevoEstado })
       .eq('id', ordenId)
@@ -158,6 +159,19 @@ const updateOrdenEstado = async (ordenId, nuevoEstado, almacenId) => {
 
     if (updateError || !ordenActualizada) {
       throw new BadRequestError('Error al actualizar el estado de la orden');
+    }
+
+    // Cierre del ciclo: al entregarse la orden la solicitud pasa al estado
+    // terminal 'completado' (pestaña "Finalizadas" del cliente).
+    if (nuevoEstado === 'entregada') {
+      const { error: solicitudError } = await db
+        .from('solicitudes_repuesto')
+        .update({ estado: 'completado' })
+        .eq('id', orden.solicitud_id);
+
+      if (solicitudError) {
+        console.error('No se pudo cerrar la solicitud al entregar la orden:', solicitudError);
+      }
     }
 
     return ordenActualizada;

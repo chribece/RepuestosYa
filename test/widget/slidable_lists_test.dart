@@ -488,6 +488,18 @@ void main() {
           'estado': 'completado',
           'created_at': '2026-09-22T10:00:00.000Z',
         },
+        {
+          'id': 'srv-aceptada',
+          'pieza_nombre': 'Alternador aceptado',
+          'estado': 'aceptada',
+          'created_at': '2026-09-23T10:00:00.000Z',
+        },
+        {
+          'id': 'srv-cerrada',
+          'pieza_nombre': 'Frenos cerrados',
+          'estado': 'cerrada',
+          'created_at': '2026-09-24T10:00:00.000Z',
+        },
       ],
     );
 
@@ -497,24 +509,32 @@ void main() {
     expect(find.text('Filtro pendiente'), findsOneWidget);
     expect(find.text('Bujías en proceso'), findsOneWidget);
     expect(find.text('Motor finalizado'), findsOneWidget);
+    expect(find.text('Alternador aceptado'), findsOneWidget);
+    expect(find.text('Frenos cerrados'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'En proceso'));
     await tester.pumpAndSettle();
     expect(find.text('Filtro pendiente'), findsOneWidget);
     expect(find.text('Bujías en proceso'), findsOneWidget);
+    expect(find.text('Alternador aceptado'), findsOneWidget);
     expect(find.text('Motor finalizado'), findsNothing);
+    expect(find.text('Frenos cerrados'), findsNothing);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Finalizadas'));
     await tester.pumpAndSettle();
     expect(find.text('Filtro pendiente'), findsNothing);
     expect(find.text('Bujías en proceso'), findsNothing);
+    expect(find.text('Alternador aceptado'), findsNothing);
     expect(find.text('Motor finalizado'), findsOneWidget);
+    expect(find.text('Frenos cerrados'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Todas'));
     await tester.pumpAndSettle();
     expect(find.text('Filtro pendiente'), findsOneWidget);
     expect(find.text('Bujías en proceso'), findsOneWidget);
     expect(find.text('Motor finalizado'), findsOneWidget);
+    expect(find.text('Alternador aceptado'), findsOneWidget);
+    expect(find.text('Frenos cerrados'), findsOneWidget);
   });
 
   testWidgets('pull-to-refresh sincroniza localmente y confirma al usuario', (

@@ -207,7 +207,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   isSelected
                       ? Icons.check_circle
                       : Icons.radio_button_unchecked,
-                  color: isSelected ? accent : AppColors.outlineVariant,
+                  color: isSelected ? accent : AppColors.onSurfaceVariant,
                 ),
               ],
             ),
@@ -218,14 +218,22 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   }
 
   Widget _buildContinueButton() {
-    return RyButton(
-      label: widget.isGoogleSignup ? 'Crear cuenta y continuar' : 'Continuar',
-      trailingIcon: Icons.arrow_forward,
-      variant: RyButtonVariant.primary,
-      size: RyButtonSize.large,
-      isLoading: _isSubmitting,
-      isFullWidth: true,
-      onPressed: _handleContinue,
+    final sinRol = _selectedRole == null;
+    // El GestureDetector recibe el toque también con el botón deshabilitado
+    // para mostrar el mensaje de validación.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: sinRol ? () => setState(() => _showRoleError = true) : null,
+      child: RyButton(
+        label: widget.isGoogleSignup ? 'Crear cuenta y continuar' : 'Continuar',
+        trailingIcon: Icons.arrow_forward,
+        variant: RyButtonVariant.primary,
+        size: RyButtonSize.large,
+        isLoading: _isSubmitting,
+        isDisabled: sinRol,
+        isFullWidth: true,
+        onPressed: _handleContinue,
+      ),
     );
   }
 

@@ -38,6 +38,9 @@ class _LoginPageState extends State<LoginPage> {
   String? _loginError;
   final AuthService _authService = AuthService();
   late final AlmacenService _almacenService;
+  final _passwordFocusNode = FocusNode();
+  final _loginButtonKey = GlobalKey();
+  double _keyboardInset = 0;
 
   @override
   void initState() {
@@ -49,12 +52,38 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Al aparecer el teclado (crece viewInsets) con la contraseña enfocada,
+    // desplaza el scroll para que el botón principal quede sobre el teclado.
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset > _keyboardInset && _passwordFocusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mostrarBotonSobreTeclado(),
+      );
+    }
+    _keyboardInset = inset;
+  }
+
+  @override
   void dispose() {
     _emailController.removeListener(_clearLoginError);
     _passwordController.removeListener(_clearLoginError);
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  void _mostrarBotonSobreTeclado() {
+    final contexto = _loginButtonKey.currentContext;
+    if (contexto == null) return;
+    Scrollable.ensureVisible(
+      contexto,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: 1.0,
+    );
   }
 
   void _clearLoginError() {
@@ -246,26 +275,25 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Altura de la pantalla completa: no cambia al abrir el teclado, así que el
+    // layout no salta entre compacto y normal al enfocar un campo.
+    final compact = MediaQuery.sizeOf(context).height < 900;
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight < 700;
-            final topPadding = compact ? 12.0 : 24.0;
-            const bottomPadding = AppSpacing.spacingXl;
             return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.spacingMd,
-                topPadding,
-                AppSpacing.spacingMd,
-                bottomPadding,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.spacingMd,
+                vertical: AppSpacing.spacingLg,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight:
-                      (constraints.maxHeight - topPadding - bottomPadding)
-                          .clamp(0.0, constraints.maxHeight),
+                  minHeight: (constraints.maxHeight - 2 * AppSpacing.spacingLg)
+                      .clamp(0.0, double.infinity),
                 ),
                 child: Center(
                   child: ConstrainedBox(
@@ -280,12 +308,6 @@ class _LoginPageState extends State<LoginPage> {
                               : AppSpacing.spacingXl,
                         ),
                         _buildLoginForm(compact: compact),
-                        SizedBox(
-                          height: compact
-                              ? AppSpacing.spacingLg
-                              : AppSpacing.spacingXl,
-                        ),
-                        _buildFooter(),
                       ],
                     ),
                   ),
@@ -388,8 +410,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildEmailField() {
     return RyTextField(
-      label: 'Email corporativo / Usuario',
-      hint: 'nombre@empresa.com',
+      label: 'Correo electrónico o Usuario',
+      hint: 'tu@correo.com',
       type: RyTextFieldType.email,
       prefixIcon: Icons.mail,
       controller: _emailController,
@@ -409,36 +431,40 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Flexible: en móvil angosto el label sin wrap empujaba el enlace
-            // "¿Olvidó su clave?" fuera del viewport (RenderFlex overflow).
-            Flexible(
-              child: Text(
-                'Contraseña',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.onSurfaceVariant,
+        Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.spacingXs),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Flexible: en móvil angosto el label sin wrap empujaba el enlace
+              // "¿Olvidó su clave?" fuera del viewport (RenderFlex overflow).
+              Flexible(
+                child: Text(
+                  'Contraseña',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
               ),
-            ),
-            TextButton(
-              onPressed: () {
-                // TODO: Implement forgot password
-              },
-              child: Text(
-                '¿Olvidó su clave?',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.tertiaryContainer,
+              TextButton(
+                onPressed: () {
+                  // TODO: Implement forgot password
+                },
+                child: Text(
+                  '¿Olvidó su clave?',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.tertiaryContainer,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: AppSpacing.spacingXs),
         RyTextField(
           hint: '••••••••',
           type: RyTextFieldType.password,
+          focusNode: _passwordFocusNode,
           prefixIcon: Icons.lock,
           controller: _passwordController,
           validator: (value) {
@@ -479,7 +505,7 @@ class _LoginPageState extends State<LoginPage> {
           child: Text(
             'Recordar sesión en este equipo',
             style: AppTextStyles.textStyleCaption.copyWith(
-              color: AppColors.onSurfaceVariant,
+              color: AppColors.onSurface,
             ),
           ),
         ),
@@ -491,8 +517,8 @@ class _LoginPageState extends State<LoginPage> {
     return Column(
       children: [
         RyButton(
-          label: 'INGRESAR',
-          icon: Icons.bolt,
+          key: _loginButtonKey,
+          label: 'Iniciar sesión',
           variant: RyButtonVariant.primary,
           size: RyButtonSize.large,
           isLoading: _isLoading,
@@ -618,76 +644,6 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
       ),
-    );
-  }
-
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        // Wrap: en móvil angosto los dos badges + divisor no cabían en un
-        // Row (RenderFlex overflow); con Wrap bajan a una segunda línea.
-        // SizedBox(infinite) + alignment center: cada línea queda CENTRADA
-        // (sin el ancho completo, el Wrap se pega a la izquierda).
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.verified,
-                    size: 18,
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: AppSpacing.spacingXxs),
-                  Text(
-                    'Certificado ISO 9001',
-                    style: AppTextStyles.textStyleSmall.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              // Divisor vertical: solo tiene sentido si ambos badges quedan en
-              // la MISMA línea. Sin él, cuando el contenido no cabe, cada badge
-              // se centra en su propia línea (antes el divisor "colgaba" y el
-              // primer badge quedaba corrido a la izquierda).
-              const SizedBox(width: AppSpacing.spacingLg),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.security,
-                    size: 18,
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: AppSpacing.spacingXxs),
-                  Text(
-                    'SSL Secure',
-                    style: AppTextStyles.textStyleSmall.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingXl),
-          child: Text(
-            '© 2026 VCore Tech S.A. Todos los derechos reservados.',
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
     );
   }
 }

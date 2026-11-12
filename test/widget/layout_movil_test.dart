@@ -183,21 +183,78 @@ void main() {
         tester.getBottomLeft(find.text('o continuar con')).dy,
         lessThan(tester.getTopLeft(find.text('Continuar con Google')).dy),
       );
+    },
+  );
 
-      // El footer ("Certificado ISO 9001 | SSL Secure") queda CENTRADO en la
-      // pantalla, no pegado a la izquierda (regresión del Wrap).
-      final centroViewport = tester.view.physicalSize.width / 2;
-      for (final texto in ['Certificado ISO 9001', 'SSL Secure']) {
-        final rect = tester.getRect(find.text(texto));
-        final centroTexto = rect.center.dx;
-        expect(
-          (centroTexto - centroViewport).abs(),
-          lessThan(30),
-          reason:
-              '"$texto" debe quedar centrado (centro $centroTexto '
-              'vs viewport $centroViewport)',
-        );
-      }
+  testWidgets('login sin teclado a 420x900: layout estático, sin scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await tester.pumpWidget(
+      Provider<AlmacenRepository>.value(
+        value: AlmacenRepository(db),
+        child: MaterialApp(theme: darkTheme, home: const LoginPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+    expect(scroll.position.maxScrollExtent, 0);
+  });
+
+  testWidgets(
+    'login con teclado abierto: "Iniciar sesión" queda por encima del teclado',
+    (tester) async {
+      tester.view.physicalSize = const Size(420, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await tester.pumpWidget(
+        Provider<AlmacenRepository>.value(
+          value: AlmacenRepository(db),
+          child: MaterialApp(theme: darkTheme, home: const LoginPage()),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.text('••••••••'));
+      await tester.pump();
+      // El teclado aparece DESPUÉS de enfocar la contraseña (como en un móvil).
+      tester.view.viewInsets = const FakeViewPadding(bottom: 400);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final botonBottom = tester.getBottomLeft(find.text('Iniciar sesión')).dy;
+      expect(
+        botonBottom,
+        lessThanOrEqualTo(900 - 400),
+        reason: 'El teclado (400px) tapa el botón principal',
+      );
+
+      final tarjeta = find
+          .byWidgetPredicate(
+            (w) =>
+                w is Container &&
+                w.decoration is BoxDecoration &&
+                (w.decoration as BoxDecoration).color ==
+                    const Color(0xFF1E1E1E),
+          )
+          .first;
+      expect(
+        tester.getTopLeft(tarjeta).dy,
+        greaterThanOrEqualTo(0),
+        reason: 'El borde superior de la tarjeta queda cortado al hacer scroll',
+      );
     },
   );
 

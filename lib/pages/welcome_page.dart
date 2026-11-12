@@ -53,7 +53,19 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        const RyLogoBadge(size: 160),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryContainer.withValues(alpha: 0.35),
+                blurRadius: 60,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          child: const RyLogoBadge(size: 180),
+        ),
         const SizedBox(height: AppSpacing.spacingMd),
         Text(
           'RepuestosYa',
@@ -69,7 +81,7 @@ class _WelcomePageState extends State<WelcomePage> {
     return Column(
       children: [
         Text(
-          'Tu socio estratégico en\nrepuestos automotrices',
+          'El ecosistema inteligente de repuestos automotrices.',
           style: AppTextStyles.textStyleHeading.copyWith(
             fontWeight: FontWeight.w600,
             color: AppColors.onSurface,
@@ -77,16 +89,33 @@ class _WelcomePageState extends State<WelcomePage> {
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: AppSpacing.spacingSm),
-        Text(
-          'Conectamos clientes y almacenes con\nprecisión, velocidad y confianza.',
-          style: AppTextStyles.textStyleBody.copyWith(
-            color: AppColors.onSurfaceVariant,
-            height: 1.5,
-          ),
-          textAlign: TextAlign.center,
-        ),
+        const SizedBox(height: AppSpacing.spacingMd),
+        _buildDescription(),
       ],
+    );
+  }
+
+  Widget _buildDescription() {
+    final bodyStyle = AppTextStyles.textStyleBody.copyWith(
+      color: AppColors.onSurfaceVariant,
+      height: 1.5,
+    );
+    final highlightStyle = bodyStyle.copyWith(
+      color: AppColors.primaryContainer,
+      fontWeight: FontWeight.bold,
+    );
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: bodyStyle,
+        children: [
+          const TextSpan(text: 'Encuentra el '),
+          TextSpan(text: 'repuesto exacto', style: highlightStyle),
+          const TextSpan(text: ' en minutos, o '),
+          TextSpan(text: 'conecta tu almacén', style: highlightStyle),
+          const TextSpan(text: ' con miles de clientes en tiempo real.'),
+        ],
+      ),
     );
   }
 
@@ -95,7 +124,7 @@ class _WelcomePageState extends State<WelcomePage> {
       children: [
         RyButton(
           label: 'Iniciar sesión',
-          icon: Icons.login,
+          icon: Icons.person_outline,
           variant: RyButtonVariant.primary,
           size: RyButtonSize.large,
           isFullWidth: true,
@@ -122,57 +151,13 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildFooter() {
     return Column(
       children: [
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: AppSpacing.spacingMd,
-          runSpacing: AppSpacing.spacingXs,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.verified,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXs),
-                Text(
-                  'Certificado ISO 9001',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.security,
-                  size: 18,
-                  color: AppColors.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.spacingXs),
-                Text(
-                  'SSL Secure',
-                  style: AppTextStyles.textStyleSmall.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.spacingMd),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingSm),
           child: Text(
             '© 2026 VCore Tech S.A. Todos los derechos reservados.',
             style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
+              color: Colors.white54,
+              fontSize: 11,
             ),
             textAlign: TextAlign.center,
           ),

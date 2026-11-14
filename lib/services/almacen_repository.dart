@@ -32,15 +32,16 @@ class AlmacenRepository {
     }
   }
 
-  Future<Almacen?> obtenerPerfilAlmacenLocal() async {
+  /// Devuelve solo el perfil cuyo encargado es [userId]. Nunca un perfil de
+  /// otra cuenta que haya usado el mismo dispositivo.
+  Future<Almacen?> obtenerPerfilAlmacenLocal({required String userId}) async {
     try {
       final rows = await _db.select(_db.perfilAlmacenCache).get();
-      if (rows.isEmpty) return null;
-
-      // Tomamos el primero (solo debería haber uno por encargado en teoría,
-      // pero el id es la PK del almacén)
-      final row = rows.first;
-      return Almacen.fromJson(json.decode(row.dataJson));
+      for (final row in rows) {
+        final almacen = Almacen.fromJson(json.decode(row.dataJson));
+        if (almacen.encargadoId == userId) return almacen;
+      }
+      return null;
     } catch (e) {
       AppLogger.error(
         'Error al obtener perfil de almacén local',

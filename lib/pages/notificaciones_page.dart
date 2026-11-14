@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/notificacion.dart';
 import '../providers/notificaciones_provider.dart';
 import '../router/route_names.dart';
+import '../services/almacen_repository.dart';
+import '../services/almacen_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
@@ -126,6 +128,14 @@ class _NotificacionesPageState extends State<NotificacionesPage> {
         case 'cotizacion_rechazada':
           await context.pushNamed(RouteNames.dashboard);
           return;
+        case 'store_approved':
+          await _recargarPerfilAlmacen();
+          if (mounted) context.goNamed(RouteNames.dashboard);
+          return;
+        case 'store_rejected':
+          await _recargarPerfilAlmacen();
+          if (mounted) await context.pushNamed(RouteNames.profileAlmacen);
+          return;
       }
     } catch (_) {
       // A stale/malformed route must not crash the notification list.
@@ -137,6 +147,17 @@ class _NotificacionesPageState extends State<NotificacionesPage> {
         mensaje:
             'La notificación se marcó como leída, pero no encontramos su destino.',
       );
+    }
+  }
+
+  /// Refresca la caché del perfil del almacén antes de abrir una pantalla que
+  /// depende del estado de verificación. Sin red se navega igual.
+  Future<void> _recargarPerfilAlmacen() async {
+    final repositorio = context.read<AlmacenRepository>();
+    try {
+      await AlmacenService(repositorio).obtenerMiAlmacen();
+    } catch (_) {
+      // Las pantallas destino muestran su propio estado de error o carga.
     }
   }
 

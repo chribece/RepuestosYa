@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
@@ -12,6 +13,22 @@ import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import '../router/route_names.dart';
+
+class _BorradorRegistroAlmacen {
+  String nombre = '';
+  String correo = '';
+  String telefono = '';
+
+  void limpiar() {
+    nombre = '';
+    correo = '';
+    telefono = '';
+  }
+}
+
+// Sobrevive a la navegación dentro de la sesión de la app. Las contraseñas no
+// se guardan aquí.
+final _borradorAlmacen = _BorradorRegistroAlmacen();
 
 class RegisterAlmacenPage extends StatefulWidget {
   const RegisterAlmacenPage({super.key});
@@ -32,6 +49,49 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
 
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
+  final _passwordFocusNode = FocusNode();
+  final _confirmFocusNode = FocusNode();
+  final _registrarKey = GlobalKey();
+  double _keyboardInset = 0;
+
+  List<TextEditingController> get _camposObligatorios => [
+    _representanteController,
+    _emailController,
+    _telefonoController,
+    _passwordController,
+    _confirmPasswordController,
+  ];
+
+  bool get _puedeRegistrar =>
+      _camposObligatorios.every((c) => c.text.trim().isNotEmpty);
+
+  @override
+  void initState() {
+    super.initState();
+    _representanteController.text = _borradorAlmacen.nombre;
+    _emailController.text = _borradorAlmacen.correo;
+    _telefonoController.text = _borradorAlmacen.telefono;
+    for (final c in _camposObligatorios) {
+      c.addListener(_actualizarEstado);
+    }
+    _representanteController.addListener(_guardarBorrador);
+    _emailController.addListener(_guardarBorrador);
+    _telefonoController.addListener(_guardarBorrador);
+    _passwordFocusNode.addListener(_alEnfocarContrasena);
+    _confirmFocusNode.addListener(_alEnfocarContrasena);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset > _keyboardInset && _hayFocusEnContrasena) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mostrarBotonSobreTeclado(),
+      );
+    }
+    _keyboardInset = inset;
+  }
 
   @override
   void dispose() {
@@ -40,7 +100,44 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _telefonoController.dispose();
+    _passwordFocusNode.dispose();
+    _confirmFocusNode.dispose();
     super.dispose();
+  }
+
+  void _actualizarEstado() => setState(() {});
+
+  void _guardarBorrador() {
+    _borradorAlmacen
+      ..nombre = _representanteController.text
+      ..correo = _emailController.text
+      ..telefono = _telefonoController.text;
+  }
+
+  bool get _hayFocusEnContrasena =>
+      _passwordFocusNode.hasFocus || _confirmFocusNode.hasFocus;
+
+  void _alEnfocarContrasena() {
+    if (_hayFocusEnContrasena) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mostrarBotonSobreTeclado(),
+      );
+    }
+  }
+
+  void _mostrarBotonSobreTeclado() {
+    final contexto = _registrarKey.currentContext;
+    if (contexto == null) return;
+    Scrollable.ensureVisible(
+      contexto,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: 1.0,
+    );
+  }
+
+  void _validarAntesDeRegistrar() {
+    _formKey.currentState?.validate();
   }
 
   Future<void> _registrarAlmacen() async {
@@ -65,6 +162,7 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
         setState(() {
           _isSubmitting = false;
         });
+        _borradorAlmacen.limpiar();
         mostrarSnackbarInfo(
           context,
           mensaje: '¡Registro exitoso! Ahora completa tu perfil.',
@@ -111,36 +209,90 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
           ),
         ),
       ),
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.spacingMd,
-            AppSpacing.spacingSm,
-            AppSpacing.spacingMd,
-            AppSpacing.spacingXl,
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildWelcomeText(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildRepresentanteField(),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildEmailField(),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildTelefonoField(),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildPasswordField(),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildConfirmPasswordField(),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildRegisterButton(),
-              ],
-            ),
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return ShaderMask(
+              blendMode: BlendMode.dstIn,
+              shaderCallback: (rect) {
+                final fade = (AppSpacing.spacingLg / rect.height).clamp(
+                  0.0,
+                  0.5,
+                );
+                return LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: const [
+                    Colors.transparent,
+                    Colors.white,
+                    Colors.white,
+                  ],
+                  stops: [0, fade, 1],
+                ).createShader(rect);
+              },
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.spacingMd,
+                  vertical: AppSpacing.spacingLg,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        (constraints.maxHeight - 2 * AppSpacing.spacingLg)
+                            .clamp(0.0, double.infinity),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildWelcomeText(),
+                            const SizedBox(height: AppSpacing.spacingLg),
+                            _buildFormCard(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildFormCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildRepresentanteField(),
+          const SizedBox(height: AppSpacing.spacingMd),
+          _buildEmailField(),
+          const SizedBox(height: AppSpacing.spacingMd),
+          _buildTelefonoField(),
+          const SizedBox(height: AppSpacing.spacingMd),
+          _buildPasswordField(),
+          const SizedBox(height: AppSpacing.spacingMd),
+          _buildConfirmPasswordField(),
+          const SizedBox(height: AppSpacing.spacingLg),
+          _buildRegisterButton(),
+        ],
       ),
     );
   }
@@ -184,7 +336,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       controller: _representanteController,
       type: RyTextFieldType.text,
       isDense: true,
-      isRequired: true,
       prefixIcon: Icons.person_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -205,7 +356,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       controller: _emailController,
       type: RyTextFieldType.email,
       isDense: true,
-      isRequired: true,
       prefixIcon: Icons.mail_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -229,7 +379,6 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       isDense: true,
       keyboardType: TextInputType.phone,
       inputFormatters: ecuadorMobilePhoneInputFormatters(),
-      isRequired: true,
       prefixWidget: const EcuadorPhonePrefix(),
       helperText: '9 dígitos sin el 0 inicial',
       helperStyle: AppTextStyles.textStyleCaption.copyWith(
@@ -247,9 +396,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       label: 'Contraseña',
       hint: '••••••••',
       controller: _passwordController,
+      focusNode: _passwordFocusNode,
       type: RyTextFieldType.password,
       isDense: true,
-      isRequired: true,
       prefixIcon: Icons.lock_outline,
       helperText: 'Mínimo 6 caracteres.',
       helperStyle: AppTextStyles.textStyleCaption.copyWith(
@@ -272,9 +421,9 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
       label: 'Confirmar contraseña',
       hint: '••••••••',
       controller: _confirmPasswordController,
+      focusNode: _confirmFocusNode,
       type: RyTextFieldType.password,
       isDense: true,
-      isRequired: true,
       prefixIcon: Icons.lock_outline,
       helperText: 'Debe coincidir con la contraseña anterior.',
       helperStyle: AppTextStyles.textStyleCaption.copyWith(
@@ -293,14 +442,21 @@ class _RegisterAlmacenPageState extends State<RegisterAlmacenPage> {
   }
 
   Widget _buildRegisterButton() {
-    return RyButton(
-      label: _isSubmitting ? 'PROCESANDO...' : 'CREAR CUENTA',
-      icon: Icons.person_add,
-      variant: RyButtonVariant.primary,
-      size: RyButtonSize.large,
-      isFullWidth: true,
-      isLoading: _isSubmitting,
-      onPressed: _registrarAlmacen,
+    final puedeRegistrar = _puedeRegistrar;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: puedeRegistrar || _isSubmitting ? null : _validarAntesDeRegistrar,
+      child: RyButton(
+        key: _registrarKey,
+        label: 'Continuar',
+        trailingIcon: Icons.arrow_forward,
+        variant: RyButtonVariant.primary,
+        size: RyButtonSize.large,
+        isFullWidth: true,
+        isLoading: _isSubmitting,
+        isDisabled: !puedeRegistrar,
+        onPressed: _registrarAlmacen,
+      ),
     );
   }
 }

@@ -52,7 +52,9 @@ void main() {
       );
       await tester.pump();
 
-      final finder = find.text(registrationLink);
+      final finder = find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText() == registrationLink,
+      );
       expect(finder, findsOneWidget);
       final paragraph = tester.renderObject<RenderParagraph>(finder);
       final available = paragraph.constraints.maxWidth;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:getwidget/getwidget.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -25,6 +26,7 @@ import '../theme/app_radius.dart';
 import '../theme/app_text_styles.dart';
 import '../utils/api_error_handler.dart';
 import '../utils/ecuador_mobile_phone.dart';
+import '../utils/ruc_ecuador.dart';
 import '../utils/ry_snackbar.dart';
 import '../router/route_names.dart';
 
@@ -63,6 +65,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _direccionController = TextEditingController();
   final TextEditingController _ciudadController = TextEditingController();
+  final _direccionFocusNode = FocusNode();
+  final _mapController = MapController();
+  final _botonKey = GlobalKey();
+  double _keyboardInset = 0;
+  Timer? _debounceCiudad;
+  String? _ciudadDelPin;
+  static const _mensajeCiudadNoCoincide =
+      'La ciudad no coincide con la ubicación del mapa. Mueve el pin o corrige la ciudad.';
+  static const _mensajeUbicacionRequerida =
+      'Selecciona una ubicación GPS válida antes de continuar.';
   File? _logoFile;
   String _tipoEstablecimiento = 'matriz';
   bool _ciudadEditadaPorUsuario = false;
@@ -111,6 +123,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     super.initState();
     _almacenService = AlmacenService(context.read<AlmacenRepository>());
     _direccionController.addListener(_onDireccionCambio);
+    _direccionFocusNode.addListener(_alEnfocarDireccion);
     // Pre-llenar el nombre del representante desde el auth
     final currentUser = _authService.currentUser;
     _emailController.text = currentUser?.email ?? '';
@@ -123,6 +136,28 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     if (telefonoRegistrado != null && telefonoRegistrado.isNotEmpty) {
       _telefonoController.text = telefonoRegistrado;
     }
+    for (final c in [
+      _nombreController,
+      _rucController,
+      _representanteController,
+      _telefonoController,
+      _ciudadController,
+      _direccionController,
+    ]) {
+      c.addListener(_actualizarEstado);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset > _keyboardInset && _direccionFocusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mostrarBotonSobreTeclado(),
+      );
+    }
+    _keyboardInset = inset;
   }
 
   @override
@@ -135,7 +170,77 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _telefonoController.dispose();
     _direccionController.dispose();
     _ciudadController.dispose();
+    _direccionFocusNode.dispose();
+    _debounceCiudad?.cancel();
     super.dispose();
+  }
+
+  void _actualizarEstado() => setState(() {});
+
+  void _alEnfocarDireccion() {
+    if (_direccionFocusNode.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _mostrarBotonSobreTeclado(),
+      );
+    }
+  }
+
+  void _mostrarBotonSobreTeclado() {
+    final contexto = _botonKey.currentContext;
+    if (contexto == null) return;
+    Scrollable.ensureVisible(
+      contexto,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      alignment: 1.0,
+    );
+  }
+
+  void _onCiudadCambio(String value) {
+    _ciudadEditadaPorUsuario = true;
+    _debounceCiudad?.cancel();
+    _debounceCiudad = Timer(
+      const Duration(milliseconds: 800),
+      () => _centrarEnCiudad(value),
+    );
+    setState(() {});
+  }
+
+  /// La cámara sigue a la ciudad escrita; el pin no se mueve.
+  Future<void> _centrarEnCiudad(String ciudad) async {
+    final centro = await _geocodingService.buscarCentroCiudad(ciudad);
+    if (!mounted || centro == null) return;
+    if (_ciudadController.text.trim() != ciudad.trim()) return;
+    _mapController.move(LatLng(centro.lat, centro.lng), 13);
+  }
+
+  bool get _ciudadNoCoincide =>
+      _ubicacionFijada &&
+      _ciudadDelPin != null &&
+      _ciudadController.text.trim().isNotEmpty &&
+      !GeocodingService.mismaCiudad(_ciudadController.text, _ciudadDelPin);
+
+  bool get _puedeCompletar {
+    final telefonoOk =
+        _telefonoRegistrado ||
+        validarTelefonoMovilEcuador(_telefonoController.text) == null;
+    return _nombreController.text.trim().length >= 3 &&
+        validarRucEcuador(_rucController.text) == null &&
+        _representanteController.text.trim().length >= 3 &&
+        telefonoOk &&
+        _ciudadController.text.trim().length >= 2 &&
+        _direccionController.text.trim().length >= 5 &&
+        _ubicacionValida &&
+        !_ciudadNoCoincide;
+  }
+
+  void _validarAntesDeCompletar() {
+    _formKey.currentState?.validate();
+    if (!_ubicacionValida) {
+      mostrarSnackbarAdvertencia(context, mensaje: _mensajeUbicacionRequerida);
+    } else if (_ciudadNoCoincide) {
+      mostrarSnackbarAdvertencia(context, mensaje: _mensajeCiudadNoCoincide);
+    }
   }
 
   void _onDireccionCambio() {
@@ -192,6 +297,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     setState(() {
       _autocompletando = false;
       if (resultado == null) return; // degradación: el usuario escribe
+      _ciudadDelPin = resultado.ciudad;
       if (!_ciudadEditadaPorUsuario && resultado.ciudad != null) {
         _ciudadController.text = resultado.ciudad!;
       }
@@ -218,6 +324,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     setState(() {
       _lat = latLng.latitude;
       _lng = latLng.longitude;
+      _ciudadDelPin = null;
     });
     // Reverse geocoding en vivo (debounced) para presurtir la Dirección.
     _solicitarAutocompletadoDireccion(latLng.latitude, latLng.longitude);
@@ -232,6 +339,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         context,
         mensaje: 'Selecciona una ubicación GPS válida antes de continuar.',
       );
+      return;
+    }
+    if (_ciudadNoCoincide) {
+      mostrarSnackbarAdvertencia(context, mensaje: _mensajeCiudadNoCoincide);
       return;
     }
 
@@ -432,46 +543,52 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             child: Form(
               key: _formKey,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildWelcomeText(),
                   const SizedBox(height: AppSpacing.spacingLg),
-                  _buildSectionHeading(
-                    'Datos del negocio',
-                    Icons.storefront_outlined,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  _buildNombreField(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildLogoField(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildTipoEstablecimientoField(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildRucField(),
-                  const SizedBox(height: AppSpacing.spacingLg),
-                  _buildSectionHeading(
-                    'Datos de contacto',
-                    Icons.contact_phone_outlined,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  _buildEmailField(),
-                  const SizedBox(height: AppSpacing.spacingMd),
-                  _buildRepresentanteField(),
-                  if (!_telefonoRegistrado) ...[
+                  _buildSeccionCard([
+                    _buildSectionHeading(
+                      'Datos del negocio',
+                      Icons.storefront_outlined,
+                    ),
+                    const SizedBox(height: AppSpacing.spacingSm),
+                    _buildNombreField(),
                     const SizedBox(height: AppSpacing.spacingMd),
-                    _buildTelefonoField(),
-                  ],
-                  const SizedBox(height: AppSpacing.spacingLg),
-                  _buildSectionHeading(
-                    'Ubicación y cobertura',
-                    Icons.location_on_outlined,
-                  ),
-                  const SizedBox(height: AppSpacing.spacingSm),
-                  _buildCiudadField(),
+                    _buildLogoField(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildTipoEstablecimientoField(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildRucField(),
+                  ]),
                   const SizedBox(height: AppSpacing.spacingMd),
-                  _buildUbicacionAlmacen(),
+                  _buildSeccionCard([
+                    _buildSectionHeading(
+                      'Datos de contacto',
+                      Icons.contact_phone_outlined,
+                    ),
+                    const SizedBox(height: AppSpacing.spacingSm),
+                    _buildEmailField(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildRepresentanteField(),
+                    if (!_telefonoRegistrado) ...[
+                      const SizedBox(height: AppSpacing.spacingMd),
+                      _buildTelefonoField(),
+                    ],
+                  ]),
                   const SizedBox(height: AppSpacing.spacingMd),
-                  _buildDireccionField(),
+                  _buildSeccionCard([
+                    _buildSectionHeading(
+                      'Ubicación y cobertura',
+                      Icons.location_on_outlined,
+                    ),
+                    const SizedBox(height: AppSpacing.spacingSm),
+                    _buildCiudadField(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildUbicacionAlmacen(),
+                    const SizedBox(height: AppSpacing.spacingMd),
+                    _buildDireccionField(),
+                  ]),
                   const SizedBox(height: AppSpacing.spacingXl),
                   _buildCompleteButton(),
                 ],
@@ -479,6 +596,21 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSeccionCard(List<Widget> hijos) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: Colors.white24),
+      ),
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: hijos,
       ),
     );
   }
@@ -508,29 +640,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     );
   }
 
-  Widget _buildLabeledField(
-    String label,
-    Widget field, {
-    bool isRequired = true,
-  }) {
+  Widget _buildLabeledField(String label, Widget field) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(
-            text: label,
-            style: AppTextStyles.textStyleSmall.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0,
-            ),
-            children: [
-              if (isRequired)
-                TextSpan(
-                  text: ' *',
-                  style: const TextStyle(color: AppColors.requiredAsterisk),
-                ),
-            ],
+        Text(
+          label,
+          style: AppTextStyles.textStyleSmall.copyWith(
+            color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0,
           ),
         ),
         const SizedBox(height: AppSpacing.spacingXxs),
@@ -569,7 +688,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         hint: 'Ej: RepuestosYa Central',
         controller: _nombreController,
         isDense: true,
-        isRequired: true,
         prefixIcon: Icons.storefront_outlined,
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -597,7 +715,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       onChanged: (tipo) {
         if (tipo != null) setState(() => _tipoEstablecimiento = tipo);
       },
-      isRequired: true,
     );
   }
 
@@ -655,10 +772,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         hint: 'Ej: Quito',
         controller: _ciudadController,
         isDense: true,
-        isRequired: true,
         prefixIcon: Icons.location_city_outlined,
-        errorText: _fieldErrors['city'],
-        onChanged: (_) => _ciudadEditadaPorUsuario = true,
+        errorText:
+            _fieldErrors['city'] ??
+            (_ciudadNoCoincide ? _mensajeCiudadNoCoincide : null),
+        onChanged: _onCiudadCambio,
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
             return 'La ciudad es obligatoria';
@@ -681,19 +799,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         controller: _rucController,
         type: RyTextFieldType.number,
         isDense: true,
-        isRequired: true,
         maxLength: 13,
         prefixIcon: Icons.badge_outlined,
         errorText: _fieldErrors['ruc'],
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'El RUC es requerido';
-          }
-          if (value.trim().length != 13) {
-            return 'El RUC debe tener exactamente 13 dígitos';
-          }
-          return null;
-        },
+        validator: validarRucEcuador,
       ),
     );
   }
@@ -706,7 +815,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         hint: 'Ej: Juan Pérez',
         controller: _representanteController,
         isDense: true,
-        isRequired: true,
         prefixIcon: Icons.person_outline,
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -735,7 +843,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           color: AppColors.onSurfaceVariant,
         ),
       ),
-      isRequired: false,
     );
   }
 
@@ -750,7 +857,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         isDense: true,
         keyboardType: TextInputType.phone,
         inputFormatters: ecuadorMobilePhoneInputFormatters(),
-        isRequired: true,
         prefixWidget: const EcuadorPhonePrefix(),
         helperText: '9 dígitos sin el 0 inicial',
         helperStyle: AppTextStyles.textStyleCaption.copyWith(
@@ -767,19 +873,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   /// Selector de ubicación embebido: mapa con pin arrastrable + botón GPS.
   /// Las coordenadas se guardan internamente al mover el pin; sin inputs de
   /// latitud/longitud visibles.
+  String get _etiquetaCobertura {
+    final ciudad = _ciudadController.text.trim();
+    return ciudad.isEmpty ? 'Cobertura: Ecuador' : 'Cobertura: $ciudad';
+  }
+
   Widget _buildUbicacionAlmacen() {
     final pin = _ubicacionFijada ? LatLng(_lat!, _lng!) : _centroInicialQuito;
 
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.3),
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -798,11 +901,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     color: AppColors.primaryContainer,
                   ),
                   const SizedBox(width: AppSpacing.spacingXs),
-                  Text(
-                    'Ubicación del Establecimiento',
-                    style: AppTextStyles.textStyleSmall.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                      fontWeight: FontWeight.bold,
+                  Flexible(
+                    child: Text(
+                      'Ubicación del Establecimiento',
+                      style: AppTextStyles.textStyleSmall.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -846,6 +951,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           RyLocationMapPicker(
             initialPosition: pin,
             height: 220,
+            etiquetaCobertura: _etiquetaCobertura,
             // Sin pin fantasma: el marcador aparece cuando el usuario toca el
             // mapa o cuando el GPS/GPS fija la posición (showPin). Al resolver
             // el GPS, el picker recentra la cámara en el punto automáticamente.
@@ -854,6 +960,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             // dispara el reverse geocoding (debounced) para presurtir la
             // Dirección. NO se pide al usuario interactuar con números.
             onChanged: _moverPin,
+            mapController: _mapController,
           ),
           const SizedBox(height: AppSpacing.spacingSm),
           SizedBox(
@@ -932,10 +1039,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         semanticLabel: 'Dirección',
         hint: 'Ej: De Los Jaribues, Marianitas',
         controller: _direccionController,
+        focusNode: _direccionFocusNode,
         maxLines: 2,
         hintMaxLines: 2,
         isDense: true,
-        isRequired: true,
         prefixIcon: Icons.location_on_outlined,
         errorText: _fieldErrors['direccion_texto'],
         validator: (value) {
@@ -952,64 +1059,72 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   }
 
   Widget _buildCompleteButton() {
-    // No se usa RyButton porque su estado `isLoading` sustituye la etiqueta por
-    // un spinner y aquí debe conservarse el texto visible 'PROCESANDO...'.
-    // GFButton mantiene el patrón con un `child` custom (spinner + label).
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: GFButton(
-        onPressed: _isSubmitting ? null : _completarPerfil,
-        type: GFButtonType.solid,
-        color: AppColors.primaryContainer,
-        textColor: AppColors.onPrimaryContainer,
-        disabledColor: AppColors.primaryContainer.withValues(alpha: 0.4),
-        disabledTextColor: AppColors.onPrimaryContainer,
-        elevation: 0,
-        size: 56,
-        borderShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+    // No se usa RyButton porque su `isLoading` sustituye la etiqueta por un
+    // spinner; GFButton permite mostrar el spinner junto al texto.
+    final activo = _puedeCompletar || _isSubmitting;
+    final colorTexto = activo
+        ? AppColors.onPrimaryContainer
+        : AppColors.onSurfaceVariant;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: activo ? null : _validarAntesDeCompletar,
+      child: SizedBox(
+        key: _botonKey,
+        width: double.infinity,
+        height: 56,
+        child: GFButton(
+          onPressed: _puedeCompletar && !_isSubmitting
+              ? _completarPerfil
+              : null,
+          type: GFButtonType.solid,
+          color: AppColors.primaryContainer,
+          textColor: AppColors.onPrimaryContainer,
+          disabledColor: activo
+              ? AppColors.primaryContainer
+              : AppColors.surfaceVariant,
+          disabledTextColor: colorTexto,
+          elevation: 0,
+          size: 56,
+          borderShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          ),
+          child: _isSubmitting
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.spacingSm),
+                    Text(
+                      'Procesando...',
+                      style: AppTextStyles.textStyleButton.copyWith(
+                        color: colorTexto,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: colorTexto, size: 20),
+                    const SizedBox(width: AppSpacing.spacingXs),
+                    Text(
+                      'Completar perfil',
+                      style: AppTextStyles.textStyleButton.copyWith(
+                        color: colorTexto,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
         ),
-        child: _isSubmitting
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.spacingSm),
-                  Text(
-                    'PROCESANDO...',
-                    style: AppTextStyles.textStyleButton.copyWith(
-                      color: AppColors.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.check_circle,
-                    color: AppColors.onPrimaryContainer,
-                    size: 20,
-                  ),
-                  const SizedBox(width: AppSpacing.spacingXs),
-                  Text(
-                    'COMPLETAR PERFIL',
-                    style: AppTextStyles.textStyleButton.copyWith(
-                      color: AppColors.onPrimaryContainer,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
       ),
     );
   }

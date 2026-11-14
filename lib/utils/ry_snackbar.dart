@@ -1,17 +1,20 @@
-import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 
-/// Tipos de notificación estilizada (awesome_snackbar_content).
+/// Tipos de notificación estilizada.
 enum RySnackbarTipo { exito, error, advertencia, info }
 
-/// Muestra un SnackBar estilizado con `awesome_snackbar_content`, usando los
-/// tokens semánticos del design system (fondo transparente + floating, como
-/// documenta el paquete).
+const Color _fondoSnackbar = Color(0xFF18181B);
+const Color _acentoExito = Color(0xFF22C55E);
+const Color _acentoError = Color(0xFFEF4444);
+const Color _acentoAviso = Color(0xFFF59E0B);
+const Color _acentoInfo = Color(0xFF38BDF8);
+const Color _acentoSinConexion = Color(0xFFEF4444);
+
+/// Muestra un SnackBar estilizado con el diseño oscuro unificado.
 ///
 /// - [titulo] es opcional: si no se pasa se usa el título por defecto del
 ///   tipo (Éxito / Error / Aviso / Información).
@@ -35,57 +38,41 @@ void mostrarSnackbarRy(
       accion: accion,
     );
   }
-  final (
-    ContentType contentType,
-    Color color,
-    String tituloDefault,
-  ) = switch (tipo) {
+  final (Color acento, IconData icono, String tituloDefault) = switch (tipo) {
     RySnackbarTipo.exito => (
-      ContentType.success,
-      SemanticColors.colorSuccess,
+      _acentoExito,
+      Icons.check_circle_outline_rounded,
       'Éxito',
     ),
     RySnackbarTipo.error => (
-      ContentType.failure,
-      SemanticColors.colorErrorBackground,
+      _acentoError,
+      Icons.error_outline_rounded,
       'Error',
     ),
     RySnackbarTipo.advertencia => (
-      ContentType.warning,
-      SemanticColors.colorWarning,
+      _acentoAviso,
+      Icons.warning_amber_rounded,
       'Aviso',
     ),
     RySnackbarTipo.info => (
-      ContentType.help,
-      SemanticColors.colorInfo,
+      _acentoInfo,
+      Icons.info_outline_rounded,
       'Información',
     ),
   };
-
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        padding: EdgeInsets.zero,
-        duration: duracion,
-        content: AwesomeSnackbarContent(
-          title: titulo ?? tituloDefault,
-          message: mensaje,
-          contentType: contentType,
-          color: color,
-          inMaterialBanner: false,
-        ),
-        action: accion,
-      ),
-    );
+  _mostrarRySnackbar(
+    context,
+    acento: acento,
+    icono: icono,
+    titulo: titulo ?? tituloDefault,
+    mensaje: mensaje,
+    duracion: duracion,
+    accion: accion,
+  );
 }
 
-/// Éxito flotante con la identidad oscura de la app: superficie elevada,
-/// texto claro e icono naranja de marca (sin verde saturado). Es el estilo
-/// único de TODOS los mensajes de éxito (incluido [mostrarSnackbarExitoSobrio]).
+/// Éxito flotante con el diseño oscuro unificado. Es el estilo único de
+/// TODOS los mensajes de éxito (incluido [mostrarSnackbarExitoSobrio]).
 void mostrarSnackbarExito(
   BuildContext context, {
   String? titulo,
@@ -93,68 +80,15 @@ void mostrarSnackbarExito(
   Duration duracion = const Duration(seconds: 3),
   SnackBarAction? accion,
 }) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.surfaceContainerHigh,
-        elevation: 0,
-        duration: duracion,
-        margin: const EdgeInsets.all(AppSpacing.spacingMd),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.spacingMd,
-          vertical: AppSpacing.spacingSm,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          side: BorderSide(
-            color: AppColors.outlineVariant.withValues(alpha: 0.55),
-          ),
-        ),
-        content: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.primaryContainer,
-              size: 22,
-            ),
-            const SizedBox(width: AppSpacing.spacingSm),
-            Expanded(
-              child: titulo == null
-                  ? Text(
-                      mensaje,
-                      style: AppTextStyles.textStyleBody.copyWith(
-                        color: AppColors.onSurface,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          titulo,
-                          style: AppTextStyles.textStyleBody.copyWith(
-                            color: AppColors.onSurface,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.spacingXxs),
-                        Text(
-                          mensaje,
-                          style: AppTextStyles.textStyleCaption.copyWith(
-                            color: AppColors.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
-        action: accion,
-      ),
-    );
+  _mostrarRySnackbar(
+    context,
+    acento: _acentoExito,
+    icono: Icons.check_circle_outline_rounded,
+    titulo: titulo,
+    mensaje: mensaje,
+    duracion: duracion,
+    accion: accion,
+  );
 }
 
 /// Alias de [mostrarSnackbarExito]: mismo estilo global de éxito.
@@ -172,52 +106,51 @@ void mostrarSnackbarExitoSobrio(
   );
 }
 
-/// Notificación informativa flotante para mantener el estilo oscuro sobrio.
+/// Notificación informativa flotante con el diseño oscuro unificado.
 void mostrarSnackbarInfoSobrio(
   BuildContext context, {
   required String mensaje,
   Duration duracion = const Duration(seconds: 3),
 }) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1E1E1E),
-        elevation: 0,
-        duration: duracion,
-        margin: const EdgeInsets.all(AppSpacing.spacingMd),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.spacingMd,
-          vertical: AppSpacing.spacingSm,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-          side: BorderSide(
-            color: AppColors.outlineVariant.withValues(alpha: 0.55),
-          ),
-        ),
-        content: Row(
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.onSurfaceVariant,
-              size: 22,
-            ),
-            const SizedBox(width: AppSpacing.spacingSm),
-            Expanded(
-              child: Text(
-                mensaje,
-                style: AppTextStyles.textStyleBody.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  _mostrarRySnackbar(
+    context,
+    acento: _acentoInfo,
+    icono: Icons.info_outline_rounded,
+    mensaje: mensaje,
+    duracion: duracion,
+  );
+}
+
+/// Aviso flotante oscuro con acento ámbar. Reemplaza al SnackBar actual para
+/// que los avisos no se apilen.
+void mostrarSnackbarAvisoSobrio(
+  BuildContext context, {
+  required String mensaje,
+  Duration duracion = const Duration(seconds: 3),
+}) {
+  _mostrarRySnackbar(
+    context,
+    acento: _acentoAviso,
+    icono: Icons.warning_amber_rounded,
+    mensaje: mensaje,
+    duracion: duracion,
+  );
+}
+
+/// Aviso de conexión con el mismo diseño oscuro unificado (acento cian).
+/// Mensaje corto, máximo 2 líneas.
+void mostrarSnackbarSinConexion(
+  BuildContext context, {
+  required String mensaje,
+  Duration duracion = const Duration(seconds: 3),
+}) {
+  _mostrarRySnackbar(
+    context,
+    acento: _acentoSinConexion,
+    icono: Icons.wifi_off_rounded,
+    mensaje: mensaje,
+    duracion: duracion,
+  );
 }
 
 /// Atajo: notificación de error.
@@ -272,4 +205,78 @@ void mostrarSnackbarInfo(
     duracion: duracion,
     accion: accion,
   );
+}
+
+/// Builder único: fondo oscuro elevado, borde de 1px con el acento, ícono
+/// dentro de un contenedor 34x34 tintado y botón de cierre discreto.
+void _mostrarRySnackbar(
+  BuildContext context, {
+  required Color acento,
+  required IconData icono,
+  String? titulo,
+  required String mensaje,
+  required Duration duracion,
+  SnackBarAction? accion,
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _fondoSnackbar,
+        elevation: 0,
+        duration: duracion,
+        showCloseIcon: true,
+        closeIconColor: Colors.white54,
+        margin: const EdgeInsets.all(AppSpacing.spacingMd),
+        padding: const EdgeInsets.all(AppSpacing.spacingSm),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: acento.withValues(alpha: 0.35)),
+        ),
+        content: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: acento.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              ),
+              child: Icon(icono, color: acento, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.spacingSm),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (titulo != null) ...[
+                    Text(
+                      titulo,
+                      style: AppTextStyles.textStyleBody.copyWith(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.spacingXxs),
+                  ],
+                  Text(
+                    mensaje,
+                    maxLines: 2,
+                    style: AppTextStyles.textStyleCaption.copyWith(
+                      color: Colors.white70,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        action: accion,
+      ),
+    );
 }

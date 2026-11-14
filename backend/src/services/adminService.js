@@ -1,4 +1,5 @@
 const supabase = require('./supabase');
+const { crearNotificacion } = require('./notificacionService');
 
 const getDashboardMetrics = async () => {
   try {
@@ -122,8 +123,39 @@ const getAlmacenesPendientes = async () => {
   }
 };
 
+// Aviso in-app al encargado solo cuando el estado de verificación cambia a
+// aprobado o rechazado. crearNotificacion nunca lanza error: no afecta a la
+// verificación ya guardada.
+const notificarCambioVerificacion = (almacen, status, rejectionReason) => {
+  if (!almacen.encargado_id) return null;
+  if (status === 'approved') {
+    return crearNotificacion({
+      userId: almacen.encargado_id,
+      tipo: 'store_approved',
+      titulo: '¡Tu establecimiento ha sido aprobado!',
+      mensaje: 'Ya puedes visualizar solicitudes de clientes y enviar cotizaciones en RepuestosYa.',
+      payload: { almacen_id: almacen.id },
+    });
+  }
+  const motivo = rejectionReason ? ` Motivo: ${rejectionReason}` : '';
+  return crearNotificacion({
+    userId: almacen.encargado_id,
+    tipo: 'store_rejected',
+    titulo: 'Actualización sobre tu solicitud de registro',
+    mensaje: `Tu establecimiento no pudo ser verificado. Revisa tus datos en Mi Local o contáctanos para más detalles.${motivo}`,
+    payload: { almacen_id: almacen.id, motivo: rejectionReason ?? null },
+  });
+};
+
 const actualizarEstadoAlmacen = async (almacenId, status, rejectionReason = null) => {
   try {
+    const { data: previo, error: previoError } = await supabase
+      .from('almacenes')
+      .select('verification_status')
+      .eq('id', almacenId)
+      .single();
+    if (previoError) throw new Error(previoError.message);
+
     const updateData = { 
       verification_status: status,
       verificado: status === 'approved' 
@@ -138,6 +170,10 @@ const actualizarEstadoAlmacen = async (almacenId, status, rejectionReason = null
       .select()
       .single();
     if (error) throw new Error(error.message);
+
+    if (previo.verification_status !== status && ['approved', 'rejected'].includes(status)) {
+      await notificarCambioVerificacion(data, status, rejectionReason);
+    }
     return data;
   } catch (error) {
     console.error('Error en actualizarEstadoAlmacen:', error);

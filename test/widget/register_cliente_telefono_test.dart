@@ -30,6 +30,8 @@ void main() {
     await tester.enterText(find.byType(TextField).at(2), telefono ?? '');
     await tester.enterText(find.byType(TextField).at(3), 'Clave-2026!');
     await tester.enterText(find.byType(TextField).at(4), 'Clave-2026!');
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
   }
 
   testWidgets('sin teléfono: el registro se bloquea con mensaje claro', (
@@ -38,7 +40,7 @@ void main() {
     await pumpRegistro(tester);
     await llenarCamposValidos(tester);
 
-    await tester.tap(find.text('REGISTRARSE'));
+    await tester.tap(find.text('Registrarse'));
     await tester.pump();
 
     expect(find.text('El teléfono es requerido'), findsOneWidget);
@@ -50,7 +52,7 @@ void main() {
     await pumpRegistro(tester);
     await llenarCamposValidos(tester, telefono: '9812345');
 
-    await tester.tap(find.text('REGISTRARSE'));
+    await tester.tap(find.text('Registrarse'));
     await tester.pump();
 
     expect(
@@ -67,7 +69,7 @@ void main() {
     expect(telefono.controller!.text, '98123456');
     expect(find.text('+593'), findsOneWidget);
 
-    await tester.tap(find.text('REGISTRARSE'));
+    await tester.tap(find.text('Registrarse'));
     await tester.pump();
 
     expect(
@@ -81,7 +83,7 @@ void main() {
     await pumpRegistro(tester);
     await llenarCamposValidos(tester, telefono: '998757857');
 
-    await tester.tap(find.text('REGISTRARSE'));
+    await tester.tap(find.text('Registrarse'));
     await tester.pump();
 
     expect(find.text('El teléfono es requerido'), findsNothing);

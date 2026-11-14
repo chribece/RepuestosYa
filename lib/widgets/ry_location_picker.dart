@@ -42,7 +42,16 @@ class RyLocationMapPicker extends StatefulWidget {
     required this.onChanged,
     this.height = 240,
     this.showPin = true,
+    this.mapController,
+    this.etiquetaCobertura = 'Cobertura: Quito',
   });
+
+  /// Texto del badge de cobertura sobre el mapa.
+  final String etiquetaCobertura;
+
+  /// Controlador opcional para mover la cámara desde el padre (p. ej. centrar
+  /// el mapa en la ciudad elegida) sin cambiar la posición del pin.
+  final MapController? mapController;
 
   /// Centro inicial del mapa y posición inicial del pin (típicamente el
   /// resultado de `UbicacionService.resolveLocation()`). Si el padre cambia
@@ -66,7 +75,9 @@ class RyLocationMapPicker extends StatefulWidget {
 }
 
 class _RyLocationMapPickerState extends State<RyLocationMapPicker> {
-  final MapController _mapController = MapController();
+  final MapController _mapControllerPropio = MapController();
+  MapController get _mapController =>
+      widget.mapController ?? _mapControllerPropio;
   late LatLng _pin;
   bool _arrastrandoPin = false;
 
@@ -175,32 +186,42 @@ class _RyLocationMapPickerState extends State<RyLocationMapPicker> {
             Positioned(
               top: AppSpacing.spacingXs,
               left: AppSpacing.spacingXs,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingSm,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(AppRadius.radiusFull),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.location_city,
-                      size: 14,
-                      color: AppColors.onSurfaceVariant,
+              right: AppSpacing.spacingXs,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingSm,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceContainerHigh.withValues(
+                      alpha: 0.9,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Cobertura: Quito',
-                      style: AppTextStyles.textStyleSmall.copyWith(
+                    borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_city,
+                        size: 14,
                         color: AppColors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          widget.etiquetaCobertura,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.textStyleSmall.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

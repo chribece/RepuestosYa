@@ -141,6 +141,7 @@ class GeocodingService {
   };
   static const String _reverseUrl =
       'https://nominatim.openstreetmap.org/reverse';
+  static const String _searchUrl = 'https://nominatim.openstreetmap.org/search';
   static const String _userAgent =
       'RepuestosYaApp/1.0 (soporte@repuestosya.com)';
   static const Duration _timeout = Duration(seconds: 8);
@@ -556,6 +557,51 @@ class GeocodingService {
     return !RegExp(
       r'\b(sector|barrio|urbanizacion|lotizacion)\b',
     ).hasMatch(normalized);
+  }
+
+  /// Centro de una ciudad ecuatoriana (forward geocoding acotado a Ecuador).
+  /// Devuelve `null` si no se encuentra o si el servicio falla.
+  Future<({double lat, double lng})?> buscarCentroCiudad(String ciudad) async {
+    final nombre = limpiarTextoDireccion(ciudad);
+    if (nombre.length < 3) return null;
+    final uri = Uri.parse(_searchUrl).replace(
+      queryParameters: {
+        'format': 'json',
+        'q': '$nombre, Ecuador',
+        'countrycodes': 'ec',
+        'limit': '1',
+        'accept-language': 'es',
+      },
+    );
+    try {
+      final res = await http
+          .get(uri, headers: {'User-Agent': _userAgent})
+          .timeout(_timeout);
+      if (res.statusCode != 200) return null;
+      return parseCentroCiudad(res.body);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static ({double lat, double lng})? parseCentroCiudad(String body) {
+    final json = jsonDecode(body);
+    if (json is! List || json.isEmpty) return null;
+    final primero = json.first;
+    if (primero is! Map) return null;
+    final lat = double.tryParse('${primero['lat']}');
+    final lng = double.tryParse('${primero['lon']}');
+    if (lat == null || lng == null) return null;
+    return (lat: lat, lng: lng);
+  }
+
+  /// Compara dos nombres de ciudad ignorando mayúsculas, acentos y prefijos
+  /// administrativos (p. ej. "Distrito Metropolitano de Quito" ~ "Quito").
+  static bool mismaCiudad(String? a, String? b) {
+    final na = _normalizarClaveGeografica(limpiarTextoDireccion(a));
+    final nb = _normalizarClaveGeografica(limpiarTextoDireccion(b));
+    if (na.isEmpty || nb.isEmpty) return false;
+    return na == nb || na.contains(nb) || nb.contains(na);
   }
 
   static String _normalizarTextoGeografico(String value) => value

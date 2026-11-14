@@ -2,12 +2,20 @@ import '../utils/api_error_handler.dart';
 import '../models/almacen.dart';
 import 'api_client.dart';
 import 'almacen_repository.dart';
+import 'auth_service.dart';
 
 class AlmacenService {
   final ApiClient _apiClient = ApiClient();
   final AlmacenRepository? _repository;
 
   AlmacenService([this._repository]);
+
+  /// Perfil en caché SOLO de la sesión activa (nunca de otra cuenta).
+  Future<Almacen?> _perfilLocalDelUsuarioActual() async {
+    final userId = AuthService().currentUser?.id;
+    if (_repository == null || userId == null) return null;
+    return _repository.obtenerPerfilAlmacenLocal(userId: userId);
+  }
 
   /// Verifica si el usuario autenticado (rol almacen) tiene un perfil de
   /// almacén creado, llamando a `GET /warehouse/my-warehouse`.
@@ -40,10 +48,7 @@ class AlmacenService {
 
       // Ante un fallo de red, intenta obtener el perfil desde el caché local.
       if (e.statusCode == null || e.statusCode == 0 || e.statusCode == 504) {
-        if (_repository != null) {
-          final local = await _repository.obtenerPerfilAlmacenLocal();
-          if (local != null) return true;
-        }
+        if (await _perfilLocalDelUsuarioActual() != null) return true;
       }
       rethrow;
     }
@@ -102,10 +107,7 @@ class AlmacenService {
     } on ApiException catch (e) {
       // Si falla por red/timeout, intentar local
       if (e.statusCode == null || e.statusCode == 0 || e.statusCode == 504) {
-        if (_repository != null) {
-          final local = await _repository.obtenerPerfilAlmacenLocal();
-          return local?.toJson();
-        }
+        return (await _perfilLocalDelUsuarioActual())?.toJson();
       }
       rethrow;
     } catch (e) {

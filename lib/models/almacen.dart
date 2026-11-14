@@ -1,5 +1,9 @@
 class Almacen {
   final String id;
+
+  /// Usuario (encargado) dueño del establecimiento. Permite aislar el caché
+  /// local por cuenta: nunca se reutiliza el perfil de otro usuario.
+  final String? encargadoId;
   final String nombreComercial;
   final String? city;
   final String tipoEstablecimiento;
@@ -20,6 +24,7 @@ class Almacen {
 
   Almacen({
     required this.id,
+    this.encargadoId,
     required this.nombreComercial,
     this.city,
     this.tipoEstablecimiento = 'matriz',
@@ -37,6 +42,7 @@ class Almacen {
   factory Almacen.fromJson(Map<String, dynamic> json) {
     return Almacen(
       id: json['id']?.toString() ?? '',
+      encargadoId: json['encargado_id']?.toString(),
       nombreComercial:
           json['nombre_comercial']?.toString() ?? 'Almacén desconocido',
       city: json['city']?.toString(),
@@ -56,6 +62,7 @@ class Almacen {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'encargado_id': encargadoId,
       'nombre_comercial': nombreComercial,
       'city': city,
       'tipo_establecimiento': tipoEstablecimiento,

@@ -29,8 +29,8 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '981234567');
       await tester.enterText(find.byType(TextField).at(3), '123');
       await tester.enterText(find.byType(TextField).at(4), '124');
-      await tester.ensureVisible(find.text('CREAR CUENTA'));
-      await tester.tap(find.text('CREAR CUENTA'));
+      await tester.ensureVisible(find.text('Continuar'));
+      await tester.tap(find.text('Continuar'));
       await tester.pump();
 
       expect(
@@ -60,7 +60,7 @@ void main() {
     expect(telefono.controller!.text, '98123456');
     expect(find.text('+593'), findsOneWidget);
 
-    await tester.tap(find.text('CREAR CUENTA'));
+    await tester.tap(find.text('Continuar'));
     await tester.pump();
 
     expect(
@@ -80,7 +80,7 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(TextField).at(2), '98189436');
-    await tester.tap(find.text('CREAR CUENTA'));
+    await tester.tap(find.text('Continuar'));
     await tester.pump();
 
     expect(

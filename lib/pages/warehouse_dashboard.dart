@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
 import '../theme/app_colors.dart';
 import '../services/solicitud_service.dart';
 import '../services/auth_service.dart';
@@ -16,6 +17,7 @@ import '../services/almacen_repository.dart';
 import '../services/realtime_notification_service.dart';
 import '../services/outbox.dart';
 import '../services/sync_engine.dart';
+import '../providers/notificaciones_provider.dart';
 import '../providers/profile_image_provider.dart';
 import '../widgets/ry_button.dart';
 import '../widgets/warehouse_request_card.dart';
@@ -53,7 +55,8 @@ class WarehouseDashboard extends StatefulWidget {
 /// Estado de la validación del perfil comercial al entrar al dashboard.
 enum _ProfileCheckState { validating, needsProfile, error, ready }
 
-class _WarehouseDashboardState extends State<WarehouseDashboard> {
+class _WarehouseDashboardState extends State<WarehouseDashboard>
+    with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final SolicitudService _solicitudService =
       widget.solicitudService ?? SolicitudService();
@@ -70,14 +73,31 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   /// (p. ej. el teléfono aún no reasocia WiFi al salir del modo avión).
   static const Duration _networkRetryDelay = Duration(seconds: 10);
 
+  /// Espera de estabilización de la red al volver de reposo/segundo plano.
+  static const Duration _resumeStabilizationDelay = Duration(
+    milliseconds: 1200,
+  );
+
+  /// Reintento silencioso único tras un fallo de red al reanudar.
+  static const Duration _resumeRetryDelay = Duration(milliseconds: 1500);
+
+  /// Tiempo sin conectividad tras el cual se avisa al usuario.
+  static const Duration _sinConexionAvisoDelay = Duration(seconds: 5);
+
+  static const String _mensajeNoActualizado =
+      'No pudimos actualizar. Desliza para reintentar.';
+
   Timer? _approvalTimer;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   /// Timer de reintento automático tras un fallo de red en las cargas.
   Timer? _networkRetryTimer;
 
-  /// Evita repetir el SnackBar de error en cada reintento automático.
-  bool _hadNetworkError = false;
+  /// Reintento silencioso tras reanudar la app (un solo intento).
+  Timer? _resumeRetryTimer;
+
+  /// Aviso de "sin conexión" diferido: solo si el fallo persiste.
+  Timer? _sinConexionAvisoTimer;
 
   /// Estado de conectividad del dashboard: permite detectar la transición
   /// offline → online y recargar automáticamente el feed de solicitudes.
@@ -127,6 +147,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         AlmacenService(context.read<AlmacenRepository>());
     _validateAndLoad();
     _initConnectivityWatcher();
+    WidgetsBinding.instance.addObserver(this);
 
     // Permiso de notificaciones dentro del flujo autenticado (el router solo
     // permite entrar con rol almacén), tras el primer frame y DESACOPLADO de
@@ -144,6 +165,19 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               '¿Permites las notificaciones?',
         ),
       );
+    });
+  }
+
+  /// Al volver de reposo/segundo plano el socket tarda en reconectarse: se
+  /// espera un instante antes del refresco silencioso de solicitudes.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed ||
+        _profileCheck != _ProfileCheckState.ready) {
+      return;
+    }
+    Future<void>.delayed(_resumeStabilizationDelay, () {
+      if (mounted) _refrescarAlReanudar();
     });
   }
 
@@ -238,7 +272,9 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     if (e is ApiException) {
       return e.statusCode == null || e.statusCode == 0 || e.statusCode == 504;
     }
-    return e is SocketException || e is TimeoutException;
+    return e is SocketException ||
+        e is TimeoutException ||
+        e is http.ClientException;
   }
 
   /// Si la carga falló por red (la conexión puede volver en segundos), agenda
@@ -255,15 +291,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   /// almacén (GET /warehouse/my-warehouse). Solo si existe (200) procede a
   /// cargar solicitudes, datos del almacén y cotizaciones. Si responde 404
   /// redirige a CompleteProfilePage. Si hay otro error, lo muestra.
-  Future<void> _validateAndLoad() async {
+  Future<void> _validateAndLoad({bool manual = false}) async {
     try {
       final hasProfile = await _almacenService.hasWarehouseProfile();
       if (!mounted) return;
       if (hasProfile) {
-        _hadNetworkError = false;
         setState(() => _profileCheck = _ProfileCheckState.ready);
         await _cargarAlmacen();
-        await _cargarSolicitudes();
+        await _cargarSolicitudes(manual: manual);
         await _cargarCotizacionesEnviadas();
         _startApprovalWatcherIfPending();
       } else {
@@ -303,8 +338,8 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         });
         if (almacen != null && almacen['id'] != null) {
           final almacenId = almacen['id'].toString();
-          await RealtimeNotificationService().subscribeToOrdenes(almacenId);
           if (_isApproved) {
+            await RealtimeNotificationService().subscribeToOrdenes(almacenId);
             await RealtimeNotificationService().subscribeToNuevasSolicitudes();
           }
         }
@@ -324,6 +359,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   }
 
   Future<void> _cargarCotizacionesEnviadas() async {
+    // Sin aprobación no hay consultas de cotizaciones (evita 403 y datos ajenos).
+    if (!_isApproved) {
+      setState(() {
+        _cotizacionesEnviadas = [];
+        _isLoadingCotizaciones = false;
+      });
+      return;
+    }
     setState(() => _isLoadingCotizaciones = true);
     try {
       // Cotizaciones creadas SIN conexión: quedan en el Outbox local hasta
@@ -368,20 +411,29 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildFeedSliver() {
     if (!_isApproved) {
       if (_isPending) {
-        return const SliverToBoxAdapter(
-          child: Padding(
-            key: ValueKey('warehouse-pending-spinner-spacing'),
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.spacingXxxl),
-            child: Center(
-              child: SizedBox(
-                key: ValueKey('warehouse-pending-spinner'),
-                width: 48,
-                height: 48,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.primaryContainer,
+        return SliverToBoxAdapter(
+          child: Container(
+            key: const ValueKey('warehouse-pending-empty-state'),
+            padding: const EdgeInsets.all(AppSpacing.spacingLg),
+            decoration: _decoracionTarjeta(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.assignment_late_outlined,
+                  size: 48,
+                  color: AppColors.onSurfaceVariant,
                 ),
-              ),
+                const SizedBox(height: AppSpacing.spacingMd),
+                Text(
+                  'Aún no hay solicitudes disponibles. Estaremos '
+                  'notificándote cuando tu cuenta sea aprobada.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.textStyleBody.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -434,14 +486,61 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
+  void _avisarVerificacionPendiente() {
+    mostrarSnackbarAvisoSobrio(
+      context,
+      mensaje:
+          'Debes esperar la verificación de tu establecimiento para ver '
+          'solicitudes.',
+    );
+  }
+
   Future<void> _abrirTodasSolicitudes() async {
     await context.pushNamed(RouteNames.warehouseRequests);
     // Al volver, el preview refleja cualquier cambio hecho en la lista completa.
     if (mounted) _cargarSolicitudes();
   }
 
+  /// Al reanudar, primero comprueba si el almacén ya fue aprobado: sin
+  /// aprobación no se consulta el feed de solicitudes.
+  Future<void> _refrescarAlReanudar() async {
+    await _cargarAlmacen();
+    if (!mounted) return;
+    if (!_isApproved) {
+      setState(() => _solicitudes = []);
+      _startApprovalWatcherIfPending();
+      return;
+    }
+    await _cargarSolicitudes(isBackgroundRefresh: true);
+  }
+
+  /// Fallo de red en una recarga silenciosa (al reanudar): no muestra banner.
+  /// Reintenta una vez tras [_resumeRetryDelay] y avisa con un snackbar sobrio
+  /// solo si el fallo persiste más de [_sinConexionAvisoDelay].
+  void _tratarFalloRedAlReanudar({required bool esReintento}) {
+    if (!esReintento) {
+      _resumeRetryTimer?.cancel();
+      _resumeRetryTimer = Timer(_resumeRetryDelay, () {
+        _resumeRetryTimer = null;
+        if (mounted) {
+          _cargarSolicitudes(isBackgroundRefresh: true, esReintento: true);
+        }
+      });
+    }
+    _sinConexionAvisoTimer ??= Timer(_sinConexionAvisoDelay, () {
+      _sinConexionAvisoTimer = null;
+      if (mounted) {
+        mostrarSnackbarSinConexion(context, mensaje: _mensajeNoActualizado);
+      }
+    });
+  }
+
   // Carga asíncrona robusta con casteo seguro para evitar excepciones de tipo en Flutter
-  Future<void> _cargarSolicitudes() async {
+  Future<void> _cargarSolicitudes({
+    bool isBackgroundRefresh = false,
+    bool esReintento = false,
+    bool manual = false,
+  }) async {
     if (!_isApproved) {
       setState(() {
         _solicitudes = [];
@@ -450,9 +549,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       return;
     }
 
-    setState(() {
-      _isLoadingSolicitudes = true;
-    });
+    // En refresco silencioso con datos ya visibles no se muestra el loader.
+    if (!isBackgroundRefresh || _solicitudes.isEmpty) {
+      setState(() {
+        _isLoadingSolicitudes = true;
+      });
+    }
     try {
       final solicitudes = await _solicitudService.obtenerSolicitudesActivas();
       AppLogger.debug(
@@ -469,32 +571,43 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
         // Mapeamos de forma segura la lista dinámica para evitar incompatibilidades de tipos
         _solicitudes = List<Map<String, dynamic>>.from(solicitudes);
         _isLoadingSolicitudes = false;
-        _hadNetworkError = false;
       });
+      _sinConexionAvisoTimer?.cancel();
+      _sinConexionAvisoTimer = null;
     } catch (e) {
       AppLogger.error('Error al cargar solicitudes', name: _logName, error: e);
+      if (!mounted) return;
       setState(() {
         _isLoadingSolicitudes = false;
       });
-      if (mounted) {
-        final isNetwork = _isNetworkError(e);
-        // El SnackBar solo la primera vez: los reintentos automáticos no
-        // deberían spamear mensajes.
-        if (isNetwork && !_hadNetworkError) {
-          _hadNetworkError = true;
-          mostrarSnackbarError(
-            context,
-            mensaje:
-                'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
-          );
-          _scheduleNetworkReload();
-        } else if (!isNetwork) {
-          mostrarSnackbarError(
-            context,
-            mensaje:
-                'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
-          );
+      final isNetwork = _isNetworkError(e);
+      final isAuth =
+          e is ApiException && (e.statusCode == 401 || e.statusCode == 403);
+      if (isAuth) {
+        // Sesión o permisos rechazados: se resincroniza el estado real del
+        // almacén (p. ej. vuelta a "en revisión") en vez de mostrar un error.
+        await _cargarAlmacen();
+        if (!mounted) return;
+        if (!_isApproved) {
+          setState(() => _solicitudes = []);
+          _startApprovalWatcherIfPending();
+          return;
         }
+      }
+      if (isBackgroundRefresh && !isNetwork) return;
+      if (isNetwork) {
+        if (manual) {
+          mostrarSnackbarSinConexion(context, mensaje: _mensajeNoActualizado);
+        } else {
+          _tratarFalloRedAlReanudar(esReintento: esReintento);
+          if (!isBackgroundRefresh) _scheduleNetworkReload();
+        }
+      } else {
+        mostrarSnackbarError(
+          context,
+          mensaje:
+              'Error al cargar solicitudes: ${ApiErrorHandler.userMessage(e)}',
+        );
       }
     }
   }
@@ -541,6 +654,7 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
         final almacenId = almacen['id']?.toString();
         if (almacenId != null) {
+          await RealtimeNotificationService().subscribeToOrdenes(almacenId);
           await RealtimeNotificationService().subscribeToNuevasSolicitudes();
         }
       }
@@ -551,10 +665,15 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _approvalTimer?.cancel();
     _approvalTimer = null;
     _networkRetryTimer?.cancel();
     _networkRetryTimer = null;
+    _resumeRetryTimer?.cancel();
+    _resumeRetryTimer = null;
+    _sinConexionAvisoTimer?.cancel();
+    _sinConexionAvisoTimer = null;
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
     RealtimeNotificationService().unsubscribe();
@@ -639,7 +758,11 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                   _selectedIndex == 0
                       ? RefreshIndicator(
                           onRefresh: () async {
-                            await _validateAndLoad();
+                            // Recarga explícita: siempre informa si sigue sin red.
+                            final notificaciones = context
+                                .read<NotificacionesProvider?>();
+                            await _validateAndLoad(manual: true);
+                            await notificaciones?.refrescar();
                           },
                           color: AppColors.primaryContainer,
                           backgroundColor: AppColors.surfaceContainerHigh,
@@ -690,14 +813,20 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                         TextButton(
                                           onPressed: _isApproved
                                               ? _abrirTodasSolicitudes
-                                              : null,
+                                              : _avisarVerificacionPendiente,
                                           child: Text(
                                             'Ver todas',
                                             style: AppTextStyles.textStyleButton
                                                 .copyWith(
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
+                                                  color: _isApproved
+                                                      ? Theme.of(
+                                                          context,
+                                                        ).colorScheme.primary
+                                                      : AppColors
+                                                            .onSurfaceVariant
+                                                            .withValues(
+                                                              alpha: 0.5,
+                                                            ),
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                           ),
@@ -749,43 +878,47 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
                                       ),
                                 ),
                                 const SizedBox(height: AppSpacing.spacingXl),
-                                _buildFilterChips(),
-                                const SizedBox(height: AppSpacing.spacingMd),
-                                // El estado de carga solo aplica a la carga
-                                // INICIAL (lista vacía). Durante un
-                                // pull-to-refresh con datos ya visibles, la
-                                // lista se mantiene: reemplazarla por el
-                                // loading hacía "desaparecer" el contenido y
-                                // el refresh parecía no funcionar (el
-                                // RefreshIndicator ya muestra su propio
-                                // spinner sobre la lista).
-                                _isLoadingCotizaciones &&
-                                        _cotizacionesEnviadas.isEmpty
-                                    ? const RyStateContainer(
-                                        title: 'Cargando cotizaciones...',
-                                        type: RyStateType.loading,
-                                      )
-                                    : _cotizacionesFiltradas.isEmpty
-                                    ? _buildEmptyCotizaciones()
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        itemCount:
-                                            _cotizacionesFiltradas.length,
-                                        itemBuilder: (context, index) {
-                                          final cotizacion =
-                                              _cotizacionesFiltradas[index];
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: AppSpacing.spacingMd,
-                                            ),
-                                            child: _buildQuotationCard(
-                                              cotizacion,
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                if (_isApproved) ...[
+                                  _buildFilterChips(),
+                                  const SizedBox(height: AppSpacing.spacingMd),
+                                  // El estado de carga solo aplica a la carga
+                                  // INICIAL (lista vacía). Durante un
+                                  // pull-to-refresh con datos ya visibles, la
+                                  // lista se mantiene: reemplazarla por el
+                                  // loading hacía "desaparecer" el contenido y
+                                  // el refresh parecía no funcionar (el
+                                  // RefreshIndicator ya muestra su propio
+                                  // spinner sobre la lista).
+                                  _isLoadingCotizaciones &&
+                                          _cotizacionesEnviadas.isEmpty
+                                      ? const RyStateContainer(
+                                          title: 'Cargando cotizaciones...',
+                                          type: RyStateType.loading,
+                                        )
+                                      : _cotizacionesFiltradas.isEmpty
+                                      ? _buildEmptyCotizaciones()
+                                      : ListView.builder(
+                                          shrinkWrap: true,
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          itemCount:
+                                              _cotizacionesFiltradas.length,
+                                          itemBuilder: (context, index) {
+                                            final cotizacion =
+                                                _cotizacionesFiltradas[index];
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: AppSpacing.spacingMd,
+                                              ),
+                                              child: _buildQuotationCard(
+                                                cotizacion,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                ],
+                                if (!_isApproved)
+                                  _buildCotizacionesAunNoAprobado(),
                               ],
                             ),
                           ),
@@ -840,6 +973,17 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     );
   }
 
+  /// Decorado único de todas las tarjetas del dashboard del almacén.
+  BoxDecoration _decoracionTarjeta() {
+    return BoxDecoration(
+      color: AppColors.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+      border: Border.all(
+        color: AppColors.outlineVariant.withValues(alpha: 0.65),
+      ),
+    );
+  }
+
   Widget _buildEstablishmentIdentity() {
     final profileImage = context.watch<ProfileImageProvider?>();
     final logoUrl = profileImage?.hasLoaded == true
@@ -848,20 +992,16 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     return Container(
       key: const ValueKey('warehouse-establishment-identity'),
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(
-          color: AppColors.outlineVariant.withValues(alpha: 0.65),
-        ),
-      ),
+      decoration: _decoracionTarjeta(),
       child: Row(
         children: [
           _buildEstablishmentLogoAvatar(logoUrl),
           const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
             child: Text(
-              capitalizarNombre(_nombreAlmacen ?? 'Establecimiento'),
+              _almacenData == null && _nombreAlmacen == null
+                  ? 'Cargando establecimiento...'
+                  : capitalizarNombre(_nombreAlmacen ?? 'Establecimiento'),
               key: const ValueKey('warehouse-establishment-title'),
               style: AppTextStyles.textStyleTitle.copyWith(
                 color: AppColors.onSurface,
@@ -1005,23 +1145,42 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
   Widget _buildVerificationBanner() {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      decoration: BoxDecoration(
-        color: AppColors.primaryContainer.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(
-          color: AppColors.primaryContainer.withValues(alpha: 0.3),
-        ),
-      ),
+      decoration: _decoracionTarjeta(),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.info_outline, color: AppColors.primaryContainer),
           const SizedBox(width: AppSpacing.spacingMd),
           Expanded(
-            child: Text(
-              'Tu establecimiento está en verificación. Un administrador revisará tu información antes de habilitarte para recibir solicitudes.',
-              style: AppTextStyles.textStyleSmall.copyWith(
-                color: AppColors.primaryContainer,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.spacingXs,
+                    vertical: AppSpacing.spacingXxs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(AppRadius.radiusFull),
+                  ),
+                  child: Text(
+                    'En revisión • Máx. 48h',
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: AppColors.primaryContainer,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingXs),
+                Text(
+                  'Tu establecimiento está en verificación. Un administrador revisará tu información antes de habilitarte para recibir solicitudes.',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1078,67 +1237,62 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
 
   Widget _buildBentoStatsGrid() {
     final pendientes = _solicitudes.length;
-    return Row(
-      children: [
-        Expanded(
-          child: _buildBentoStatCard(
-            'Ventas',
-            '$_ventasCount',
-            AppColors.onSurface,
-            Icons.monetization_on_outlined,
-            // Ventas = cotizaciones aceptadas: se abre la pestaña de
-            // cotizaciones ya filtrada por "ganadas".
-            onTap: () => setState(() {
-              _selectedIndex = 2;
-              _filtroActual = 'ganadas';
-            }),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _buildBentoStatCard(
+              'Ventas',
+              '$_ventasCount',
+              Icons.monetization_on_outlined,
+              acento: const Color(0xFF22C55E),
+              // Ventas = cotizaciones aceptadas: se abre la pestaña de
+              // cotizaciones ya filtrada por "ganadas".
+              onTap: _isApproved
+                  ? () => setState(() {
+                      _selectedIndex = 2;
+                      _filtroActual = 'ganadas';
+                    })
+                  : null,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.spacingSm),
-        Expanded(
-          child: _buildBentoStatCard(
-            'Pendientes',
-            '$pendientes',
-            pendientes > 0 ? AppColors.warning : AppColors.onSurface,
-            Icons.pending_actions,
-            // Pendientes = solicitudes sin responder: su lista completa.
-            onTap: () => context.pushNamed(RouteNames.warehouseRequests),
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: _buildBentoStatCard(
+              'Pendientes',
+              '$pendientes',
+              Icons.pending_actions,
+              acento: AppColors.primaryContainer,
+              // Pendientes = solicitudes sin responder: su lista completa.
+              onTap: _isApproved
+                  ? () => context.pushNamed(RouteNames.warehouseRequests)
+                  : null,
+            ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.spacingSm),
-        Expanded(
-          child: _buildBentoStatCard(
-            'Vistas',
-            '$_vistasCount',
-            AppColors.onSurface,
-            Icons.visibility_outlined,
+          const SizedBox(width: AppSpacing.spacingSm),
+          Expanded(
+            child: _buildBentoStatCard(
+              'Vistas',
+              '$_vistasCount',
+              Icons.visibility_outlined,
+              acento: const Color(0xFF38BDF8),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildBentoStatCard(
     String label,
     String value,
-    Color valueColor,
     IconData icon, {
+    required Color acento,
     VoidCallback? onTap,
   }) {
     return Container(
-      height: 112,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: AppColors.outlineVariant, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryContainer.withValues(alpha: 0.05),
-            blurRadius: 15,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
+      decoration: _decoracionTarjeta(),
       child: Material(
         color: AppColors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
@@ -1146,38 +1300,62 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.radiusLg),
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 16, color: AppColors.onSurfaceVariant),
-                      const SizedBox(width: AppSpacing.spacingXxs),
-                      Text(
-                        label,
-                        maxLines: 1,
-                        softWrap: false,
-                        style: AppTextStyles.textStyleSmall.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                        ),
+                Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: acento.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: acento.withValues(alpha: 0.25),
+                      width: 1.0,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: acento.withValues(alpha: 0.22),
+                        blurRadius: 16,
+                        spreadRadius: -2,
                       ),
                     ],
                   ),
+                  child: Icon(icon, size: 20, color: acento),
                 ),
-                Text(
-                  value,
-                  // fontFamily monoespaciado intencional para métricas numéricas (sin token equivalente)
-                  style: AppTextStyles.textStyleHeading.copyWith(
-                    color: valueColor,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'JetBrains Mono',
+                const SizedBox(height: 12),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    // fontFamily monoespaciado intencional para métricas numéricas (sin token equivalente)
+                    style: AppTextStyles.textStyleHeading.copyWith(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'JetBrains Mono',
+                      height: 1.1,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.textStyleSmall.copyWith(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0,
+                    ),
                   ),
                 ),
               ],
@@ -1342,6 +1520,35 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
       default:
         return true;
     }
+  }
+
+  /// Estado vacío mientras el establecimiento no está aprobado: la pestaña no
+  /// consulta cotizaciones al servidor.
+  Widget _buildCotizacionesAunNoAprobado() {
+    return Container(
+      key: const ValueKey('warehouse-cotizaciones-pending-empty-state'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.spacingXl),
+      decoration: _decoracionTarjeta(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: AppColors.onSurfaceVariant,
+          ),
+          const SizedBox(height: AppSpacing.spacingMd),
+          Text(
+            'Tus cotizaciones aparecerán aquí una vez que tu establecimiento sea aprobado.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.textStyleBody.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Estado vacío según la pestaña activa.
@@ -1809,16 +2016,12 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
             ),
             child: Row(
               children: [
-                Expanded(child: _buildBottomNavItem(Icons.home, 'Home', 0)),
+                Expanded(child: _buildBottomNavItem(Icons.home, 'Inicio', 0)),
                 Expanded(
                   child: _buildBottomNavItem(Icons.send, 'Cotizaciones', 2),
                 ),
                 Expanded(
-                  child: _buildBottomNavItem(
-                    Icons.store,
-                    'Mi Establecimiento',
-                    3,
-                  ),
+                  child: _buildBottomNavItem(Icons.store, 'Mi Local', 3),
                 ),
               ],
             ),
@@ -1832,18 +2035,22 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
     final bool isActive = _selectedIndex == index;
     return InkWell(
       onTap: () async {
-        setState(() {
-          _selectedIndex = index;
-        });
         if (index == 3) {
+          // Pantalla aparte (perfil): no cambia la pestaña activa, así que al
+          // volver sigue visible el contenido de la pestaña anterior.
           final almacen = await _almacenService.obtenerMiAlmacen();
           if (!mounted) return;
           if (almacen != null) {
-            context.pushNamed(RouteNames.profileAlmacen);
+            await context.pushNamed(RouteNames.profileAlmacen);
+            if (mounted) _checkApprovalStatus();
           } else {
             context.pushNamed(RouteNames.registerAlmacen);
           }
+          return;
         }
+        setState(() {
+          _selectedIndex = index;
+        });
       },
       child: Container(
         height: double.infinity,
@@ -1859,17 +2066,18 @@ class _WarehouseDashboardState extends State<WarehouseDashboard> {
               size: 24,
             ),
             const SizedBox(height: AppSpacing.spacingXxs),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: isActive
-                      ? AppColors.primaryContainer
-                      : AppColors.onSurfaceVariant,
-                ),
+            Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.textStyleSmall.copyWith(
+                fontSize: 12.0,
+                letterSpacing: 0,
+                color: isActive
+                    ? AppColors.primaryContainer
+                    : AppColors.onSurfaceVariant,
               ),
             ),
           ],

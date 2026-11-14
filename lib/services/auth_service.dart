@@ -171,7 +171,7 @@ class AuthService {
       // Persistir token y datos de usuario en almacenamiento cifrado
       await _apiClient.setToken(token);
       await _secureStorage.saveToken(token, refreshToken: refreshToken);
-      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
+      await _guardarSesionUsuario(_currentUser!);
 
       _authStateController.add(AuthState(user: _currentUser!));
 
@@ -212,7 +212,7 @@ class AuthService {
       // Persistir token y datos de usuario en almacenamiento cifrado
       await _apiClient.setToken(token);
       await _secureStorage.saveToken(token, refreshToken: refreshToken);
-      await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
+      await _guardarSesionUsuario(_currentUser!);
 
       _authStateController.add(AuthState(user: _currentUser));
 
@@ -415,7 +415,7 @@ class AuthService {
       token,
       refreshToken: refreshToken ?? fallbackRefreshToken,
     );
-    await _secureStorage.saveUser(_currentUser!.id, _currentUser!.rol ?? '');
+    await _guardarSesionUsuario(_currentUser!);
     _authStateController.add(AuthState(user: _currentUser));
 
     return AuthResponse(user: _currentUser!, token: token);
@@ -501,6 +501,16 @@ class AuthService {
       );
       // No fallar el login si Supabase falla - el login del backend es el principal
     }
+  }
+
+  /// Persiste la sesión. Si el dispositivo guardaba otra cuenta, purga antes
+  /// su estado local (perfil, solicitudes, rutas) para no reutilizarlo.
+  Future<void> _guardarSesionUsuario(User user) async {
+    final previo = (await _secureStorage.readUser())['user_id'];
+    if (previo != null && previo != user.id) {
+      await onLogoutCleanup?.call();
+    }
+    await _secureStorage.saveUser(user.id, user.rol ?? '');
   }
 
   // Limpiar sesión local (usado por ApiClient ante 401)

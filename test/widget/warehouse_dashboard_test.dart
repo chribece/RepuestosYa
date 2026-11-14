@@ -110,23 +110,279 @@ void main() {
       find.textContaining('Tu cuenta está en proceso de revisión.'),
       findsNothing,
     );
-    final spinnerBox = tester.widget<SizedBox>(
-      find.byKey(const ValueKey('warehouse-pending-spinner')),
+  });
+
+  testWidgets('pendiente de verificación: estado vacío en vez de spinner', (
+    tester,
+  ) async {
+    almacen.respuestaMiAlmacen = {
+      ...almacen.respuestaMiAlmacen!,
+      'verification_status': 'pending',
+    };
+    await pumpDashboard(tester);
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byKey(const ValueKey('warehouse-pending-empty-state')),
+      findsOneWidget,
     );
-    expect(spinnerBox.width, 48);
-    expect(spinnerBox.height, 48);
-    final spinner = tester.widget<CircularProgressIndicator>(
-      find.descendant(
-        of: find.byKey(const ValueKey('warehouse-pending-spinner')),
-        matching: find.byType(CircularProgressIndicator),
+    expect(find.byIcon(Icons.assignment_late_outlined), findsOneWidget);
+    expect(
+      find.text(
+        'Aún no hay solicitudes disponibles. Estaremos notificándote cuando '
+        'tu cuenta sea aprobada.',
       ),
+      findsOneWidget,
     );
-    expect(spinner.strokeWidth, 3);
-    expect(spinner.color, AppColors.primaryContainer);
-    final spinnerSpacing = tester.widget<Padding>(
-      find.byKey(const ValueKey('warehouse-pending-spinner-spacing')),
+    expect(solicitud.solicitudesActivasCalls, 0);
+  });
+
+  testWidgets('"Ver todas" sin verificar avisa con un SnackBar', (
+    tester,
+  ) async {
+    almacen.respuestaMiAlmacen = {
+      ...almacen.respuestaMiAlmacen!,
+      'verification_status': 'pending',
+    };
+    await pumpDashboard(tester);
+
+    await tester.tap(find.text('Ver todas'));
+    await tester.pump();
+
+    expect(
+      find.text(
+        'Debes esperar la verificación de tu establecimiento para ver '
+        'solicitudes.',
+      ),
+      findsOneWidget,
     );
-    expect(spinnerSpacing.padding, const EdgeInsets.symmetric(vertical: 64));
+  });
+
+  testWidgets('la primera pestaña se llama "Inicio"', (tester) async {
+    await pumpDashboard(tester);
+
+    expect(find.text('Inicio'), findsOneWidget);
+    expect(find.text('Home'), findsNothing);
+  });
+
+  testWidgets('las tres métricas comparten el mismo tamaño de fuente a 360px', (
+    tester,
+  ) async {
+    await pumpDashboard(tester, width: 360);
+
+    for (final label in ['Ventas', 'Pendientes', 'Vistas']) {
+      expect(
+        tester.widget<Text>(find.text(label)).style?.fontSize,
+        12,
+        reason: label,
+      );
+    }
+  });
+
+  testWidgets(
+    'con almacén en verificación, Ventas y Pendientes no son clickeables',
+    (tester) async {
+      almacen.respuestaMiAlmacen = {
+        ...almacen.respuestaMiAlmacen!,
+        'verification_status': 'pending',
+      };
+      await pumpDashboard(tester);
+
+      InkWell tarjeta(String label) => tester.widget<InkWell>(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(InkWell))
+            .first,
+      );
+
+      expect(tarjeta('Ventas').onTap, isNull);
+      expect(tarjeta('Pendientes').onTap, isNull);
+    },
+  );
+
+  testWidgets('con almacén aprobado, Ventas y Pendientes sí son clickeables', (
+    tester,
+  ) async {
+    await pumpDashboard(tester);
+
+    InkWell tarjeta(String label) => tester.widget<InkWell>(
+      find.ancestor(of: find.text(label), matching: find.byType(InkWell)).first,
+    );
+
+    expect(tarjeta('Ventas').onTap, isNotNull);
+    expect(tarjeta('Pendientes').onTap, isNotNull);
+  });
+
+  testWidgets('las métricas centran ícono, número y etiqueta, en ese orden', (
+    tester,
+  ) async {
+    await pumpDashboard(tester, width: 360);
+
+    final tarjeta = find
+        .ancestor(of: find.text('Ventas'), matching: find.byType(InkWell))
+        .first;
+    final icono = find.descendant(
+      of: tarjeta,
+      matching: find.byIcon(Icons.monetization_on_outlined),
+    );
+    final valor = find.descendant(of: tarjeta, matching: find.text('0'));
+    final etiqueta = find.text('Ventas');
+
+    final centro = tester.getCenter(tarjeta).dx;
+    expect(tester.getCenter(icono).dx, closeTo(centro, 1));
+    expect(tester.getCenter(valor).dx, closeTo(centro, 1));
+    expect(tester.getCenter(etiqueta).dx, closeTo(centro, 1));
+    expect(tester.getCenter(icono).dy, lessThan(tester.getCenter(valor).dy));
+    expect(tester.getCenter(valor).dy, lessThan(tester.getCenter(etiqueta).dy));
+  });
+
+  testWidgets(
+    'las tres métricas comparten fondo y borde neutros, número blanco',
+    (tester) async {
+      await pumpDashboard(tester, width: 360);
+
+      BoxDecoration decoracion(String label) {
+        final tarjeta = find.ancestor(
+          of: find.text(label),
+          matching: find.byType(InkWell),
+        );
+        final contenedor = find.ancestor(
+          of: tarjeta.first,
+          matching: find.byType(Container),
+        );
+        return tester.widget<Container>(contenedor.first).decoration!
+            as BoxDecoration;
+      }
+
+      for (final label in ['Ventas', 'Pendientes', 'Vistas']) {
+        final deco = decoracion(label);
+        expect(deco.gradient, isNull, reason: label);
+        expect(deco.color, AppColors.surfaceContainerLow, reason: label);
+        expect(
+          (deco.border! as Border).top.color,
+          AppColors.outlineVariant.withValues(alpha: 0.65),
+          reason: label,
+        );
+        expect(deco.borderRadius, BorderRadius.circular(16), reason: label);
+      }
+
+      final tarjeta = find
+          .ancestor(of: find.text('Ventas'), matching: find.byType(InkWell))
+          .first;
+      final numero = tester.widget<Text>(
+        find.descendant(of: tarjeta, matching: find.text('0')),
+      );
+      expect(numero.style?.color, Colors.white);
+      expect(numero.style?.fontWeight, FontWeight.w700);
+      expect(numero.style?.fontSize, 22);
+    },
+  );
+
+  testWidgets(
+    'las métricas se adaptan en altura con texto grande sin overflow',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: WarehouseDashboard(
+            almacenService: almacen,
+            solicitudService: solicitud,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(tester.takeException(), isNull);
+
+      double alto(String label) => tester
+          .getSize(
+            find
+                .ancestor(of: find.text(label), matching: find.byType(InkWell))
+                .first,
+          )
+          .height;
+      expect(alto('Pendientes'), closeTo(alto('Ventas'), 0.01));
+      expect(alto('Vistas'), closeTo(alto('Ventas'), 0.01));
+    },
+  );
+
+  testWidgets('el aviso de verificación es un SnackBar oscuro sin apilarse', (
+    tester,
+  ) async {
+    almacen.respuestaMiAlmacen = {
+      ...almacen.respuestaMiAlmacen!,
+      'verification_status': 'pending',
+    };
+    await pumpDashboard(tester);
+
+    await tester.tap(find.text('Ver todas'));
+    await tester.pump();
+    await tester.tap(find.text('Ver todas'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    final snack = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snack.behavior, SnackBarBehavior.floating);
+    expect(snack.backgroundColor, const Color(0xFF18181B));
+    final borde = (snack.shape! as RoundedRectangleBorder).side.color;
+    expect(borde, const Color(0xFFF59E0B).withValues(alpha: 0.35));
+    expect(
+      find.descendant(
+        of: find.byType(SnackBar),
+        matching: find.byIcon(Icons.warning_amber_rounded),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('las pestañas inferiores usan "Mi Local" y la misma tipografía', (
+    tester,
+  ) async {
+    await pumpDashboard(tester, width: 360);
+
+    expect(find.text('Mi Local'), findsOneWidget);
+    expect(find.text('Mi Establecimiento'), findsNothing);
+    for (final label in ['Inicio', 'Cotizaciones', 'Mi Local']) {
+      final texto = tester.widget<Text>(find.text(label));
+      expect(texto.style?.fontSize, 12.0, reason: label);
+      expect(texto.maxLines, 1, reason: label);
+      expect(texto.overflow, TextOverflow.ellipsis, reason: label);
+    }
+  });
+
+  testWidgets('el banner de verificación indica el tiempo estimado', (
+    tester,
+  ) async {
+    almacen.respuestaMiAlmacen = {
+      ...almacen.respuestaMiAlmacen!,
+      'verification_status': 'pending',
+    };
+    await pumpDashboard(tester);
+
+    expect(find.text('En revisión • Máx. 48h'), findsOneWidget);
+  });
+
+  testWidgets('el Inicio permite pull-to-refresh con el color de marca', (
+    tester,
+  ) async {
+    await pumpDashboard(tester);
+
+    final refresh = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    expect(refresh.color, AppColors.primaryContainer);
+    final scroll = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    expect(scroll.physics, isA<AlwaysScrollableScrollPhysics>());
   });
 
   testWidgets('confirma el cierre solo después de guardar el estado', (

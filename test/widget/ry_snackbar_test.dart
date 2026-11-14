@@ -1,14 +1,17 @@
-import 'package:awesome_snackbar_content/awesome_snackbar_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/utils/ry_snackbar.dart';
 
-/// Pruebas del helper de notificaciones estilizadas (awesome_snackbar_content):
-/// se muestra un SnackBar con el título y mensaje completos, y el tipo define
-/// el ContentType (éxito/error/advertencia/info).
+/// Pruebas del helper de notificaciones: diseño oscuro unificado con un
+/// acento semántico por tipo (ícono, borde y contenedor del ícono).
 void main() {
+  const fondo = Color(0xFF18181B);
+  const exito = Color(0xFF22C55E);
+  const error = Color(0xFFEF4444);
+  const aviso = Color(0xFFF59E0B);
+  const info = Color(0xFF38BDF8);
+
   Future<void> pumpYMostrar(
     WidgetTester tester,
     void Function(BuildContext context) mostrar,
@@ -30,26 +33,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets(
-    'éxito: tarjeta oscura flotante con icono naranja y mensaje completo',
-    (tester) async {
-      await pumpYMostrar(
-        tester,
-        (context) => mostrarSnackbarExito(
-          context,
-          mensaje: 'Cotización aceptada correctamente',
-        ),
-      );
+  Color iconoColor(WidgetTester tester, IconData icono) =>
+      tester.widget<Icon>(find.byIcon(icono)).color!;
 
-      final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-      expect(snackBar.behavior, SnackBarBehavior.floating);
-      expect(snackBar.backgroundColor, AppColors.surfaceContainerHigh);
-      expect(find.byType(AwesomeSnackbarContent), findsNothing);
-      expect(find.text('Cotización aceptada correctamente'), findsOneWidget);
-      final icon = tester.widget<Icon>(find.byIcon(Icons.check_circle_rounded));
-      expect(icon.color, AppColors.primaryContainer);
-    },
-  );
+  testWidgets('éxito: tarjeta oscura flotante con acento esmeralda', (
+    tester,
+  ) async {
+    await pumpYMostrar(
+      tester,
+      (context) => mostrarSnackbarExito(
+        context,
+        mensaje: 'Cotización aceptada correctamente',
+      ),
+    );
+
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.behavior, SnackBarBehavior.floating);
+    expect(snackBar.backgroundColor, fondo);
+    expect(
+      (snackBar.shape! as RoundedRectangleBorder).side.color,
+      exito.withValues(alpha: 0.35),
+    );
+    expect(find.text('Cotización aceptada correctamente'), findsOneWidget);
+    expect(iconoColor(tester, Icons.check_circle_outline_rounded), exito);
+  });
 
   testWidgets('éxito sobrio: usa el mismo estilo global de éxito', (
     tester,
@@ -64,18 +71,16 @@ void main() {
     );
 
     final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
-    expect(snackBar.backgroundColor, AppColors.surfaceContainerHigh);
+    expect(snackBar.backgroundColor, fondo);
     expect(find.text('¡Establecimiento Aprobado!'), findsOneWidget);
     expect(
       find.text('Ya puedes recibir y responder solicitudes de cotización'),
       findsOneWidget,
     );
-    expect(find.byType(AwesomeSnackbarContent), findsNothing);
-    final icon = tester.widget<Icon>(find.byIcon(Icons.check_circle_rounded));
-    expect(icon.color, AppColors.primaryContainer);
+    expect(iconoColor(tester, Icons.check_circle_outline_rounded), exito);
   });
 
-  testWidgets('error: usa el tipo failure y conserva el mensaje', (
+  testWidgets('error: acento coral con título por defecto y mensaje completo', (
     tester,
   ) async {
     await pumpYMostrar(
@@ -91,13 +96,12 @@ void main() {
       find.text('No se pudo guardar tu teléfono. Verifica tu conexión.'),
       findsOneWidget,
     );
-    final awesome = tester.widget<AwesomeSnackbarContent>(
-      find.byType(AwesomeSnackbarContent),
-    );
-    expect(awesome.contentType, ContentType.failure);
+    expect(iconoColor(tester, Icons.error_outline_rounded), error);
   });
 
-  testWidgets('advertencia e info: títulos por defecto', (tester) async {
+  testWidgets('advertencia e info: títulos y acentos por defecto', (
+    tester,
+  ) async {
     await pumpYMostrar(
       tester,
       (context) => mostrarSnackbarAdvertencia(
@@ -106,6 +110,7 @@ void main() {
       ),
     );
     expect(find.text('Aviso'), findsOneWidget);
+    expect(iconoColor(tester, Icons.warning_amber_rounded), aviso);
 
     await tester.pumpWidget(const SizedBox());
     await pumpYMostrar(
@@ -116,5 +121,27 @@ void main() {
       ),
     );
     expect(find.text('Información'), findsOneWidget);
+    expect(iconoColor(tester, Icons.info_outline_rounded), info);
+  });
+
+  testWidgets('sin conexión: acento coral con ícono wifi tachado y cierre', (
+    tester,
+  ) async {
+    await pumpYMostrar(
+      tester,
+      (context) => mostrarSnackbarSinConexion(
+        context,
+        mensaje: 'No pudimos actualizar. Desliza para reintentar.',
+      ),
+    );
+
+    final snackBar = tester.widget<SnackBar>(find.byType(SnackBar));
+    expect(snackBar.showCloseIcon, isTrue);
+    expect(snackBar.backgroundColor, fondo);
+    expect(iconoColor(tester, Icons.wifi_off_rounded), error);
+    expect(
+      find.text('No pudimos actualizar. Desliza para reintentar.'),
+      findsOneWidget,
+    );
   });
 }

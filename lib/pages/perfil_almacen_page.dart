@@ -1368,7 +1368,9 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           button: true,
           label: 'Guardar cambios del perfil de almacén',
           child: RyButton(
-            label: _estaRechazado ? 'Guardar y reenviar a revisión' : 'Guardar Cambios',
+            label: _estaRechazado
+                ? 'Guardar y reenviar a revisión'
+                : 'Guardar Cambios',
             icon: _estaRechazado ? Icons.send : Icons.save,
             variant: RyButtonVariant.primary,
             size: RyButtonSize.large,

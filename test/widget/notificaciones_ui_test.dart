@@ -16,7 +16,6 @@ import 'package:repuestosya/services/almacen_service.dart';
 import 'package:repuestosya/services/auth_service.dart';
 import 'package:repuestosya/services/notificaciones_api_service.dart';
 import 'package:repuestosya/services/profile_service.dart';
-import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_notification_bell.dart';
 
@@ -322,10 +321,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Perfil actualizado correctamente'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
 
       final snackbar = tester.widget<SnackBar>(find.byType(SnackBar).last);
-      expect(snackbar.backgroundColor, AppColors.surfaceContainerHigh);
+      expect(snackbar.backgroundColor, const Color(0xFF18181B));
       expect(snackbar.shape, isA<RoundedRectangleBorder>());
     },
   );

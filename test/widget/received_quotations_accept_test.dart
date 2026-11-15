@@ -359,7 +359,7 @@ void main() {
       expect(servicio.rechazarCalls, 1);
       expect(find.text('Cotización rechazada'), findsOneWidget);
       final snackBar = tester.widget<SnackBar>(find.byType(SnackBar).last);
-      expect(snackBar.backgroundColor, const Color(0xFF1E1E1E));
+      expect(snackBar.backgroundColor, const Color(0xFF18181B));
       expect(find.byIcon(Icons.info_outline_rounded), findsOneWidget);
     },
   );

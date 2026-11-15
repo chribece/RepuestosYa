@@ -186,7 +186,7 @@ void main() {
       expect(find.text('Dirección eliminada correctamente'), findsOneWidget);
       expect(
         tester.widget<SnackBar>(find.byType(SnackBar).last).backgroundColor,
-        AppColors.surfaceContainerHigh,
+        const Color(0xFF18181B),
       );
       expect(tester.takeException(), isNull);
     },

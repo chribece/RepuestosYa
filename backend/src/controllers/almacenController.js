@@ -319,6 +319,12 @@ const updateAlmacen = async (req, res) => {
     if (representante_legal !== undefined) updateData.representante_legal = representante_legal;
     if (email !== undefined) updateData.email = email;
 
+    if (existing.verification_status === 'rejected') {
+      updateData.verification_status = 'pending';
+      updateData.verificado = false;
+      updateData.rejection_reason = null;
+    }
+
     const { data: almacen, error } = await supabase
       .from('almacenes')
       .update(updateData)

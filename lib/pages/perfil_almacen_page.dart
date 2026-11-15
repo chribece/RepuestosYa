@@ -236,6 +236,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
     return null;
   }
 
+  bool get _estaRechazado => _almacenData?['verification_status'] == 'rejected';
+
   Future<void> _cargarAlmacen() async {
     setState(() {
       _isLoading = true;
@@ -322,6 +324,7 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
       return;
     }
 
+    final reenviar = _estaRechazado;
     setState(() => _isSubmitting = true);
 
     try {
@@ -380,10 +383,19 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
         _isEditing = false;
         _logoFile = null;
         _removeLogo = false;
+        if (reenviar && _almacenData != null) {
+          _almacenData = {
+            ..._almacenData!,
+            'verification_status': 'pending',
+            'rejection_reason': null,
+          };
+        }
       });
       mostrarSnackbarExito(
         context,
-        mensaje: 'Perfil actualizado correctamente',
+        mensaje: reenviar
+            ? 'Solicitud reenviada. Tu establecimiento está nuevamente en revisión.'
+            : 'Perfil actualizado correctamente',
       );
       await _cargarAlmacen();
     } catch (e) {
@@ -519,6 +531,10 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: AppSpacing.spacingLg),
+                            if (_estaRechazado) ...[
+                              _buildBannerRechazo(),
+                              const SizedBox(height: AppSpacing.spacingXl),
+                            ],
                             _buildHeader(),
                             const SizedBox(height: AppSpacing.spacingXl),
                             _buildContactSection(),
@@ -960,25 +976,52 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
                 ),
             ],
           ),
-          if (verificationStatus == 'rejected') ...[
-            const SizedBox(height: AppSpacing.spacingMd),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.spacingMd),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-                border: Border.all(
-                  color: AppColors.error.withValues(alpha: 0.3),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannerRechazo() {
+    final motivo = _almacenData?['rejection_reason']?.toString();
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.spacingMd),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+              const SizedBox(width: AppSpacing.spacingSm),
+              Expanded(
+                child: Text(
+                  'Solicitud rechazada',
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              child: Text(
-                'Motivo del rechazo: ${_almacenData?['rejection_reason'] ?? "Revisa los datos ingresados o comunícate con soporte."}',
-                style: AppTextStyles.textStyleSmall.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.spacingXs),
+          Text(
+            'Motivo del rechazo: ${motivo?.isNotEmpty == true ? motivo : "Revisa los datos ingresados o comunícate con soporte."}',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.error,
             ),
-          ],
+          ),
+          const SizedBox(height: AppSpacing.spacingXs),
+          Text(
+            'Corrige tus datos y guarda los cambios para reenviar tu solicitud a revisión.',
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
         ],
       ),
     );
@@ -1325,8 +1368,8 @@ class _PerfilAlmacenPageState extends State<PerfilAlmacenPage> {
           button: true,
           label: 'Guardar cambios del perfil de almacén',
           child: RyButton(
-            label: 'Guardar Cambios',
-            icon: Icons.save,
+            label: _estaRechazado ? 'Guardar y reenviar a revisión' : 'Guardar Cambios',
+            icon: _estaRechazado ? Icons.send : Icons.save,
             variant: RyButtonVariant.primary,
             size: RyButtonSize.large,
             isFullWidth: true,

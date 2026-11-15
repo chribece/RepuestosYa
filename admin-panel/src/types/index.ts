@@ -22,7 +22,18 @@ export interface Orden {
 export interface Almacen {
   id: string;
   nombre_comercial: string;
+  ruc?: string;
+  telefono?: string;
+  email?: string;
+  representante_legal?: string;
+  logo_url?: string | null;
+  city?: string | null;
+  tipo_establecimiento?: 'matriz' | 'sucursal';
   direccion_texto?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  verification_status: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string | null;
   verificado: boolean;
   created_at: string;
   profiles?: { nombre_completo: string; email: string };

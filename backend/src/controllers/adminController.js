@@ -60,7 +60,11 @@ const getAlmacenesPendientesController = async (req, res) => {
     if (req.user.rol !== 'admin') {
       return res.status(403).json({ error: 'Acceso denegado' });
     }
-    const almacenes = await adminService.getAlmacenesPendientes();
+    const estado = req.query.estado || 'pending';
+    if (!['pending', 'approved', 'rejected', 'all'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado de filtro no válido' });
+    }
+    const almacenes = await adminService.getAlmacenesPorEstado(estado);
     res.json({ success: true, data: almacenes });
   } catch (error) {
     console.error('Error en getAlmacenesPendientesController:', error);

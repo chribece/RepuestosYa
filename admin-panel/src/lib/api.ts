@@ -107,8 +107,8 @@ export class ApiClient {
     });
   }
 
-  async getPendingWarehouses() {
-    return this.request<{ data: import('@/types').Almacen[] }>('/admin/warehouses/pending');
+  async getWarehouses(estado: 'pending' | 'approved' | 'rejected' | 'all' = 'all') {
+    return this.request<{ data: import('@/types').Almacen[] }>(`/admin/warehouses/pending?estado=${estado}`);
   }
 
   async verifyWarehouse(almacenId: string, status: 'approved' | 'rejected', rejectionReason?: string) {

@@ -105,20 +105,21 @@ const updateUsuarioRol = async (usuarioId, nuevoRol) => {
   }
 };
 
-const getAlmacenesPendientes = async () => {
+const getAlmacenesPorEstado = async (estado = 'pending') => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('almacenes')
       .select(`
         *,
         profiles!almacenes_encargado_id_fkey(nombre_completo, email)
       `)
-      .eq('verification_status', 'pending')
       .order('created_at', { ascending: false });
+    if (estado !== 'all') query = query.eq('verification_status', estado);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data || [];
   } catch (error) {
-    console.error('Error en getAlmacenesPendientes:', error);
+    console.error('Error en getAlmacenesPorEstado:', error);
     throw error;
   }
 };
@@ -186,6 +187,6 @@ module.exports = {
   getAllOrdenes,
   getAllUsuarios,
   updateUsuarioRol,
-  getAlmacenesPendientes,
+  getAlmacenesPorEstado,
   actualizarEstadoAlmacen
 };

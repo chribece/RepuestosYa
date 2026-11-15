@@ -29,6 +29,7 @@ jobs:
     - name: Configurar Flutter
       uses: subosito/flutter-action@v2
       with:
+        flutter-version: '3.44.1'
         channel: 'stable'
         cache: true # Almacena en caché los paquetes para compilar más rápido
 

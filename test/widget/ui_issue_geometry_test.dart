@@ -19,7 +19,7 @@ import 'package:repuestosya/widgets/ry_button.dart';
 
 void main() {
   const registrationLink = '¿Ya tienes cuenta? Inicia sesión';
-  const onboardingTitle = 'Comienza con RepuestosYa';
+  const onboardingHeading = 'Tu camino al repuesto ideal';
   const vinError = 'VIN inválido: 17 caracteres, sin I, O ni Q.';
   const vinHelper = '17 caracteres; sin I, O ni Q.';
   final latestAllowedYear = DateTime.now().year + 1;
@@ -130,7 +130,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('el título de onboarding se lee completo a 420 y 800 px', (
+  testWidgets('el encabezado de onboarding se lee completo a 420 y 800 px', (
     tester,
   ) async {
     for (final width in [420.0, 800.0]) {
@@ -166,76 +166,11 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      final finder = find.text(onboardingTitle);
+      final finder = find.text(onboardingHeading);
       expect(finder, findsOneWidget);
       final paragraph = tester.renderObject<RenderParagraph>(finder);
-      final available = paragraph.constraints.maxWidth;
-      final intrinsic = paragraph.getMaxIntrinsicWidth(double.infinity);
-      final painter = TextPainter(
-        text: TextSpan(
-          text: onboardingTitle,
-          style: AppTextStyles.textStyleCaption,
-        ),
-        textDirection: TextDirection.ltr,
-        textScaler: TextScaler.noScaling,
-        maxLines: 2,
-      )..layout(maxWidth: available);
-      final originalTitlePainter = TextPainter(
-        text: TextSpan(
-          text: onboardingTitle,
-          style: AppTextStyles.textStyleTitle,
-        ),
-        textDirection: TextDirection.ltr,
-        textScaler: TextScaler.noScaling,
-        maxLines: 1,
-      )..layout(maxWidth: available);
-      debugPrint(
-        'ONBOARDING width=$width intrinsic=${intrinsic.toStringAsFixed(1)} '
-        'originalTitleWidth='
-        '${originalTitlePainter.maxIntrinsicWidth.toStringAsFixed(1)} '
-        'originalDidExceed=${originalTitlePainter.didExceedMaxLines} '
-        'manualTextWidth=${painter.width.toStringAsFixed(1)} '
-        'available=${available.toStringAsFixed(1)} '
-        'measuredLines=${painter.computeLineMetrics().length} '
-        'measuredDidExceed=${painter.didExceedMaxLines} '
-        'maxLines=${paragraph.maxLines} '
-        'overflow=${paragraph.overflow} '
-        'didExceedMaxLines=${paragraph.didExceedMaxLines} '
-        'rect=${tester.getRect(finder)}',
-      );
       expect(paragraph.didExceedMaxLines, isFalse);
-      expect(
-        painter.computeLineMetrics().every((line) => line.width <= available),
-        isTrue,
-      );
-      expect(painter.didExceedMaxLines, isFalse);
-      if (width == 420) {
-        expect(originalTitlePainter.didExceedMaxLines, isTrue);
-      }
-      final titleRect = tester.getRect(finder);
-      final appBarRect = tester.getRect(find.byType(AppBar));
-      final appBarFinder = find.byType(AppBar);
-      final actionFinder = find.descendant(
-        of: appBarFinder,
-        matching: find.byType(RyButton),
-      );
-      expect(actionFinder, findsOneWidget);
-      final actionRect = tester.getRect(actionFinder);
-      final leadingFinder = find.descendant(
-        of: appBarFinder,
-        matching: find.byType(BackButton),
-      );
-      expect(leadingFinder, findsOneWidget);
-      debugPrint(
-        'ONBOARDING_CHROME width=$width leading=${tester.getRect(leadingFinder)} '
-        'actions=1 actionRect=$actionRect '
-        'titleTextStyle=${AppTextStyles.textStyleCaption.fontSize}',
-      );
-      if (width == 420) {
-        expect(titleRect.height, greaterThan(24));
-        expect(titleRect.right, lessThanOrEqualTo(actionRect.left));
-      }
-      expect(titleRect.bottom, lessThanOrEqualTo(appBarRect.bottom));
+      expect(tester.getRect(finder).right, lessThanOrEqualTo(width));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }

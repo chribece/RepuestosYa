@@ -79,8 +79,9 @@ void main() {
     expect(vehicleButton.variant, RyButtonVariant.primary);
     expect(vehicleButton.isDisabled, isFalse);
 
-    expect(find.text('Omitir'), findsOneWidget);
-    expect(find.text('Omitir por ahora'), findsNothing);
+    expect(find.text('Saltar por ahora'), findsOneWidget);
+    expect(find.text('Ir al inicio'), findsNothing);
+    expect(find.text('Omitir'), findsNothing);
     expect(find.text('PASO ACTUAL'), findsNothing);
     expect(find.text('PENDIENTE'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -100,6 +101,34 @@ void main() {
       ),
     );
     expect(requestButton.isDisabled, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el enlace Saltar por ahora tiene al menos 48 dp de alto', (
+    tester,
+  ) async {
+    await pumpOnboarding(tester);
+
+    expect(
+      tester
+          .getSize(find.widgetWithText(OutlinedButton, 'Saltar por ahora'))
+          .height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('paso del vehículo completado ofrece Ver mi vehículo y el paso 3 '
+      'comunica el beneficio', (tester) async {
+    await pumpOnboarding(tester, hasVehicle: true);
+
+    expect(find.text('Ver mi vehículo'), findsOneWidget);
+    expect(find.text('Recibe cotizaciones'), findsOneWidget);
+    expect(
+      find.text('Compara precios y disponibilidad de almacenes cerca de ti.'),
+      findsOneWidget,
+    );
+    expect(find.text('Listo / Finalizar'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

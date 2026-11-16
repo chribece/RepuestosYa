@@ -13,10 +13,12 @@ class AppColors {
   static const surfaceContainerLow = Color(0xFF1C1B1B);
   static const surfaceContainerHigh = Color(0xFF2A2A2A);
   static const surfaceVariant = Color(0xFF353534);
+  static const cardSurface = Color(0xFF161618);
 
   // Colores de Texto
   static const onSurface = Color(0xFFE5E2E1);
   static const onSurfaceVariant = Color(0xFFE4BEB4);
+  static const textMuted = Color(0xFFA1A1AA);
 
   // Colores Secundarios
   static const secondary = Color(0xFF9ECAFF);

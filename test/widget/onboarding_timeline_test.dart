@@ -123,6 +123,9 @@ void main() {
     await pumpOnboarding(tester, hasVehicle: true);
 
     expect(find.text('Ver mi vehículo'), findsOneWidget);
+    expect(find.text('Ir al inicio'), findsOneWidget);
+    expect(find.text('Saltar por ahora'), findsNothing);
+    expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
     expect(find.text('Recibe cotizaciones'), findsOneWidget);
     expect(
       find.text('Compara precios y disponibilidad de almacenes cerca de ti.'),

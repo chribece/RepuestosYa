@@ -151,11 +151,31 @@ class _OnboardingPageState extends State<OnboardingPage> {
               action: requestStepActive
                   ? RyButton(
                       label: 'Crear solicitud',
-                      trailingIcon: Icons.arrow_forward,
                       variant: RyButtonVariant.primary,
                       size: RyButtonSize.large,
                       isFullWidth: true,
                       onPressed: _openRequestPage,
+                      customChild: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Crear solicitud',
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.textStyleButton.copyWith(
+                                color: SemanticColors.colorOnPrimaryButton,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.arrow_forward,
+                            size: 20,
+                            color: SemanticColors.colorOnPrimaryButton,
+                          ),
+                        ],
+                      ),
                     )
                   : null,
             ),
@@ -191,7 +211,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   ),
                 ),
                 child: Text(
-                  'Saltar por ahora',
+                  onboarding.hasVehicle ? 'Ir al inicio' : 'Saltar por ahora',
                   style: AppTextStyles.textStyleButton.copyWith(
                     color: AppColors.textMuted,
                   ),
@@ -243,9 +263,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
           color: isActive
               ? AppColors.primaryContainer.withValues(alpha: 0.45)
               : isCompleted
-              ? AppColors.success.withValues(alpha: 0.35)
+              ? const Color(0xFF22C55E).withValues(alpha: 0.35)
               : AppColors.outlineVariant.withValues(alpha: 0.35),
-          width: isActive ? 1.2 : 1,
+          width: isActive ? 1.2 : 1.0,
         ),
         boxShadow: isActive
             ? [

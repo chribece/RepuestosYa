@@ -252,6 +252,7 @@ class AppRouter {
             isOnboardingFlow:
                 state.uri.queryParameters['source'] == 'onboarding',
             initialCategoryId: state.uri.queryParameters['categoryId'],
+            vehiculoId: state.uri.queryParameters['vehiculoId'],
           ),
         ),
         GoRoute(

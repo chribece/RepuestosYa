@@ -6,7 +6,6 @@ import 'package:repuestosya/pages/vehicles_page.dart';
 import 'package:repuestosya/services/marca_service.dart';
 import 'package:repuestosya/services/modelo_service.dart';
 import 'package:repuestosya/services/vehiculo_service.dart';
-import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_button.dart';
 
@@ -106,14 +105,11 @@ void main() {
       );
       expect(
         destructiveButton.style!.backgroundColor!.resolve({}),
-        Color.alphaBlend(
-          AppColors.error.withValues(alpha: 0.32),
-          AppColors.surfaceContainerHigh,
-        ),
+        const Color(0xFFDC2626),
       );
       expect(
         destructiveButton.style!.foregroundColor!.resolve({}),
-        SemanticColors.colorErrorText,
+        Colors.white,
       );
 
       await tester.tap(find.widgetWithText(OutlinedButton, 'Cancelar'));
@@ -355,13 +351,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Placa: PBX-1234'), findsOneWidget);
-    expect(find.text('VIN: ...4352'), findsOneWidget);
+    expect(find.text('VIN: ...004352'), findsOneWidget);
+    expect(
+      find.text('Solicitar repuesto para este vehículo →'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Toyota Corolla'));
     await tester.pumpAndSettle();
 
     expect(find.text('Detalle del vehículo'), findsOneWidget);
-    expect(find.text('1HGCM82633A004352'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SelectableText && widget.data == '1HGCM82633A004352',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('PBX-1234'), findsOneWidget);
 
     final portapapeles = <String>[];

@@ -47,6 +47,7 @@ class CreateRequestPage extends StatefulWidget {
     this.ubicacionService,
     this.isOnboardingFlow = false,
     this.initialCategoryId,
+    this.vehiculoId,
   });
 
   /// Servicios inyectables para widget tests (Fase 2 de docs/TESTING.md):
@@ -58,6 +59,7 @@ class CreateRequestPage extends StatefulWidget {
   final UbicacionService? ubicacionService;
   final bool isOnboardingFlow;
   final String? initialCategoryId;
+  final String? vehiculoId;
 
   @override
   State<CreateRequestPage> createState() => _CreateRequestPageState();
@@ -121,6 +123,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       final initialCategoryId = widget.initialCategoryId;
       if (initialCategoryId != null && initialCategoryId.isNotEmpty) {
         provider.prepareNewRequestForCategory(initialCategoryId);
+      }
+      final vehiculoId = widget.vehiculoId;
+      if (vehiculoId != null && vehiculoId.isNotEmpty) {
+        provider.updateVehiculo(vehiculoId);
       }
       final additionalParts = provider.additionalParts;
       final firstIncomplete = additionalParts

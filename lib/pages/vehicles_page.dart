@@ -90,13 +90,9 @@ class _VehiclesPageState extends State<VehiclesPage> {
     final vehicleLabel = [marca?['nombre'], modelo?['nombre'], vehiculo['anio']]
         .where((value) => value != null && value.toString().trim().isNotEmpty)
         .join(' ');
-    final destructiveSurface = Color.alphaBlend(
-      AppColors.error.withValues(alpha: 0.32),
-      AppColors.surfaceContainerHigh,
-    );
-
     final confirm = await showDialog<bool>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.80),
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
         shape: RoundedRectangleBorder(
@@ -127,7 +123,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
               '¿Estás seguro de que deseas eliminar este vehículo? '
               'Esta acción no se puede deshacer.',
               style: AppTextStyles.textStyleBody.copyWith(
-                color: AppColors.onSurfaceVariant,
+                color: Colors.white70,
               ),
             ),
           ],
@@ -147,12 +143,12 @@ class _VehiclesPageState extends State<VehiclesPage> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context, false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.onSurfaceVariant,
+                      foregroundColor: Colors.white70,
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.spacingSm,
                       ),
-                      side: BorderSide(color: AppColors.outlineVariant),
+                      side: const BorderSide(color: Colors.white24),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
                       ),
@@ -165,8 +161,8 @@ class _VehiclesPageState extends State<VehiclesPage> {
                   child: TextButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: TextButton.styleFrom(
-                      foregroundColor: SemanticColors.colorErrorText,
-                      backgroundColor: destructiveSurface,
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFDC2626),
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.spacingSm,
@@ -175,7 +171,10 @@ class _VehiclesPageState extends State<VehiclesPage> {
                         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
                       ),
                     ),
-                    child: const Text('Eliminar'),
+                    child: const Text(
+                      'Eliminar',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],
@@ -208,6 +207,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
   void _mostrarFormularioVehiculo([Map<String, dynamic>? vehiculo]) {
     showDialog(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.80),
       builder: (context) => VehicleFormDialog(
         vehiculo: vehiculo,
         vehiculoService: widget.vehiculoService,
@@ -220,10 +220,40 @@ class _VehiclesPageState extends State<VehiclesPage> {
     );
   }
 
+  Widget _botonAccionVehiculo({
+    required IconData icon,
+    required String tooltip,
+    required Color colorIcono,
+    required Color fondo,
+    required Color borde,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPressed,
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: fondo,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borde),
+            ),
+            child: Icon(icon, color: colorIcono, size: 18),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _mostrarDetalleVehiculo(Map<String, dynamic> vehiculo) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1D),
+      backgroundColor: const Color(0xFF1E1E22),
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -296,6 +326,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
                 final anioRaw = vehiculo['anio'];
                 final anio = anioRaw?.toString();
                 final patente = vehiculo['placa'] as String?;
+                final id = vehiculo['id']?.toString() ?? '';
 
                 final detalleStyle = AppTextStyles.textStyleCaption.copyWith(
                   fontSize: 13,
@@ -303,89 +334,153 @@ class _VehiclesPageState extends State<VehiclesPage> {
                   color: Colors.white70,
                 );
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
-                  decoration: BoxDecoration(
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.spacingMd),
+                  child: Material(
                     color: AppColors.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                    border: Border.all(color: AppColors.outlineVariant),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-                    onTap: () => _mostrarDetalleVehiculo(vehiculo),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryContainer.withValues(
-                                alpha: 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.radiusMd,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.directions_car,
-                              color: AppColors.primaryContainer,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.spacingMd),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                    clipBehavior: Clip.antiAlias,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.radiusLg),
+                      side: BorderSide(color: AppColors.outlineVariant),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: () => _mostrarDetalleVehiculo(vehiculo),
+                          child: Padding(
+                            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+                            child: Row(
                               children: [
-                                Text(
-                                  marca != null && modelo != null
-                                      ? '${marca['nombre']} ${modelo['nombre']}'
-                                      : 'Vehículo',
-                                  style: AppTextStyles.textStyleBody.copyWith(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryContainer
+                                        .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.radiusMd,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.directions_car,
+                                    color: AppColors.primaryContainer,
+                                    size: 22,
                                   ),
                                 ),
-                                const SizedBox(height: AppSpacing.spacingXs),
-                                if (anio != null)
-                                  Text('Año: $anio', style: detalleStyle),
-                                if (patente != null && patente.isNotEmpty)
-                                  Text('Placa: $patente', style: detalleStyle),
-                                Text(
-                                  'VIN: ${vin.length > 4 ? '...${vin.substring(vin.length - 4)}' : vin}',
-                                  style: detalleStyle,
+                                const SizedBox(width: AppSpacing.spacingMd),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        marca != null && modelo != null
+                                            ? '${marca['nombre']} ${modelo['nombre']}'
+                                            : 'Vehículo',
+                                        style: AppTextStyles.textStyleBody
+                                            .copyWith(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                      ),
+                                      const SizedBox(
+                                        height: AppSpacing.spacingXs,
+                                      ),
+                                      if (anio != null)
+                                        Text('Año: $anio', style: detalleStyle),
+                                      if (patente != null && patente.isNotEmpty)
+                                        Text(
+                                          'Placa: $patente',
+                                          style: detalleStyle,
+                                        ),
+                                      Text(
+                                        'VIN: ${vin.length >= 6 ? '...${vin.substring(vin.length - 6)}' : vin}',
+                                        style: detalleStyle,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.spacingSm),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _botonAccionVehiculo(
+                                      icon: Icons.edit_outlined,
+                                      tooltip: 'Editar vehículo',
+                                      colorIcono: Colors.white70,
+                                      fondo: const Color(0xFF1E1E22),
+                                      borde: Colors.white12,
+                                      onPressed: () =>
+                                          _mostrarFormularioVehiculo(vehiculo),
+                                    ),
+                                    const SizedBox(width: AppSpacing.spacingXs),
+                                    _botonAccionVehiculo(
+                                      icon: Icons.delete_outline,
+                                      tooltip: 'Eliminar vehículo',
+                                      colorIcono: const Color(0xFFEF4444),
+                                      fondo: const Color(0x1AEF4444),
+                                      borde: const Color(0x40EF4444),
+                                      onPressed: () =>
+                                          _eliminarVehiculo(vehiculo),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.spacingSm),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white70,
-                                ),
-                                tooltip: 'Editar vehículo',
-                                onPressed: () =>
-                                    _mostrarFormularioVehiculo(vehiculo),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: Color(0xFFEF4444),
-                                ),
-                                tooltip: 'Eliminar vehículo',
-                                onPressed: () => _eliminarVehiculo(vehiculo),
-                              ),
-                            ],
+                        ),
+                        const Divider(
+                          color: Colors.white10,
+                          height: 20,
+                          indent: AppSpacing.spacingMd,
+                          endIndent: AppSpacing.spacingMd,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.spacingMd,
+                            0,
+                            AppSpacing.spacingMd,
+                            AppSpacing.spacingMd,
                           ),
-                        ],
-                      ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.radiusMd,
+                            ),
+                            onTap: id.isEmpty
+                                ? null
+                                : () => context.push(
+                                    '/request/create?vehiculoId=${Uri.encodeQueryComponent(id)}',
+                                  ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppSpacing.spacingXs,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.search_rounded,
+                                    size: 18,
+                                    color: AppColors.primaryContainer,
+                                  ),
+                                  const SizedBox(width: AppSpacing.spacingSm),
+                                  Expanded(
+                                    child: Text(
+                                      'Solicitar repuesto para este vehículo →',
+                                      style: AppTextStyles.textStyleCaption
+                                          .copyWith(
+                                            color: AppColors.primaryContainer,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -412,7 +507,7 @@ class _DetalleVehiculoSheetState extends State<_DetalleVehiculoSheet> {
     if (mounted) setState(() => _vinCopiado = true);
   }
 
-  Widget _fila(String etiqueta, String valor) {
+  Widget _fila(String etiqueta, String valor, {bool seleccionable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.spacingXs),
       child: Row(
@@ -428,13 +523,21 @@ class _DetalleVehiculoSheetState extends State<_DetalleVehiculoSheet> {
             ),
           ),
           Expanded(
-            child: Text(
-              valor,
-              style: AppTextStyles.textStyleBody.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: seleccionable
+                ? SelectableText(
+                    valor,
+                    style: AppTextStyles.textStyleBody.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : Text(
+                    valor,
+                    style: AppTextStyles.textStyleBody.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -450,49 +553,60 @@ class _DetalleVehiculoSheetState extends State<_DetalleVehiculoSheet> {
     final placa = (vehiculo['placa'] as String? ?? '').trim();
     final anio = vehiculo['anio']?.toString() ?? '';
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.spacingLg,
-            0,
-            AppSpacing.spacingLg,
-            AppSpacing.spacingLg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Detalle del vehículo',
-                style: AppTextStyles.textStyleTitle.copyWith(
-                  color: Colors.white,
-                ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(AppRadius.radiusLg),
+      ),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1E1E22),
+          border: Border(top: BorderSide(color: Colors.white12)),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.spacingLg,
+                0,
+                AppSpacing.spacingLg,
+                AppSpacing.spacingLg,
               ),
-              const SizedBox(height: AppSpacing.spacingMd),
-              _fila('Marca', marca?['nombre']?.toString() ?? '—'),
-              _fila('Modelo', modelo?['nombre']?.toString() ?? '—'),
-              _fila('Año', anio.isEmpty ? '—' : anio),
-              _fila('Placa', placa.isEmpty ? '—' : placa),
-              _fila('VIN', vin.isEmpty ? '—' : vin),
-              const SizedBox(height: AppSpacing.spacingMd),
-              OutlinedButton.icon(
-                onPressed: vin.isEmpty ? null : () => _copiarVin(vin),
-                icon: Icon(
-                  _vinCopiado ? Icons.check_rounded : Icons.copy_rounded,
-                  size: 18,
-                ),
-                label: Text(_vinCopiado ? 'VIN copiado' : 'Copiar VIN'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(0, 48),
-                  side: const BorderSide(color: Colors.white24),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Detalle del vehículo',
+                    style: AppTextStyles.textStyleTitle.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _fila('Marca', marca?['nombre']?.toString() ?? '—'),
+                  _fila('Modelo', modelo?['nombre']?.toString() ?? '—'),
+                  _fila('Año', anio.isEmpty ? '—' : anio),
+                  _fila('Placa', placa.isEmpty ? '—' : placa),
+                  _fila('VIN', vin.isEmpty ? '—' : vin, seleccionable: true),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  OutlinedButton.icon(
+                    onPressed: vin.isEmpty ? null : () => _copiarVin(vin),
+                    icon: Icon(
+                      _vinCopiado ? Icons.check_rounded : Icons.copy_rounded,
+                      size: 18,
+                    ),
+                    label: Text(_vinCopiado ? 'VIN copiado' : 'Copiar VIN'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 48),
+                      side: const BorderSide(color: Colors.white24),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

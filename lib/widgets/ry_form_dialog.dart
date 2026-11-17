@@ -68,9 +68,13 @@ class RyFormDialog extends StatelessWidget {
               fit: FlexFit.loose,
               child: SingleChildScrollView(
                 key: const ValueKey('ry-form-dialog-scroll'),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingLg,
-                  vertical: AppSpacing.spacingSm,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.spacingLg,
+                  AppSpacing.spacingSm,
+                  AppSpacing.spacingLg,
+                  24,
                 ),
                 child: content,
               ),

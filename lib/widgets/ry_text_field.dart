@@ -55,6 +55,9 @@ class RyTextField extends StatefulWidget {
   final Widget? prefixWidget;
   final Widget? suffixWidget;
   final FocusNode? focusNode;
+  final TextCapitalization textCapitalization;
+
+  final EdgeInsets scrollPadding;
 
   const RyTextField({
     super.key,
@@ -88,6 +91,8 @@ class RyTextField extends StatefulWidget {
     this.prefixWidget,
     this.suffixWidget,
     this.focusNode,
+    this.textCapitalization = TextCapitalization.none,
+    this.scrollPadding = const EdgeInsets.all(20),
   });
 
   @override
@@ -219,6 +224,8 @@ class _RyTextFieldState extends State<RyTextField> {
         focusNode: widget.focusNode,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         keyboardType: _getKeyboardType(),
+        textCapitalization: widget.textCapitalization,
+        scrollPadding: widget.scrollPadding,
         inputFormatters: _getInputFormatters(),
         obscureText: _getObscureText(),
         maxLines: _getMaxLines(),

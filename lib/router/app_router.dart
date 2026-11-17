@@ -226,7 +226,10 @@ class AppRouter {
         GoRoute(
           path: '/profile/vehicles',
           name: RouteNames.vehicles,
-          builder: (context, state) => const VehiclesPage(),
+          builder: (context, state) => VehiclesPage(
+            abrirFormularioInicial:
+                state.uri.queryParameters['source'] == 'onboarding',
+          ),
         ),
 
         // Flujo Cliente: ruta privada y destino del redirect de onboarding.

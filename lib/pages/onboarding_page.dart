@@ -27,8 +27,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     });
   }
 
-  Future<void> _openVehiclePage() async {
-    await context.push('/profile/vehicles');
+  Future<void> _openVehiclePage({bool desdeOnboarding = false}) async {
+    await context.push(
+      desdeOnboarding
+          ? '/profile/vehicles?source=onboarding'
+          : '/profile/vehicles',
+    );
     if (mounted) {
       await context.read<OnboardingProvider>().load();
     }
@@ -124,7 +128,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       variant: RyButtonVariant.primary,
                       size: RyButtonSize.large,
                       isFullWidth: true,
-                      onPressed: _openVehiclePage,
+                      onPressed: () => _openVehiclePage(desdeOnboarding: true),
                     )
                   : onboarding.hasVehicle
                   ? RyButton(

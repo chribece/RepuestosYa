@@ -14,6 +14,7 @@ class AppColors {
   static const surfaceContainerHigh = Color(0xFF2A2A2A);
   static const surfaceVariant = Color(0xFF353534);
   static const cardSurface = Color(0xFF161618);
+  static const inputFill = Color(0xFF141416);
 
   // Colores de Texto
   static const onSurface = Color(0xFFE5E2E1);

@@ -24,7 +24,6 @@ void main() {
   const vinHelper = '17 caracteres; sin I, O ni Q.';
   final latestAllowedYear = DateTime.now().year + 1;
   final yearRangeHint = 'Rango: 1900-$latestAllowedYear.';
-  final yearRangeMessage = 'Ingresa un año entre 1900 y $latestAllowedYear.';
 
   Future<void> setViewport(
     WidgetTester tester, {
@@ -436,10 +435,11 @@ void main() {
       find.byType(TextFormField).at(0),
       '2A4KM4A67GH123456',
     );
-    await tester.enterText(
-      find.byType(TextFormField).at(1),
-      DateTime.now().year.toString(),
-    );
+    tester
+        .widget<DropdownButtonFormField<int>>(
+          find.byType(DropdownButtonFormField<int>),
+        )
+        .onChanged!(DateTime.now().year);
     await tester.pumpAndSettle();
 
     final saveButton = tester.widget<RyButton>(
@@ -489,10 +489,10 @@ void main() {
       expect(helperRect.bottom, lessThanOrEqualTo(scrollRect.bottom));
       expect(paragraph.didExceedMaxLines, isFalse, reason: helper);
     }
-    expect(find.text('Ej: ABC-1234'), findsOneWidget);
+    expect(find.text('Ej: PBX-1234'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byType(TextField).at(1)).keyboardType,
-      TextInputType.number,
+      tester.widget<TextField>(find.byType(TextField).at(1)).textCapitalization,
+      TextCapitalization.characters,
     );
     expect(tester.takeException(), isNull);
   });
@@ -525,7 +525,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('VIN corto y año fuera de rango muestran errores a 420 px', (
+  testWidgets('VIN corto y placa inválida muestran errores a 420 px', (
     tester,
   ) async {
     await setViewport(tester, width: 420);
@@ -544,19 +544,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), '123');
-    await tester.enterText(find.byType(TextFormField).at(1), '1800');
-    await tester.enterText(find.byType(TextFormField).at(2), 'ABC-12');
+    await tester.enterText(find.byType(TextFormField).at(1), 'ABC-12');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
     expect(find.text(vinError), findsOneWidget);
-    expect(find.text(yearRangeMessage), findsOneWidget);
     expect(find.text('Usa 3 letras y 3-4 números.'), findsOneWidget);
-    for (final message in [
-      vinError,
-      yearRangeMessage,
-      'Usa 3 letras y 3-4 números.',
-    ]) {
+    for (final message in [vinError, 'Usa 3 letras y 3-4 números.']) {
       expect(
         tester
             .renderObject<RenderParagraph>(find.text(message))

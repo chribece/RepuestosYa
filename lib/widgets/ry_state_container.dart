@@ -11,6 +11,7 @@ class RyStateContainer extends StatelessWidget {
   final String? actionLabel;
   final RyStateType type;
   final IconData? customIcon;
+  final Color? customIconColor;
   final VoidCallback? onAction;
   final Widget? customContent;
 
@@ -21,6 +22,7 @@ class RyStateContainer extends StatelessWidget {
     this.actionLabel,
     required this.type,
     this.customIcon,
+    this.customIconColor,
     this.onAction,
     this.customContent,
   });
@@ -60,7 +62,7 @@ class RyStateContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final icon = _getIcon();
-    final iconColor = _getIconColor();
+    final iconColor = customIconColor ?? _getIconColor();
 
     if (type == RyStateType.loading) {
       return Center(

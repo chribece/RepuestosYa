@@ -207,7 +207,7 @@ class _VehiclesPageState extends State<VehiclesPage> {
   void _mostrarFormularioVehiculo([Map<String, dynamic>? vehiculo]) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.80),
+      barrierColor: Colors.black.withValues(alpha: 0.90),
       builder: (context) => VehicleFormDialog(
         vehiculo: vehiculo,
         vehiculoService: widget.vehiculoService,
@@ -1214,6 +1214,10 @@ class _VehicleFormDialogState extends State<VehicleFormDialog> {
       child: Theme(
         data: _temaFormulario(Theme.of(context)),
         child: RyFormDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 20,
+          ),
           title: widget.vehiculo != null
               ? 'Editar Vehículo'
               : 'Agregar Vehículo',

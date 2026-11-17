@@ -13,6 +13,7 @@ class RyFormDialog extends StatelessWidget {
   final Widget content;
   final List<Widget> actions;
   final Color backgroundColor;
+  final EdgeInsets insetPadding;
 
   const RyFormDialog({
     super.key,
@@ -20,6 +21,10 @@ class RyFormDialog extends StatelessWidget {
     required this.content,
     required this.actions,
     this.backgroundColor = AppColors.surfaceContainerHigh,
+    this.insetPadding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.spacingMd,
+      vertical: AppSpacing.spacingMd,
+    ),
   });
 
   @override
@@ -35,10 +40,7 @@ class RyFormDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: backgroundColor,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.spacingMd,
-        vertical: AppSpacing.spacingMd,
-      ),
+      insetPadding: insetPadding,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
       ),

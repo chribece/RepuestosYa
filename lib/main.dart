@@ -97,7 +97,6 @@ class MyApp extends StatelessWidget {
     );
     userRoleRepository = UserRoleRepositoryImpl();
     onboardingProvider = OnboardingProvider(repository: onboardingRepository);
-    unawaited(onboardingProvider.load());
     AuthService().authStateChanges.listen((state) {
       if (state.user != null) unawaited(onboardingProvider.load());
     });

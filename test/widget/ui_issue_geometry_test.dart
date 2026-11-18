@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:getwidget/getwidget.dart';
 import 'package:provider/provider.dart';
 
 import 'package:repuestosya/pages/addresses_page.dart';
@@ -12,7 +11,6 @@ import 'package:repuestosya/providers/onboarding_provider.dart';
 import 'package:repuestosya/services/marca_service.dart';
 import 'package:repuestosya/services/modelo_service.dart';
 import 'package:repuestosya/services/onboarding_repository.dart';
-import 'package:repuestosya/theme/app_colors.dart';
 import 'package:repuestosya/theme/app_text_styles.dart';
 import 'package:repuestosya/theme/app_theme.dart';
 import 'package:repuestosya/widgets/ry_button.dart';
@@ -336,12 +334,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Toyota'), findsOneWidget);
-    expect(find.text('Corolla'), findsOneWidget);
+    expect(find.text('Toyota • Corolla'), findsOneWidget);
+    expect(find.byTooltip('Cambiar marca y modelo'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('modelo obsoleto al editar muestra el selector vacío sin error', (
+  testWidgets('modelo retirado al editar conserva la selección del vehículo', (
     tester,
   ) async {
     await setViewport(tester, width: 420);
@@ -370,9 +368,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Toyota'), findsOneWidget);
-    expect(find.text('Selecciona un modelo'), findsOneWidget);
-    expect(find.text('Modelo retirado'), findsNothing);
+    expect(find.text('Toyota • Modelo retirado'), findsOneWidget);
+    expect(find.text('Selecciona un modelo'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -420,19 +417,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final marcaDropdown = tester.widget<GFDropdown<int>>(
-      find.byType(GFDropdown<int>).at(0),
-    );
-    marcaDropdown.onChanged!(7);
+    await tester.enterText(find.byType(TextFormField).first, 'corol');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Toyota • Corolla'));
     await tester.pumpAndSettle();
 
-    final modeloDropdown = tester.widget<GFDropdown<int>>(
-      find.byType(GFDropdown<int>).at(1),
-    );
-    modeloDropdown.onChanged!(11);
-
     await tester.enterText(
-      find.byType(TextFormField).at(0),
+      find.byType(TextFormField).first,
       '2A4KM4A67GH123456',
     );
     tester
@@ -470,12 +461,10 @@ void main() {
 
     final vinCounter = find.text('0/17');
     expect(vinCounter, findsOneWidget);
-    expect(
-      tester.widget<Text>(vinCounter).style?.color,
-      AppColors.onSurfaceVariant.withValues(alpha: 0.75),
-    );
+    expect(tester.widget<Text>(vinCounter).style?.color, Colors.white54);
 
-    for (final helper in [vinHelper, yearRangeHint]) {
+    expect(find.text(yearRangeHint), findsNothing);
+    for (final helper in [vinHelper]) {
       final finder = find.text(helper);
       expect(finder, findsOneWidget);
       await tester.ensureVisible(finder);
@@ -491,7 +480,7 @@ void main() {
     }
     expect(find.text('Ej: PBX-1234'), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byType(TextField).at(1)).textCapitalization,
+      tester.widget<TextField>(find.byType(TextField).at(2)).textCapitalization,
       TextCapitalization.characters,
     );
     expect(tester.takeException(), isNull);
@@ -515,11 +504,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final vinField = find.byType(TextFormField).at(0);
+    final vinField = find.byType(TextFormField).at(1);
     await tester.enterText(vinField, '2a4km4a67gh123456ZZ');
 
     expect(
-      tester.widget<TextField>(find.byType(TextField).at(0)).controller!.text,
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
       '2A4KM4A67GH123456',
     );
     expect(tester.takeException(), isNull);
@@ -543,8 +532,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), '123');
-    await tester.enterText(find.byType(TextFormField).at(1), 'ABC-12');
+    await tester.enterText(find.byType(TextFormField).at(1), '123');
+    await tester.enterText(find.byType(TextFormField).at(2), 'ABC-12');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 

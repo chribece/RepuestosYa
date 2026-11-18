@@ -11,6 +11,7 @@ import '../pages/register_almacen_page.dart';
 import '../pages/complete_profile_page.dart';
 import '../pages/home_page.dart';
 import '../pages/onboarding_page.dart';
+import '../pages/startup_loading_page.dart';
 import '../pages/warehouse_dashboard.dart';
 import '../pages/warehouse_requests_page.dart';
 import '../pages/create_request_page.dart';
@@ -117,10 +118,21 @@ class AppRouter {
 
         // Si está en una ruta pública (login/welcome/etc), mandarlo a su Home
         // o, tras reiniciar la app, a la última pantalla privada visitada.
+        final bool onboardingPendiente =
+            role == UserRole.cliente && !onboardingProvider.isInitialized;
+
         if (isPublicRoute) {
+          if (onboardingPendiente) return '/cargando';
           final lastRoute = LastRouteStore.takeRestorable();
           return lastRoute ?? _getHomeRoute(role);
         }
+
+        if (location == '/cargando') {
+          if (onboardingPendiente) return null;
+          return LastRouteStore.takeRestorable() ?? _getHomeRoute(role);
+        }
+
+        if (onboardingPendiente) return '/cargando';
         LastRouteStore.save(state.uri.toString());
 
         // Protección de rutas por rol (Cross-role protection)
@@ -195,6 +207,11 @@ class AppRouter {
               builder: (context, state) => const RegisterAlmacenPage(),
             ),
           ],
+        ),
+
+        GoRoute(
+          path: '/cargando',
+          builder: (context, state) => const StartupLoadingPage(),
         ),
 
         // Privadas comunes

@@ -14,6 +14,7 @@ class OnboardingProvider with ChangeNotifier {
   bool _hasVehicle = false;
   bool _hasRequest = false;
   bool _isSkipped = false;
+  bool _isInitialized = false;
   String? _errorMessage;
 
   bool get isLoadingVehicle => _isLoadingVehicle;
@@ -24,6 +25,7 @@ class OnboardingProvider with ChangeNotifier {
   bool get isSkipped => _isSkipped;
   String? get errorMessage => _errorMessage;
   bool get isLoading => _isLoadingVehicle || _isLoadingRequest;
+  bool get isInitialized => _isInitialized;
 
   Future<void> load() async {
     _isLoadingVehicle = true;
@@ -46,6 +48,7 @@ class OnboardingProvider with ChangeNotifier {
     } finally {
       _isLoadingVehicle = false;
       _isLoadingRequest = false;
+      _isInitialized = true;
       notifyListeners();
     }
   }

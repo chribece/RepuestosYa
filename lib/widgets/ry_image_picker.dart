@@ -34,6 +34,7 @@ class RyImagePicker extends StatelessWidget {
   final VoidCallback? onViewFullImage;
   final Widget? customPreview;
   final Widget? customPlaceholder;
+  final bool neutral;
 
   const RyImagePicker({
     super.key,
@@ -53,6 +54,7 @@ class RyImagePicker extends StatelessWidget {
     this.onViewFullImage,
     this.customPreview,
     this.customPlaceholder,
+    this.neutral = false,
   });
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
@@ -353,9 +355,14 @@ class RyImagePicker extends StatelessWidget {
           width: effectiveWidth,
           height: effectiveHeight,
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerLow,
+            color: neutral
+                ? const Color(0xFF1A1A1D)
+                : AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-            border: Border.all(color: AppColors.outlineVariant, width: 1),
+            border: Border.all(
+              color: neutral ? Colors.white12 : AppColors.outlineVariant,
+              width: 1,
+            ),
           ),
           child: _buildContent(effectiveWidth, effectiveHeight),
         ),
@@ -428,13 +435,13 @@ class RyImagePicker extends StatelessWidget {
           Icon(
             Icons.add_photo_alternate_outlined,
             size: 48,
-            color: AppColors.onSurfaceVariant,
+            color: neutral ? AppColors.textMuted : AppColors.onSurfaceVariant,
           ),
           const SizedBox(height: AppSpacing.spacingSm),
           Text(
             'Toca para seleccionar',
             style: AppTextStyles.textStyleCaption.copyWith(
-              color: AppColors.onSurfaceVariant,
+              color: neutral ? AppColors.textMuted : AppColors.onSurfaceVariant,
             ),
           ),
         ],

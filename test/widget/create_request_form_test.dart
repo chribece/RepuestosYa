@@ -175,7 +175,7 @@ void main() {
 
       expect(find.text('Pendiente de verificar'), findsOneWidget);
       expect(find.textContaining('Ubicación pendiente — toca'), findsNothing);
-      expect(find.text('BUSCAR REPUESTO'), findsOneWidget);
+      expect(find.text('Buscar repuesto'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -408,7 +408,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Pastillas de freno'), findsWidgets);
-      expect(find.text('BUSCAR REPUESTO'), findsOneWidget);
+      expect(find.text('Buscar repuesto'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -419,9 +419,9 @@ void main() {
       await pumpForm(tester);
 
       // Dirección con coordenadas auto-seleccionada → botón habilitado.
-      expect(find.text('BUSCAR REPUESTO'), findsOneWidget);
+      expect(find.text('Buscar repuesto'), findsOneWidget);
 
-      await tester.tap(find.text('BUSCAR REPUESTO'));
+      await tester.tap(find.text('Buscar repuesto'));
       await tester.pump();
 
       // El validator del formulario bloquea: error de campo visible...
@@ -447,7 +447,7 @@ void main() {
       await pumpForm(tester, provider: provider);
       await seleccionarVehiculo(tester);
 
-      await tester.tap(find.text('BUSCAR REPUESTO'));
+      await tester.tap(find.text('Buscar repuesto'));
       await tester.pump();
 
       expect(
@@ -480,7 +480,7 @@ void main() {
       await pumpForm(tester, provider: provider);
       await seleccionarVehiculo(tester);
 
-      await tester.tap(find.text('BUSCAR REPUESTO'));
+      await tester.tap(find.text('Buscar repuesto'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -508,7 +508,7 @@ void main() {
       await pumpForm(tester, provider: provider, isOnboardingFlow: true);
       await seleccionarVehiculo(tester);
 
-      await tester.tap(find.text('BUSCAR REPUESTO'));
+      await tester.tap(find.text('Buscar repuesto'));
       await tester.pumpAndSettle();
 
       expect(find.text('¡Solicitud enviada con éxito!'), findsOneWidget);

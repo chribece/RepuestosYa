@@ -57,6 +57,10 @@ class RyBottomActionBar extends StatelessWidget {
   /// Borde superior separador del contenido.
   final bool showTopBorder;
 
+  /// Botón primario personalizado. Si se indica, reemplaza al [RyButton] del
+  /// botón primario (los parámetros primario* se ignoran).
+  final Widget? primaryButton;
+
   const RyBottomActionBar({
     super.key,
     required this.primaryLabel,
@@ -72,6 +76,7 @@ class RyBottomActionBar extends StatelessWidget {
     this.banner,
     this.backgroundColor = AppColors.surfaceContainerHigh,
     this.showTopBorder = true,
+    this.primaryButton,
   });
 
   @override
@@ -113,16 +118,18 @@ class RyBottomActionBar extends StatelessWidget {
                   ],
                   Expanded(
                     flex: secondaryLabel != null ? 2 : 1,
-                    child: RyButton(
-                      label: primaryLabel,
-                      icon: primaryIcon,
-                      variant: primaryVariant,
-                      size: RyButtonSize.large,
-                      isLoading: primaryLoading,
-                      isFullWidth: true,
-                      isDisabled: primaryDisabled,
-                      onPressed: onPrimaryPressed,
-                    ),
+                    child:
+                        primaryButton ??
+                        RyButton(
+                          label: primaryLabel,
+                          icon: primaryIcon,
+                          variant: primaryVariant,
+                          size: RyButtonSize.large,
+                          isLoading: primaryLoading,
+                          isFullWidth: true,
+                          isDisabled: primaryDisabled,
+                          onPressed: onPrimaryPressed,
+                        ),
                   ),
                 ],
               ),

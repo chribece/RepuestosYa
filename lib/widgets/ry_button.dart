@@ -33,6 +33,9 @@ class RyButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final Widget? customChild;
 
+  /// Color del borde de la variante `outline` (por defecto `outlineVariant`).
+  final Color? borderColor;
+
   const RyButton({
     super.key,
     required this.label,
@@ -47,6 +50,7 @@ class RyButton extends StatelessWidget {
     this.horizontalPadding,
     this.onPressed,
     this.customChild,
+    this.borderColor,
   });
 
   double _getHeight() {
@@ -119,7 +123,7 @@ class RyButton extends StatelessWidget {
   BorderSide? _getBorderSide(BuildContext context) {
     switch (variant) {
       case RyButtonVariant.outline:
-        return const BorderSide(color: AppColors.outlineVariant);
+        return BorderSide(color: borderColor ?? AppColors.outlineVariant);
       case RyButtonVariant.outlineDanger:
         return BorderSide(color: SemanticColors.colorErrorText);
       case RyButtonVariant.primary:

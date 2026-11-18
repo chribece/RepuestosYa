@@ -35,6 +35,7 @@ class RyImagePicker extends StatelessWidget {
   final Widget? customPreview;
   final Widget? customPlaceholder;
   final bool neutral;
+  final Color? borderColor;
 
   const RyImagePicker({
     super.key,
@@ -55,6 +56,7 @@ class RyImagePicker extends StatelessWidget {
     this.customPreview,
     this.customPlaceholder,
     this.neutral = false,
+    this.borderColor,
   });
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
@@ -360,7 +362,9 @@ class RyImagePicker extends StatelessWidget {
                 : AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(AppRadius.radiusMd),
             border: Border.all(
-              color: neutral ? Colors.white12 : AppColors.outlineVariant,
+              color:
+                  borderColor ??
+                  (neutral ? Colors.white12 : AppColors.outlineVariant),
               width: 1,
             ),
           ),

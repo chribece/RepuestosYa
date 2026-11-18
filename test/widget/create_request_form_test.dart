@@ -157,9 +157,9 @@ void main() {
 
       final orderedElements = [
         requiredLabel('Selecciona tu vehículo'),
-        find.text('Toca para seleccionar'),
         find.text('Repuesto'),
         find.text('Categoría de repuesto'),
+        find.text('Agregar foto del repuesto (opcional)'),
         find.text('Detalles adicionales'),
         find.text('Repuestos adicionales'),
         find.text('Prioridad de la solicitud'),

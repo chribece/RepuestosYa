@@ -1297,101 +1297,104 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       });
     }
 
-    return Theme(
-      data: _temaCreacion(Theme.of(context)),
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _volverAtras();
+      },
+      child: Theme(
+        data: _temaCreacion(Theme.of(context)),
+        child: Scaffold(
           backgroundColor: AppColors.background,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            tooltip: 'Regresar',
-            onPressed: () => context.pop(),
-          ),
-          title: Text('Crear Solicitud', style: AppTextStyles.textStyleHeading),
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.spacingMd),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildOfflineBanner(syncProvider.isOffline),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'NUEVA BÚSQUEDA',
-                      style: AppTextStyles.textStyleSmall.copyWith(
-                        color: AppColors.textMuted,
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.spacingXxs),
-                    Text(
-                      '¿Qué repuesto necesitas?',
-                      style: AppTextStyles.textStyleDisplay,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildVehicleDropdown(provider),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildImageSection(provider),
-                const SizedBox(height: AppSpacing.spacingLg),
-                _buildBuscadorRepuesto(provider),
-                const SizedBox(height: AppSpacing.spacingMd),
-                RyTextField(
-                  label: 'Detalles adicionales',
-                  initialValue: provider.descripcion,
-                  hint:
-                      'Lado izquierdo/derecho, amperaje, número de pines o tamaño.',
-                  // El máximo permite todos los wraps con fuentes fallback y no
-                  // altera la altura si el texto real ocupa menos líneas.
-                  hintMaxLines: 8,
-                  helperText:
-                      'Ej: Marca específica, lado (izq/der) o código del repuesto.',
-                  helperMaxLines: 4,
-                  maxLines: 4,
-                  isRequired: true,
-                  errorText: _fieldErrors['descripcion'],
-                  onChanged: provider.updateDescripcion,
-                  validator: (v) {
-                    // Regla derivada del contrato: la descripción ayuda a identificar el repuesto específico.
-                    // Se aplica una restricción de negocio de mínimo 10 caracteres.
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Por favor ingresa detalles adicionales para ayudar a identificar tu repuesto.';
-                    }
-                    if (v.trim().length < 10) {
-                      return 'La descripción es muy corta. Ingresa al menos 10 caracteres (ej: marca, lado, color).';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildAdditionalPartsSection(provider),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildPrioritySection(provider),
-                const SizedBox(height: AppSpacing.spacingMd),
-                _buildLocationSection(provider),
-                const SizedBox(height: AppSpacing.spacingXl),
-                _buildProTip(),
-                const SizedBox(height: AppSpacing.spacingXxl),
-              ],
+          appBar: AppBar(
+            backgroundColor: AppColors.background,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              tooltip: 'Regresar',
+              onPressed: _volverAtras,
+            ),
+            title: Text(
+              'Crear Solicitud',
+              style: AppTextStyles.textStyleHeading,
             ),
           ),
-        ),
-        bottomNavigationBar: RyBottomActionBar(
-          primaryLabel: 'Buscar repuesto',
-          primaryButton: _buildBotonBuscar(provider),
-          backgroundColor: AppColors.background,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppSpacing.spacingMd),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildOfflineBanner(syncProvider.isOffline),
+                  Text(
+                    '¿Qué repuesto necesitas?',
+                    style: AppTextStyles.textStyleDisplay,
+                  ),
+                  const SizedBox(height: AppSpacing.spacingXl),
+                  _buildVehicleDropdown(provider),
+                  const SizedBox(height: AppSpacing.spacingXl),
+                  _buildBuscadorRepuesto(provider),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildImageSection(provider),
+                  const SizedBox(height: AppSpacing.spacingLg),
+                  RyTextField(
+                    label: 'Detalles adicionales',
+                    initialValue: provider.descripcion,
+                    hint:
+                        'Lado izquierdo/derecho, amperaje, número de pines o tamaño.',
+                    // El máximo permite todos los wraps con fuentes fallback y no
+                    // altera la altura si el texto real ocupa menos líneas.
+                    hintMaxLines: 8,
+                    helperText:
+                        'Ej: Marca específica, lado (izq/der) o código del repuesto.',
+                    helperMaxLines: 4,
+                    maxLines: 4,
+                    isRequired: true,
+                    errorText: _fieldErrors['descripcion'],
+                    onChanged: provider.updateDescripcion,
+                    validator: (v) {
+                      // Regla derivada del contrato: la descripción ayuda a identificar el repuesto específico.
+                      // Se aplica una restricción de negocio de mínimo 10 caracteres.
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Por favor ingresa detalles adicionales para ayudar a identificar tu repuesto.';
+                      }
+                      if (v.trim().length < 10) {
+                        return 'La descripción es muy corta. Ingresa al menos 10 caracteres (ej: marca, lado, color).';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildAdditionalPartsSection(provider),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildPrioritySection(provider),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildLocationSection(provider),
+                  const SizedBox(height: AppSpacing.spacingXl),
+                  _buildProTip(),
+                  const SizedBox(height: AppSpacing.spacingXxl),
+                ],
+              ),
+            ),
+          ),
+          bottomNavigationBar: RyBottomActionBar(
+            primaryLabel: 'Buscar repuesto',
+            primaryButton: _buildBotonBuscar(provider),
+            backgroundColor: AppColors.background,
+          ),
         ),
       ),
     );
+  }
+
+  void _volverAtras() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(widget.isOnboardingFlow ? '/onboarding' : '/home');
+    }
   }
 
   ThemeData _temaCreacion(ThemeData base) {
@@ -1586,7 +1589,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                       isRequired: true,
                       controller: controller,
                       focusNode: focusNode,
-                      prefixIcon: Icons.search,
+                      prefixWidget: const Icon(
+                        Icons.search,
+                        color: Color(0xFFA1A1AA),
+                      ),
                       suffixWidget: _isLoadingParts
                           ? const Padding(
                               padding: EdgeInsets.all(12),
@@ -1730,6 +1736,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
           label: 'Agregar otro repuesto',
           icon: Icons.add,
           variant: RyButtonVariant.outline,
+          borderColor: Colors.white12,
           isFullWidth: true,
           onPressed: () => _startAdditionalPart(provider),
         ),
@@ -1957,10 +1964,13 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
   }
 
   Widget _buildImageSection(CreateRequestProvider provider) {
+    final conFoto = provider.selectedImage != null;
     return RyImagePicker(
       width: double.infinity,
-      height: 200,
+      height: conFoto ? 180 : 76,
       neutral: true,
+      borderColor: const Color(0xFFFF5722).withValues(alpha: 0.35),
+      customPlaceholder: conFoto ? null : _buildPlaceholderFotoCompacto(),
       currentFile: provider.selectedImage,
       onImageSelected: (file) async {
         provider.updateImage(file);
@@ -1969,6 +1979,57 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       onRemove: () {
         provider.updateImage(null);
       },
+    );
+  }
+
+  Widget _buildPlaceholderFotoCompacto() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.spacingMd),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF261814),
+              borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+            ),
+            child: const Icon(
+              Icons.add_a_photo_outlined,
+              color: AppColors.primaryContainer,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.spacingMd),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Agregar foto del repuesto (opcional)',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingXxs),
+                Text(
+                  'Acelera las cotizaciones exactas',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.textStyleSmall.copyWith(
+                    color: AppColors.textMuted,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2171,7 +2232,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         border: Border.all(
           color: _fieldErrors.containsKey('direccion_entrega_id')
               ? AppColors.error
-              : Colors.white12.withValues(alpha: 0.3),
+              : const Color(0xFFFF5722).withValues(alpha: 0.35),
+          width: 1.0,
         ),
       ),
       child: Row(
@@ -2307,7 +2369,10 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(
+          color: const Color(0xFFFF5722).withValues(alpha: 0.35),
+          width: 1.0,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

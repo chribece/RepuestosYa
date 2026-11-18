@@ -63,7 +63,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Widget _buildBody(OnboardingProvider onboarding) {
-    if (onboarding.isLoading) {
+    if (onboarding.isLoading && !onboarding.isInitialized) {
       return const RyStateContainer(
         title: 'Cargando tu progreso...',
         type: RyStateType.loading,

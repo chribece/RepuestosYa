@@ -91,10 +91,16 @@ class AuthService {
   static final AuthService _instance = AuthService._privateConstructor();
   factory AuthService() => _instance;
 
+  bool _restaurando = false;
+
+  // Verdadero mientras se valida una sesión guardada al arrancar.
+  bool get isRestoring => _restaurando;
+
   // Inicializar autenticación cargando token
   Future<void> init() async {
     await _apiClient.init();
     final token = await _secureStorage.readToken();
+    _restaurando = token != null;
 
     if (token != null) {
       try {
@@ -131,6 +137,10 @@ class AuthService {
           name: 'AuthService',
         );
       }
+    }
+    _restaurando = false;
+    if (token != null && _currentUser == null) {
+      _authStateController.add(AuthState(user: null));
     }
   }
 

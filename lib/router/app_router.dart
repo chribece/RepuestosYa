@@ -63,6 +63,25 @@ class AppRouter {
         final bool isAuthenticated = authService.isAuthenticated;
 
         final location = state.matchedLocation;
+
+        // Arranque: mientras se restaura la sesión guardada, o mientras un
+        // cliente autenticado aún no tiene el estado de onboarding, la app se
+        // queda en la pantalla de carga para no mostrar otra ruta antes de
+        // resolver el destino final.
+        final bool startupPending =
+            authService.isRestoring ||
+            (isAuthenticated &&
+                (roleProvider.isUnknown ||
+                    (roleProvider.isCliente &&
+                        !onboardingProvider.isInitialized)));
+        if (location == '/cargando') {
+          if (startupPending) return null;
+          if (!isAuthenticated) return '/welcome';
+          return LastRouteStore.takeRestorable() ??
+              _getHomeRoute(roleProvider.currentRole);
+        }
+        if (startupPending) return '/cargando';
+
         final bool isPublicRoute =
             location == '/login' ||
             location == '/welcome' ||
@@ -118,21 +137,10 @@ class AppRouter {
 
         // Si está en una ruta pública (login/welcome/etc), mandarlo a su Home
         // o, tras reiniciar la app, a la última pantalla privada visitada.
-        final bool onboardingPendiente =
-            role == UserRole.cliente && !onboardingProvider.isInitialized;
-
         if (isPublicRoute) {
-          if (onboardingPendiente) return '/cargando';
           final lastRoute = LastRouteStore.takeRestorable();
           return lastRoute ?? _getHomeRoute(role);
         }
-
-        if (location == '/cargando') {
-          if (onboardingPendiente) return null;
-          return LastRouteStore.takeRestorable() ?? _getHomeRoute(role);
-        }
-
-        if (onboardingPendiente) return '/cargando';
         LastRouteStore.save(state.uri.toString());
 
         // Protección de rutas por rol (Cross-role protection)

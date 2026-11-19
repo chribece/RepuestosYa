@@ -408,7 +408,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Pastillas de freno'), findsWidgets);
-      expect(find.text('Ingresa el repuesto que buscas'), findsOneWidget);
+      expect(find.text('Selecciona el repuesto de la lista'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

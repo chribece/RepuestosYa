@@ -457,12 +457,26 @@ class _WarehouseDashboardState extends State<WarehouseDashboard>
       );
     }
     if (_solicitudes.isEmpty) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
         child: RyStateContainer(
           title: 'Sin solicitudes',
           subtitle:
               'No hay solicitudes activas. Las nuevas peticiones de los clientes aparecerán aquí.',
           type: RyStateType.empty,
+          customContent: OutlinedButton.icon(
+            onPressed: () => _validateAndLoad(manual: true),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Actualizar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primaryContainer,
+              backgroundColor: AppColors.surfaceContainerLow,
+              side: const BorderSide(color: AppColors.outlineVariant),
+              minimumSize: const Size(48, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -819,15 +833,14 @@ class _WarehouseDashboardState extends State<WarehouseDashboard>
                                             style: AppTextStyles.textStyleButton
                                                 .copyWith(
                                                   color: _isApproved
-                                                      ? Theme.of(
-                                                          context,
-                                                        ).colorScheme.primary
+                                                      ? AppColors
+                                                            .primaryContainer
                                                       : AppColors
                                                             .onSurfaceVariant
                                                             .withValues(
                                                               alpha: 0.5,
                                                             ),
-                                                  fontWeight: FontWeight.bold,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                           ),
                                         ),

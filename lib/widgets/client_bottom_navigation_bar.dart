@@ -25,20 +25,21 @@ class ClientBottomNavigationBar extends StatelessWidget {
     (label: 'Perfil', icon: Icons.person_rounded, route: RouteNames.profile),
   ];
 
+  static const _fondoBarra = Color(0xFF1A1A1D);
+  static const _inactivo = Color(0xFFD4D4D8);
+
   @override
   Widget build(BuildContext context) {
     return Container(
       key: const ValueKey('bottom-nav-bar'),
-      color: AppColors.surfaceContainerHigh,
+      color: _fondoBarra,
       child: SafeArea(
         top: false,
         child: SizedBox(
           height: 64,
           child: DecoratedBox(
             decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppColors.outlineVariant, width: 1),
-              ),
+              border: Border(top: BorderSide(color: Colors.white10, width: 1)),
             ),
             child: Row(
               children: [
@@ -63,9 +64,7 @@ class ClientBottomNavigationBar extends StatelessWidget {
     required ({String label, IconData icon, String route}) item,
     required bool selected,
   }) {
-    final color = selected
-        ? AppColors.primaryContainer
-        : AppColors.onSurfaceVariant;
+    final color = selected ? AppColors.primaryContainer : _inactivo;
 
     return Semantics(
       button: true,
@@ -81,7 +80,21 @@ class ClientBottomNavigationBar extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(item.icon, color: color, size: 22),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primaryContainer.withValues(alpha: 0.16)
+                          : AppColors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
+                      child: Icon(item.icon, color: color, size: 22),
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     item.label,

@@ -47,7 +47,7 @@ class RyStateContainer extends StatelessWidget {
   Color _getIconColor() {
     switch (type) {
       case RyStateType.empty:
-        return AppColors.onSurfaceVariant;
+        return AppColors.primaryContainer;
       case RyStateType.error:
         return SemanticColors.colorErrorBackground;
       case RyStateType.loading:
@@ -57,6 +57,30 @@ class RyStateContainer extends StatelessWidget {
       case RyStateType.network:
         return SemanticColors.colorWarning;
     }
+  }
+
+  /// Estado vacío: ícono dentro de una tarjeta naranja sutil (76x76) para dar
+  /// foco visual; el resto de tipos conserva el ícono suelto.
+  Widget _buildIcon(IconData icon, Color color) {
+    if (type != RyStateType.empty) return Icon(icon, size: 64, color: color);
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: AppColors.primaryContainer.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryContainer.withValues(alpha: 0.10),
+            blurRadius: 24,
+          ),
+        ],
+      ),
+      child: Icon(icon, size: 36, color: color),
+    );
   }
 
   @override
@@ -108,7 +132,7 @@ class RyStateContainer extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64, color: iconColor),
+            _buildIcon(icon, iconColor),
             const SizedBox(height: AppSpacing.spacingLg),
             Text(
               title,

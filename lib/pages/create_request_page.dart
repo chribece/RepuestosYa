@@ -68,6 +68,9 @@ class CreateRequestPage extends StatefulWidget {
 class _CreateRequestPageState extends State<CreateRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController(); // Solo para mostrar
+  // Texto escrito en el buscador de repuesto (distingue "vacío" de "escrito
+  // pero sin elegir de la lista" en el botón principal).
+  String _textoRepuesto = '';
 
   bool _isSubmitting = false;
   Map<String, String> _fieldErrors = {};
@@ -1440,7 +1443,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       return 'Selecciona un vehículo';
     }
     if (provider.selectedPartId == null) {
-      return 'Ingresa el repuesto que buscas';
+      return _textoRepuesto.trim().isEmpty
+          ? 'Ingresa el repuesto que buscas'
+          : 'Selecciona el repuesto de la lista';
     }
     if (!provider.ubicacionResuelta) return 'Verifica tu ubicación';
     return null;
@@ -1621,7 +1626,8 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                             )
                           : null,
                       errorText: _partError ?? _fieldErrors['repuesto_id'],
-                      onChanged: (_) {
+                      onChanged: (value) {
+                        setState(() => _textoRepuesto = value);
                         if (provider.selectedPartId != null) {
                           provider.setSelectedCategoryId(null);
                         }

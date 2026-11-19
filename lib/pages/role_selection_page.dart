@@ -89,7 +89,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   hint,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.textStyleCaption.copyWith(
-                    color: const Color(0xFFA1A1AA),
+                    color: const Color(0xFFD4D4D8),
                     fontSize: 13.5,
                     height: 1.35,
                   ),

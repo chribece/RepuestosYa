@@ -81,7 +81,23 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          child: _buildContinueButton(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_hintRol case final hint?) ...[
+                Text(
+                  hint,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.textStyleCaption.copyWith(
+                    color: const Color(0xFFA1A1AA),
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.spacingSm),
+              ],
+              _buildContinueButton(),
+            ],
+          ),
         ),
       ),
     );
@@ -90,7 +106,19 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        const RyLogoBadge(size: 160),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryContainer.withValues(alpha: 0.35),
+                blurRadius: 60,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          child: const RyLogoBadge(size: 160),
+        ),
         const SizedBox(height: AppSpacing.spacingMd),
         Text(
           widget.isGoogleSignup ? 'Completa tu cuenta' : 'Cuéntanos quién eres',
@@ -195,7 +223,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                     color: iconAccent.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: iconAccent),
+                  child: Icon(icon, size: 22, color: iconAccent),
                 ),
                 const SizedBox(width: AppSpacing.spacingMd),
                 Expanded(
@@ -240,6 +268,13 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
       ),
     );
   }
+
+  String? get _hintRol => switch (_selectedRole) {
+    'Cliente' =>
+      'Continuarás como Cliente (comprador). Elige Almacén si vendes repuestos.',
+    'Almacén' => 'Continuarás como Almacén (vendedor de repuestos).',
+    _ => null,
+  };
 
   Widget _buildContinueButton() {
     final sinRol = _selectedRole == null;

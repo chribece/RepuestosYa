@@ -57,6 +57,23 @@ void main() {
     );
   });
 
+  testWidgets('el hint indica el rol activo sobre Continuar', (tester) async {
+    await pumpPage(tester);
+    expect(
+      find.text(
+        'Continuarás como Cliente (comprador). Elige Almacén si vendes repuestos.',
+      ),
+      findsOneWidget,
+    );
+
+    await tocarBordeTarjeta(tester, 'Almacén');
+
+    expect(
+      find.text('Continuarás como Almacén (vendedor de repuestos).'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('la tarjeta no seleccionada usa el borde de control (1.4.11)', (
     tester,
   ) async {

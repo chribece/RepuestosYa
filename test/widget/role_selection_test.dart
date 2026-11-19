@@ -61,7 +61,7 @@ void main() {
     await pumpPage(tester);
     expect(
       find.text(
-        'Continuarás como Cliente (comprador). Elige Almacén si vendes repuestos.',
+        'Continuarás como Cliente (buscar y cotizar repuestos). Elige Almacén si tienes un local.',
       ),
       findsOneWidget,
     );
@@ -69,7 +69,9 @@ void main() {
     await tocarBordeTarjeta(tester, 'Almacén');
 
     expect(
-      find.text('Continuarás como Almacén (vendedor de repuestos).'),
+      find.text(
+        'Continuarás como Almacén (propietario de almacén o vendedor).',
+      ),
       findsOneWidget,
     );
   });

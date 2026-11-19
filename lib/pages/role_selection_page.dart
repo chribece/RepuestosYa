@@ -90,7 +90,8 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   textAlign: TextAlign.center,
                   style: AppTextStyles.textStyleCaption.copyWith(
                     color: const Color(0xFFA1A1AA),
-                    fontSize: 12.5,
+                    fontSize: 13.5,
+                    height: 1.35,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.spacingSm),
@@ -271,8 +272,9 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
 
   String? get _hintRol => switch (_selectedRole) {
     'Cliente' =>
-      'Continuarás como Cliente (comprador). Elige Almacén si vendes repuestos.',
-    'Almacén' => 'Continuarás como Almacén (vendedor de repuestos).',
+      'Continuarás como Cliente (buscar y cotizar repuestos). Elige Almacén si tienes un local.',
+    'Almacén' =>
+      'Continuarás como Almacén (propietario de almacén o vendedor).',
     _ => null,
   };
 

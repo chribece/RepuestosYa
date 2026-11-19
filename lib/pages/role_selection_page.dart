@@ -34,6 +34,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             Align(
@@ -45,23 +46,42 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.spacingMd,
-                  AppSpacing.spacingXs,
-                  AppSpacing.spacingMd,
-                  AppSpacing.spacingLg,
-                ),
-                child: Column(
-                  children: [
-                    _buildLogoSection(),
-                    const SizedBox(height: AppSpacing.spacingLg),
-                    _buildRoleSelectionForm(),
-                  ],
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.spacingMd,
+                    AppSpacing.spacingXs,
+                    AppSpacing.spacingMd,
+                    AppSpacing.spacingLg,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight:
+                          (constraints.maxHeight -
+                                  AppSpacing.spacingXs -
+                                  AppSpacing.spacingLg)
+                              .clamp(0.0, double.infinity),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLogoSection(),
+                        const SizedBox(height: AppSpacing.spacingLg),
+                        _buildRoleSelectionForm(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: _buildContinueButton(),
         ),
       ),
     );
@@ -128,8 +148,6 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             ),
           ),
         ],
-        const SizedBox(height: AppSpacing.spacingLg),
-        _buildContinueButton(),
       ],
     );
   }
@@ -152,7 +170,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             : AppColors.surfaceContainerLow,
         borderRadius: radius,
         border: Border.all(
-          color: isSelected ? accent : Colors.white24,
+          color: isSelected ? accent : AppColors.controlBorder,
           width: isSelected ? 1.5 : 1.0,
         ),
       ),
@@ -201,12 +219,20 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.spacingXs),
-                Icon(
-                  isSelected
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
-                  color: isSelected ? accent : AppColors.onSurfaceVariant,
-                ),
+                isSelected
+                    ? Icon(Icons.check_circle, color: accent)
+                    : Container(
+                        key: ValueKey('radio-$role'),
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF8A8A8A),
+                            width: 1.8,
+                          ),
+                        ),
+                      ),
               ],
             ),
           ),

@@ -37,6 +37,8 @@ class AppColors {
 
   // Colores de Borde
   static const outlineVariant = Color(0xFF333333);
+  // Borde de controles interactivos (WCAG 1.4.11, ≥3:1 sobre #131313/#1E1E1E)
+  static const controlBorder = Color(0xFF6B6B6B);
 
   // Asterisco requerido
   static const requiredAsterisk = Color(0xFFFF3333);

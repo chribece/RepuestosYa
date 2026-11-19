@@ -97,7 +97,7 @@ class _WelcomePageState extends State<WelcomePage> {
 
   Widget _buildDescription() {
     final bodyStyle = AppTextStyles.textStyleBody.copyWith(
-      color: AppColors.onSurfaceVariant,
+      color: const Color(0xFFD4D4D8),
       height: 1.5,
     );
     final highlightStyle = bodyStyle.copyWith(
@@ -139,6 +139,10 @@ class _WelcomePageState extends State<WelcomePage> {
           variant: RyButtonVariant.outline,
           size: RyButtonSize.large,
           isFullWidth: true,
+          fillColor: const Color(0xFF1A1A1D),
+          contentColor: Colors.white,
+          borderColor: AppColors.primaryContainer.withValues(alpha: 0.75),
+          borderWidth: 1.2,
           onPressed: () {
             // Navigate to role selection for registration
             context.pushNamed(RouteNames.roleSelection);
@@ -156,8 +160,8 @@ class _WelcomePageState extends State<WelcomePage> {
           child: Text(
             '© 2026 VCore Tech S.A. Todos los derechos reservados.',
             style: AppTextStyles.textStyleSmall.copyWith(
-              color: Colors.white54,
-              fontSize: 11,
+              color: AppColors.textMuted,
+              fontSize: 12,
             ),
             textAlign: TextAlign.center,
           ),

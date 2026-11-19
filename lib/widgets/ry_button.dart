@@ -36,6 +36,15 @@ class RyButton extends StatelessWidget {
   /// Color del borde de la variante `outline` (por defecto `outlineVariant`).
   final Color? borderColor;
 
+  /// Grosor del borde de la variante `outline` (por defecto 1).
+  final double? borderWidth;
+
+  /// Relleno y color de contenido (texto/ícono) que reemplazan los del
+  /// variant. Solo para casos de diseño puntuales (p. ej. CTA secundario
+  /// sobre fondo oscuro).
+  final Color? fillColor;
+  final Color? contentColor;
+
   const RyButton({
     super.key,
     required this.label,
@@ -51,6 +60,9 @@ class RyButton extends StatelessWidget {
     this.onPressed,
     this.customChild,
     this.borderColor,
+    this.borderWidth,
+    this.fillColor,
+    this.contentColor,
   });
 
   double _getHeight() {
@@ -123,7 +135,10 @@ class RyButton extends StatelessWidget {
   BorderSide? _getBorderSide(BuildContext context) {
     switch (variant) {
       case RyButtonVariant.outline:
-        return BorderSide(color: borderColor ?? AppColors.outlineVariant);
+        return BorderSide(
+          color: borderColor ?? AppColors.outlineVariant,
+          width: borderWidth ?? 1,
+        );
       case RyButtonVariant.outlineDanger:
         return BorderSide(color: SemanticColors.colorErrorText);
       case RyButtonVariant.primary:
@@ -140,10 +155,10 @@ class RyButton extends StatelessWidget {
     final isEffectiveDisabled = isDisabled || isLoading;
     final backgroundColor = isEffectiveDisabled
         ? _getDisabledBackgroundColor(context)
-        : _getBackgroundColor(context);
+        : fillColor ?? _getBackgroundColor(context);
     final foregroundColor = isEffectiveDisabled
         ? _getDisabledForegroundColor(context)
-        : _getForegroundColor(context);
+        : contentColor ?? _getForegroundColor(context);
     final borderSide = _getBorderSide(context);
     final effectiveHorizontalPadding =
         horizontalPadding ??
@@ -175,7 +190,7 @@ class RyButton extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.spacingSm),
           ] else if (icon != null) ...[
-            Icon(icon, size: 20),
+            Icon(icon, size: 20, color: foregroundColor),
             const SizedBox(width: AppSpacing.spacingSm),
           ],
           Flexible(
@@ -183,6 +198,9 @@ class RyButton extends StatelessWidget {
               label,
               style: AppTextStyles.textStyleButton.copyWith(
                 color: foregroundColor,
+                fontWeight: variant == RyButtonVariant.primary
+                    ? FontWeight.w700
+                    : null,
               ),
               overflow: variant == RyButtonVariant.text
                   ? TextOverflow.visible
@@ -192,7 +210,7 @@ class RyButton extends StatelessWidget {
           ),
           if (trailingIcon != null) ...[
             const SizedBox(width: AppSpacing.spacingSm),
-            Icon(trailingIcon, size: 20),
+            Icon(trailingIcon, size: 20, color: foregroundColor),
           ],
         ],
       );

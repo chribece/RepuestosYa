@@ -30,43 +30,23 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('Continuar inicia deshabilitado sin rol seleccionado', (
+  testWidgets('Cliente viene preseleccionado y Continuar inicia habilitado', (
     tester,
   ) async {
     await pumpPage(tester);
-    expect(botonContinuar(tester).onTap, isNull);
-  });
-
-  testWidgets('tocar Continuar sin rol muestra el mensaje de validación', (
-    tester,
-  ) async {
-    await pumpPage(tester);
-    expect(find.text('Selecciona una opción para continuar.'), findsNothing);
-
-    await tester.tap(find.text('Continuar'));
-    await tester.pump();
-
-    expect(find.text('Selecciona una opción para continuar.'), findsOneWidget);
-  });
-
-  testWidgets('tocar el borde de la tarjeta Cliente la selecciona', (
-    tester,
-  ) async {
-    await pumpPage(tester);
-    await tocarBordeTarjeta(tester, 'Cliente');
-
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
     expect(botonContinuar(tester).onTap, isNotNull);
     expect(find.text('Selecciona una opción para continuar.'), findsNothing);
   });
 
-  testWidgets('tocar el borde de la tarjeta Almacén la selecciona', (
+  testWidgets('tocar el borde de la tarjeta Almacén cambia la selección', (
     tester,
   ) async {
     await pumpPage(tester);
     await tocarBordeTarjeta(tester, 'Almacén');
 
     expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    expect(find.byIcon(Icons.radio_button_unchecked), findsOneWidget);
     expect(botonContinuar(tester).onTap, isNotNull);
   });
 }

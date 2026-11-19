@@ -24,7 +24,7 @@ class RoleSelectionPage extends StatefulWidget {
 }
 
 class _RoleSelectionPageState extends State<RoleSelectionPage> {
-  String? _selectedRole;
+  String? _selectedRole = 'Cliente';
   bool _showRoleError = false;
   bool _isSubmitting = false;
   final AuthService _authService = AuthService();
@@ -109,12 +109,14 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           role: 'Cliente',
           description: 'Buscar y cotizar repuestos',
           icon: Icons.person_outline,
+          iconAccent: AppColors.primaryContainer,
         ),
         const SizedBox(height: AppSpacing.spacingSm),
         _buildRoleCard(
           role: 'Almacén',
           description: 'Propietario de almacén o vendedor',
           icon: Icons.storefront_outlined,
+          iconAccent: AppColors.tertiaryContainer,
         ),
         if (_showRoleError) ...[
           const SizedBox(height: AppSpacing.spacingXs),
@@ -136,6 +138,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
     required String role,
     required String description,
     required IconData icon,
+    required Color iconAccent,
   }) {
     final isSelected = _selectedRole == role;
     final accent = SemanticColors.colorPrimaryButton;
@@ -145,12 +148,12 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
       duration: const Duration(milliseconds: 180),
       decoration: BoxDecoration(
         color: isSelected
-            ? accent.withValues(alpha: 0.14)
+            ? accent.withValues(alpha: 0.08)
             : AppColors.surfaceContainerLow,
         borderRadius: radius,
         border: Border.all(
-          color: isSelected ? accent : AppColors.outlineVariant,
-          width: isSelected ? 2 : 1,
+          color: isSelected ? accent : Colors.white24,
+          width: isSelected ? 1.5 : 1.0,
         ),
       ),
       child: Material(
@@ -168,18 +171,13 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? accent.withValues(alpha: 0.2)
-                        : AppColors.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+                    color: iconAccent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: isSelected ? accent : AppColors.onSurfaceVariant,
-                  ),
+                  child: Icon(icon, color: iconAccent),
                 ),
                 const SizedBox(width: AppSpacing.spacingMd),
                 Expanded(

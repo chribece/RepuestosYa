@@ -1434,17 +1434,30 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     );
   }
 
+  /// Qué falta para habilitar "Buscar repuesto" (null = listo para enviar).
+  String? _pendienteBuscar(CreateRequestProvider provider) {
+    if (provider.selectedVehiculoId == null) {
+      return 'Selecciona un vehículo';
+    }
+    if (provider.selectedPartId == null) {
+      return 'Ingresa el repuesto que buscas';
+    }
+    if (!provider.ubicacionResuelta) return 'Verifica tu ubicación';
+    return null;
+  }
+
   Widget _buildBotonBuscar(CreateRequestProvider provider) {
-    final habilitado = provider.ubicacionResuelta && !_isSubmitting;
+    final pendiente = _pendienteBuscar(provider);
+    final habilitado = pendiente == null && !_isSubmitting;
     return FilledButton(
       onPressed: habilitado ? _handleSubmit : null,
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(56),
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        backgroundColor: AppColors.primaryContainer,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0xFF242428),
-        disabledForegroundColor: Colors.white38,
+        backgroundColor: SemanticColors.colorPrimaryButton,
+        foregroundColor: SemanticColors.colorOnPrimaryButton,
+        disabledBackgroundColor: AppColors.surfaceContainerHigh,
+        disabledForegroundColor: AppColors.textMuted,
         textStyle: AppTextStyles.textStyleButton.copyWith(
           fontWeight: FontWeight.w700,
         ),
@@ -1461,14 +1474,16 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
                 color: Colors.white,
               ),
             )
-          : const Row(
+          : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.search, size: 20),
-                SizedBox(width: 8),
+                if (habilitado) ...[
+                  const Icon(Icons.search, size: 20),
+                  const SizedBox(width: 8),
+                ],
                 Flexible(
                   child: Text(
-                    'Buscar repuesto',
+                    pendiente ?? 'Buscar repuesto',
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
@@ -1969,7 +1984,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
       width: double.infinity,
       height: conFoto ? 180 : 76,
       neutral: true,
-      borderColor: const Color(0xFFFF5722).withValues(alpha: 0.35),
+      borderColor: conFoto
+          ? const Color(0xFFFF5722).withValues(alpha: 0.35)
+          : AppColors.outlineVariant,
       customPlaceholder: conFoto ? null : _buildPlaceholderFotoCompacto(),
       currentFile: provider.selectedImage,
       onImageSelected: (file) async {
@@ -1991,7 +2008,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF261814),
+              color: AppColors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(AppRadius.radiusSm),
             ),
             child: const Icon(
@@ -2232,7 +2249,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
         border: Border.all(
           color: _fieldErrors.containsKey('direccion_entrega_id')
               ? AppColors.error
-              : const Color(0xFFFF5722).withValues(alpha: 0.35),
+              : AppColors.outlineVariant,
           width: 1.0,
         ),
       ),
@@ -2243,7 +2260,7 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
             height: 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primaryContainer.withValues(alpha: 0.15),
+              color: AppColors.surfaceContainerHigh,
             ),
             child: const Icon(
               Icons.location_on,
@@ -2367,12 +2384,9 @@ class _CreateRequestPageState extends State<CreateRequestPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.spacingMd),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLow.withValues(alpha: 0.5),
+        color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(AppRadius.radiusLg),
-        border: Border.all(
-          color: const Color(0xFFFF5722).withValues(alpha: 0.35),
-          width: 1.0,
-        ),
+        border: Border.all(color: AppColors.outlineVariant, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -128,7 +128,7 @@ void main() {
       expect(barraBottom, 900, reason: 'El fondo debe cubrir el inset');
 
       // El botón primario queda por ENCIMA del área segura (900 - 34).
-      final boton = find.text('Buscar repuesto');
+      final boton = find.text('Ingresa el repuesto que buscas');
       final botonBottom = tester.getBottomLeft(boton).dy;
       expect(
         botonBottom,

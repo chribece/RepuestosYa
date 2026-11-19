@@ -357,9 +357,7 @@ class RyImagePicker extends StatelessWidget {
           width: effectiveWidth,
           height: effectiveHeight,
           decoration: BoxDecoration(
-            color: neutral
-                ? const Color(0xFF1A1A1D)
-                : AppColors.surfaceContainerLow,
+            color: AppColors.surfaceContainerLow,
             borderRadius: BorderRadius.circular(AppRadius.radiusMd),
             border: Border.all(
               color:

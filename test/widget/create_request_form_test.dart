@@ -175,7 +175,7 @@ void main() {
 
       expect(find.text('Pendiente de verificar'), findsOneWidget);
       expect(find.textContaining('Ubicación pendiente — toca'), findsNothing);
-      expect(find.text('Buscar repuesto'), findsOneWidget);
+      expect(find.text('Ingresa el repuesto que buscas'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -408,7 +408,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Pastillas de freno'), findsWidgets);
-      expect(find.text('Buscar repuesto'), findsOneWidget);
+      expect(find.text('Ingresa el repuesto que buscas'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'el botón principal indica qué falta y solo se habilita con el flujo '
+    'completo',
+    (tester) async {
+      await pumpForm(tester);
+
+      FilledButton boton() => tester.widget<FilledButton>(
+        find.ancestor(
+          of: find.text('Ingresa el repuesto que buscas'),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(boton().onPressed, isNull);
+      expect(find.text('Buscar repuesto'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -416,10 +434,12 @@ void main() {
   group('bloqueo del envío con datos inválidos', () {
     testWidgets('campo obligatorio vacío: error visible y servicio nunca '
         'invocado', (tester) async {
-      await pumpForm(tester);
-
-      // Dirección con coordenadas auto-seleccionada → botón habilitado.
-      expect(find.text('Buscar repuesto'), findsOneWidget);
+      final provider = CreateRequestProvider()
+        ..updatePiezaNombre('Filtro')
+        ..setSelectedCategoryId('cat-1')
+        ..setSelectedPartId('rep-1', 'Pastillas de freno');
+      await pumpForm(tester, provider: provider);
+      await seleccionarVehiculo(tester);
 
       await tester.tap(find.text('Buscar repuesto'));
       await tester.pump();

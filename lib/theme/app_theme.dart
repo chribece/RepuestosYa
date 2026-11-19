@@ -68,6 +68,11 @@ ThemeData get darkTheme {
       ),
     ),
 
+    // Dialog theme (mismo gris neutro que las tarjetas)
+    dialogTheme: DialogThemeData(
+      backgroundColor: AppColors.surfaceContainerLow,
+    ),
+
     // Elevated button theme
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -119,7 +124,7 @@ ThemeData get darkTheme {
     // Input decoration theme
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surfaceContainerLow,
+      fillColor: AppColors.inputFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         borderSide: const BorderSide(color: AppColors.outlineVariant),
@@ -132,7 +137,7 @@ ThemeData get darkTheme {
         borderRadius: BorderRadius.circular(AppRadius.radiusMd),
         borderSide: const BorderSide(
           color: AppColors.primaryContainer,
-          width: 2,
+          width: 1.5,
         ),
       ),
       errorBorder: OutlineInputBorder(

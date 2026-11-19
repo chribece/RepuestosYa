@@ -10,7 +10,7 @@ class AppColors {
   // Colores de Superficie
   static const background = Color(0xFF131313);
   static const surface = Color(0xFF131313);
-  static const surfaceContainerLow = Color(0xFF1C1B1B);
+  static const surfaceContainerLow = Color(0xFF1E1E1E);
   static const surfaceContainerHigh = Color(0xFF2A2A2A);
   static const surfaceVariant = Color(0xFF353534);
   static const cardSurface = Color(0xFF161618);
@@ -18,7 +18,7 @@ class AppColors {
 
   // Colores de Texto
   static const onSurface = Color(0xFFE5E2E1);
-  static const onSurfaceVariant = Color(0xFFE4BEB4);
+  static const onSurfaceVariant = Color(0xFFA1A1AA);
   static const textMuted = Color(0xFFA1A1AA);
 
   // Colores Secundarios
@@ -36,7 +36,7 @@ class AppColors {
   static const warning = Color(0xFFFFAB00);
 
   // Colores de Borde
-  static const outlineVariant = Color(0xFF5B4039);
+  static const outlineVariant = Color(0xFF333333);
 
   // Asterisco requerido
   static const requiredAsterisk = Color(0xFFFF3333);

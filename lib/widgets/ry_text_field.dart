@@ -56,6 +56,8 @@ class RyTextField extends StatefulWidget {
   final Widget? suffixWidget;
   final FocusNode? focusNode;
   final TextInputAction? textInputAction;
+  final EdgeInsetsGeometry prefixWidgetPadding;
+  final BoxConstraints? prefixIconConstraints;
   final TextCapitalization textCapitalization;
 
   final EdgeInsets scrollPadding;
@@ -93,6 +95,8 @@ class RyTextField extends StatefulWidget {
     this.suffixWidget,
     this.focusNode,
     this.textInputAction,
+    this.prefixWidgetPadding = const EdgeInsets.all(AppSpacing.spacingSm),
+    this.prefixIconConstraints,
     this.textCapitalization = TextCapitalization.none,
     this.scrollPadding = const EdgeInsets.all(20),
   });
@@ -244,6 +248,7 @@ class _RyTextFieldState extends State<RyTextField> {
         decoration: InputDecoration(
           labelText: widget.label,
           hintText: widget.hint,
+          prefixIconConstraints: widget.prefixIconConstraints,
           hintMaxLines: widget.hintMaxLines,
           helperText: widget.helperText,
           helperStyle: widget.helperStyle,
@@ -260,7 +265,7 @@ class _RyTextFieldState extends State<RyTextField> {
               : null,
           prefixIcon: widget.prefixWidget != null
               ? Padding(
-                  padding: const EdgeInsets.all(AppSpacing.spacingSm),
+                  padding: widget.prefixWidgetPadding,
                   child: widget.prefixWidget,
                 )
               : widget.prefixIcon != null

@@ -416,7 +416,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
         top: false,
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [_buildRegistrationForm()],
@@ -678,23 +678,37 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
 
   Widget _prefijoTelefono() => Semantics(
     label: 'Código telefónico de Ecuador, más 593',
-    child: Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.spacingXs,
-        vertical: AppSpacing.spacingXxs,
-      ),
-      decoration: BoxDecoration(
-        color: _cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
-        border: Border.all(color: AppColors.controlBorder),
-      ),
-      child: Text(
-        '+593',
-        style: AppTextStyles.textStyleSmall.copyWith(
-          color: _cs.onSurface,
-          letterSpacing: 0,
-          fontWeight: FontWeight.w600,
-        ),
+    child: Padding(
+      padding: const EdgeInsets.only(left: 14, right: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.controlBorder),
+            ),
+            child: Text(
+              '+593',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _cs.onSurface,
+                height: 1.1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 1,
+            height: 20,
+            color: AppColors.controlBorder.withValues(alpha: 0.6),
+          ),
+        ],
       ),
     ),
   );
@@ -713,6 +727,8 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           FocusScope.of(context).requestFocus(_passwordFocusNode),
       scrollPadding: _scrollPadding,
       prefixWidget: _prefijoTelefono(),
+      prefixWidgetPadding: EdgeInsets.zero,
+      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
       helperText: _textoContadorTelefono,
       helperStyle: _estiloContadorTelefono,
       helperMaxLines: 1,

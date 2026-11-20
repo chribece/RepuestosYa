@@ -196,40 +196,30 @@ void main() {
     expect(find.text('Fuerte'), findsOneWidget);
   });
 
-  testWidgets('el prefijo +593 se alinea con los íconos de los campos', (
+  testWidgets('el prefijo +593 queda a 14 px del borde izquierdo y centrado', (
     tester,
   ) async {
     await pumpEn(tester, const Size(412, 915));
-    final sangriaIcono =
-        tester.getTopLeft(find.byIcon(Icons.mail)).dx -
-        tester
-            .getTopLeft(
-              find.ancestor(
-                of: find.byIcon(Icons.mail),
-                matching: find.byType(TextFormField),
-              ),
-            )
-            .dx;
-    final sangriaPrefijo =
-        tester
-            .getTopLeft(
-              find
-                  .ancestor(
-                    of: find.text('+593'),
-                    matching: find.byType(Container),
-                  )
-                  .first,
-            )
-            .dx -
-        tester
-            .getTopLeft(
-              find.ancestor(
-                of: find.text('+593'),
-                matching: find.byType(TextFormField),
-              ),
-            )
-            .dx;
-    expect(sangriaPrefijo, closeTo(sangriaIcono, 0.5));
+    final xIcono = tester.getTopLeft(find.byIcon(Icons.mail)).dx;
+    final xPrefijo = tester
+        .getTopLeft(
+          find
+              .ancestor(of: find.text('+593'), matching: find.byType(Container))
+              .first,
+        )
+        .dx;
+    expect(xPrefijo - xIcono, closeTo(14, 0.5));
+    final pildora = find
+        .ancestor(of: find.text('+593'), matching: find.byType(Container))
+        .first;
+    final campo = find.ancestor(
+      of: find.text('+593'),
+      matching: find.byType(TextFormField),
+    );
+    final centroCampo = tester.getCenter(
+      find.descendant(of: campo, matching: find.byType(EditableText)),
+    );
+    expect(tester.getCenter(pildora).dy, closeTo(centroCampo.dy, 4));
   });
 
   testWidgets('el borde enfocado de los campos es naranja de 1.5 px', (

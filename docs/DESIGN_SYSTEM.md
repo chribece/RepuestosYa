@@ -146,39 +146,49 @@ class AppTextStyles {
 
 ### 3.1 Colores Primitivos
 
+> Actualizado el 2026-11-18 (commit `48fb3f1`): `surfaceContainerLow` pasa a
+> `#1E1E1E` (tarjetas), `onSurfaceVariant` pasa a `#A1A1AA` (gris, antes beige
+> `#E4BEB4`), `outlineVariant` pasa a `#333333` (antes `#5B4039`), y se añaden
+> `cardSurface`, `inputFill`, `textMuted`, `transparent`.
+
 ```dart
 class AppColors {
   // Colores Primarios
   static const primary = Color(0xFFFFB5A7);           // Coral claro
-  static const primaryContainer = Color(0xFFFF5722);   // Naranja intenso
+  static const primaryContainer = Color(0xFFFF5722);   // Naranja de marca
   static const onPrimaryContainer = Color(0xFF541200); // Marrón oscuro para texto
 
   // Colores de Superficie
   static const background = Color(0xFF131313);         // Negro casi puro
   static const surface = Color(0xFF131313);           // Superficie principal
-  static const surfaceContainerLow = Color(0xFF1C1B1B); // Superficie elevada baja
+  static const surfaceContainerLow = Color(0xFF1E1E1E); // Tarjetas / superficie elevada baja
   static const surfaceContainerHigh = Color(0xFF2A2A2A); // Superficie elevada alta
   static const surfaceVariant = Color(0xFF353534);     // Variante de superficie
+  static const cardSurface = Color(0xFF161618);        // Superficie de tarjeta
+  static const inputFill = Color(0xFF141416);          // Relleno de campos de texto
 
   // Colores de Texto
   static const onSurface = Color(0xFFE5E2E1);         // Texto principal
-  static const onSurfaceVariant = Color(0xFFE4BEB4);  // Texto secundario
+  static const onSurfaceVariant = Color(0xFFA1A1AA);  // Texto secundario
+  static const textMuted = Color(0xFFA1A1AA);         // Texto atenuado
 
   // Colores Secundarios
   static const secondary = Color(0xFF9ECAFF);         // Azul claro
   static const secondaryContainer = Color(0xFF1E95F2); // Azul intenso
-  static const tertiaryContainer = Color(0xFF019AD8);  // Azul cyan
+  static const tertiaryContainer = Color(0xFF019AD8);  // Azul cyan (enlaces)
 
   // Colores de Estado
-  static const error = Color(0xFFFF1744);              // Rojo error
+  static const error = Color(0xFFC62828);              // Rojo error (fondos con texto blanco)
   static const success = Color(0xFF00C853);            // Verde éxito
   static const warning = Color(0xFFFFAB00);            // Amarillo advertencia
 
   // Colores de Borde
-  static const outlineVariant = Color(0xFF5B4039);    // Borde sutil
+  static const outlineVariant = Color(0xFF333333);    // Borde sutil
 
   // Asterisco requerido
   static const requiredAsterisk = Color(0xFFFF3333);   // Rojo para campos requeridos
+
+  static const transparent = Color(0x00000000);
 }
 ```
 
@@ -196,12 +206,21 @@ class SemanticColors {
   static const colorPrimaryButton = AppColors.primaryContainer;
   static const colorOnPrimaryButton = AppColors.onPrimaryContainer;
   static const colorSecondaryButton = AppColors.secondaryContainer;
-  static const colorOnSecondaryButton = AppColors.onSurface;
+  // Texto sobre botón secundario (#1E95F2): onSurface daba 2.46:1 (FAIL)
+  static const colorOnSecondaryButton = AppColors.onPrimaryContainer;
 
   // Error/Texto
   static const colorErrorBackground = AppColors.error;
   static const colorOnErrorText = Colors.white;
-  static const colorErrorText = AppColors.error;
+  // Texto de error sobre fondo oscuro (input, badge filled)
+  static const colorErrorText = Color(0xFFFF6B7A);
+
+  // Texto de badge "info" sobre fondo sutil
+  static const colorInfoBadgeText = Color(0xFF4DA8F5);
+
+  // Verde de marca WhatsApp en versión oscura
+  static const colorWhatsApp = Color(0xFF0B7A3E);
+  static const colorOnWhatsApp = Colors.white;
 
   // Estados
   static const colorSuccess = AppColors.success;
@@ -213,7 +232,8 @@ class SemanticColors {
 ### 3.3 Verificación de Contraste WCAG 2.2 AA
 
 > Ratios recalculados el 2026-08-22 con la fórmula WCAG 2.2 AA (luminancia
-> relativa + `(L1+0.05)/(L2+0.05)`). La fórmula de contraste por
+> relativa + `(L1+0.05)/(L2+0.05)`); los pares que usan `surfaceContainerLow`
+> (`#1E1E1E`) y `onSurfaceVariant` (`#A1A1AA`) se recalcularon el 2026-11-18. La fórmula de contraste por
 > luminancia relativa se mantiene igual entre WCAG 2.1 y 2.2; la
 > verificación de área táctil mínima (§2.5.8) y foco visible (§2.4.11)
 > se aborda en §8.4 y §8.5 respectivamente. La versión anterior sobreestimaba
@@ -227,8 +247,12 @@ class SemanticColors {
 | **Error Background** | `#C62828` | `#FFFFFF` | 5.62:1 | ✅ | ✅ |
 | **Superficie/Texto** | `#2A2A2A` | `#E5E2E1` | 11.14:1 | ✅ | ✅ |
 | **Background/Texto** | `#131313` | `#E5E2E1` | 14.42:1 | ✅ | ✅ |
-| **Botón Deshabilitado** | `#353534` | `#E4BEB4` | 7.21:1 | ✅ | ✅ |
-| **Texto de error (input/badge)** | `#1C1B1B` | `#FF6B7A` | 6.25:1 | ✅ | ✅ |
+| **Tarjeta/Texto** | `#1E1E1E` | `#E5E2E1` | 12.94:1 | ✅ | ✅ |
+| **Tarjeta/Texto secundario** | `#1E1E1E` | `#A1A1AA` | 6.50:1 | ✅ | ✅ |
+| **Botón Deshabilitado** | `#353534` | `#A1A1AA` | 4.79:1 | ✅ (exento §1.4.3) | ✅ |
+| **Texto de error (input/badge)** | `#1E1E1E` | `#FF6B7A` | 6.06:1 | ✅ | ✅ |
+| **Enlace (tertiary)** | `#1E1E1E` | `#019AD8` | 5.25:1 | ✅ | ✅ |
+| **Naranja de marca/Fondo** | `#131313` | `#FF5722` | 5.87:1 | ✅ | ✅ |
 | **Texto badge info** | `#1C2D3B` (filled bg) | `#4DA8F5` | 5.53:1 | ✅ | ✅ |
 
 ### 3.4 Espaciado
@@ -1111,17 +1135,17 @@ efectivo (oscuro).**
 | Botón danger / Error bg | `#C62828` | `#FFFFFF` | 5.62:1 | ✅ | ✅ |
 | Superficie/Texto | `#2A2A2A` | `#E5E2E1` | 11.14:1 | ✅ | ✅ |
 | Background/Texto | `#131313` | `#E5E2E1` | 14.42:1 | ✅ | ✅ |
-| Botón Deshabilitado | `#353534` | `#E4BEB4` | 7.21:1 | ✅ (exento §1.4.3) | ✅ |
-| Input texto | `#1C1B1B` | `#E5E2E1` | 13.34:1 | ✅ | ✅ |
-| Input label | `#1C1B1B` | `#E4BEB4` | 10.08:1 | ✅ | ✅ |
-| Input hint (alpha 0.7) | `#1C1B1B` | `#A88D86` | 5.58:1 | ✅ | ✅ |
-| Input asterisco | `#1C1B1B` | `#FF3333` | 4.72:1 | ✅ | ✅ |
-| **Texto de error** (input/badge) | `#1C1B1B` | `#FF6B7A` | 6.25:1 | ✅ | ✅ |
+| Botón Deshabilitado | `#353534` | `#A1A1AA` | 4.79:1 | ✅ (exento §1.4.3) | ✅ |
+| Input texto | `#1E1E1E` | `#E5E2E1` | 12.94:1 | ✅ | ✅ |
+| Input label | `#1E1E1E` | `#A1A1AA` | 6.50:1 | ✅ | ✅ |
+| Input hint (alpha 0.7) | `#1E1E1E` | `#A88D86` | pendiente de recalcular | — | — |
+| Input asterisco | `#1E1E1E` | `#FF3333` | 4.58:1 | ✅ | ✅ |
+| **Texto de error** (input/badge) | `#1E1E1E` | `#FF6B7A` | 6.06:1 | ✅ | ✅ |
 | Badge warning text | `#3E3117` (filled) | `#FFAB00` | 6.69:1 | ✅ | ✅ |
 | Badge success text | `#183523` (filled) | `#00C853` | 5.97:1 | ✅ | ✅ |
 | **Badge info text** | `#1C2D3B` (filled) | `#4DA8F5` | 5.53:1 | ✅ | ✅ |
-| **Badge error text** | `#3E1A21` (filled) | `#FF6B7A` | 5.05:1 | ✅ | ✅ |
-| Precio (success sobre card) | `#1C1B1B` | `#00C853` | 7.68:1 | ✅ | ✅ |
+| **Badge error text** | `#3E1A21` (filled) | `#FF6B7A` | 5.56:1 | ✅ | ✅ |
+| Precio (success sobre card) | `#1E1E1E` | `#00C853` | 7.45:1 | ✅ | ✅ |
 | `primary` sobre background | `#131313` | `#FFB5A7` | 10.99:1 | ✅ | ✅ |
 
 **Post-corrección todos los pares pasan AA normal.** Antes de la auditoría

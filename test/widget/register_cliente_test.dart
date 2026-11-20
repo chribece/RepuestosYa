@@ -95,11 +95,7 @@ void main() {
     tester,
   ) async {
     await pumpPage(tester);
-    await tocarEnTextoPlano(
-      tester,
-      'Acepto los términos',
-      'términos y condiciones de uso',
-    );
+    await tocarEnTextoPlano(tester, 'Acepto los términos', 'términos de uso');
 
     expect(find.text('Términos y condiciones de uso'), findsOneWidget);
     expect(tester.widget<Checkbox>(find.byType(Checkbox)).value, isFalse);
@@ -128,6 +124,151 @@ void main() {
         lessThanOrEqualTo(900 - 400),
         reason: 'El teclado tapa el botón Registrarse',
       );
+    },
+  );
+
+  Future<void> pumpEn(
+    WidgetTester tester,
+    Size size, {
+    double escala = 1,
+  }) async {
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: darkTheme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(escala)),
+          child: child!,
+        ),
+        home: const RegisterClientePage(),
+      ),
+    );
+    await tester.pump();
+  }
+
+  double extensionDeScroll(WidgetTester tester) => tester
+      .state<ScrollableState>(find.byType(Scrollable).first)
+      .position
+      .maxScrollExtent;
+
+  testWidgets('360x800 y 412x915: el formulario cabe sin scroll en reposo', (
+    tester,
+  ) async {
+    for (final size in const [Size(360, 800), Size(412, 915)]) {
+      await pumpEn(tester, size);
+      expect(tester.takeException(), isNull, reason: '$size');
+      expect(extensionDeScroll(tester), 0, reason: '$size');
+      expect(find.text('Registrarse'), findsOneWidget);
+    }
+  });
+
+  testWidgets('360x640: la página se desplaza sin desbordamientos', (
+    tester,
+  ) async {
+    await pumpEn(tester, const Size(360, 640));
+    expect(tester.takeException(), isNull);
+    expect(extensionDeScroll(tester), greaterThan(0));
+  });
+
+  testWidgets('escala de texto 1.3: sin excepciones de layout', (tester) async {
+    await pumpEn(tester, const Size(360, 800), escala: 1.3);
+    expect(tester.takeException(), isNull);
+    expect(find.text('Registro de Cliente'), findsOneWidget);
+    expect(find.text('+593'), findsOneWidget);
+  });
+
+  testWidgets('la fortaleza de la contraseña aparece y refleja el nivel', (
+    tester,
+  ) async {
+    await pumpEn(tester, const Size(412, 915));
+    expect(find.text('Débil'), findsNothing);
+
+    await tester.enterText(find.byType(TextFormField).at(3), 'abc');
+    await tester.pump();
+    expect(find.text('Débil'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).at(3), 'abcdefg1');
+    await tester.pump();
+    expect(find.text('Fuerte'), findsOneWidget);
+  });
+
+  testWidgets('el prefijo +593 se alinea con los íconos de los campos', (
+    tester,
+  ) async {
+    await pumpEn(tester, const Size(412, 915));
+    final sangriaIcono =
+        tester.getTopLeft(find.byIcon(Icons.mail)).dx -
+        tester
+            .getTopLeft(
+              find.ancestor(
+                of: find.byIcon(Icons.mail),
+                matching: find.byType(TextFormField),
+              ),
+            )
+            .dx;
+    final sangriaPrefijo =
+        tester
+            .getTopLeft(
+              find
+                  .ancestor(
+                    of: find.text('+593'),
+                    matching: find.byType(Container),
+                  )
+                  .first,
+            )
+            .dx -
+        tester
+            .getTopLeft(
+              find.ancestor(
+                of: find.text('+593'),
+                matching: find.byType(TextFormField),
+              ),
+            )
+            .dx;
+    expect(sangriaPrefijo, closeTo(sangriaIcono, 0.5));
+  });
+
+  testWidgets('el borde enfocado de los campos es naranja de 1.5 px', (
+    tester,
+  ) async {
+    await pumpEn(tester, const Size(412, 915));
+    await tester.tap(find.byType(TextFormField).first);
+    await tester.pump();
+    final borde =
+        Theme.of(
+              tester.element(find.byType(Form)),
+            ).inputDecorationTheme.focusedBorder!
+            as OutlineInputBorder;
+    expect(borde.borderSide.color, darkTheme.colorScheme.primaryContainer);
+    expect(borde.borderSide.width, 1.5);
+  });
+
+  testWidgets(
+    'el texto de términos no deja una palabra sola en la última línea',
+    (tester) async {
+      await pumpEn(tester, const Size(360, 800));
+      final finder = find.byWidgetPredicate(
+        (w) => w is RichText && w.text.toPlainText().contains('Acepto los'),
+      );
+      final render = tester.renderObject<RenderParagraph>(finder);
+      final texto = render.text.toPlainText();
+      final dyDe = render
+          .getOffsetForCaret(
+            TextPosition(offset: texto.indexOf(' de ') + 1),
+            Rect.zero,
+          )
+          .dy;
+      final dyUso = render
+          .getOffsetForCaret(
+            TextPosition(offset: texto.indexOf('uso')),
+            Rect.zero,
+          )
+          .dy;
+      expect(dyUso, dyDe, reason: 'uso debe compartir línea con de');
     },
   );
 

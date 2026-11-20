@@ -55,6 +55,7 @@ class RyTextField extends StatefulWidget {
   final Widget? prefixWidget;
   final Widget? suffixWidget;
   final FocusNode? focusNode;
+  final TextInputAction? textInputAction;
   final TextCapitalization textCapitalization;
 
   final EdgeInsets scrollPadding;
@@ -91,6 +92,7 @@ class RyTextField extends StatefulWidget {
     this.prefixWidget,
     this.suffixWidget,
     this.focusNode,
+    this.textInputAction,
     this.textCapitalization = TextCapitalization.none,
     this.scrollPadding = const EdgeInsets.all(20),
   });
@@ -185,7 +187,9 @@ class _RyTextFieldState extends State<RyTextField> {
     if (widget.suffixIcon != null) return widget.suffixIcon;
 
     if (widget.type == RyTextFieldType.password) {
-      return _obscureText ? Icons.visibility_off : Icons.visibility;
+      return _obscureText
+          ? Icons.visibility_off_outlined
+          : Icons.visibility_outlined;
     }
 
     return null;
@@ -222,6 +226,7 @@ class _RyTextFieldState extends State<RyTextField> {
       child: TextFormField(
         controller: _controller,
         focusNode: widget.focusNode,
+        textInputAction: widget.textInputAction,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         keyboardType: _getKeyboardType(),
         textCapitalization: widget.textCapitalization,
@@ -270,11 +275,14 @@ class _RyTextFieldState extends State<RyTextField> {
               ? IconButton(
                   icon: Icon(
                     _getSuffixIcon(),
-                    color: AppColors.onSurfaceVariant,
+                    color:
+                        widget.type == RyTextFieldType.password && !_obscureText
+                        ? AppColors.primaryContainer
+                        : AppColors.onSurfaceVariant,
                   ),
                   tooltip: widget.type == RyTextFieldType.password
                       ? (_obscureText
-                            ? 'Mostrar constraseña'
+                            ? 'Mostrar contraseña'
                             : 'Ocultar contraseña')
                       : null,
                   onPressed: _getSuffixIconCallback(),

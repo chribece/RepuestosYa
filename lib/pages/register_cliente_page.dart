@@ -10,10 +10,21 @@ import '../utils/app_logger.dart';
 import '../utils/ecuador_mobile_phone.dart';
 import '../utils/ry_snackbar.dart';
 import '../widgets/ry_button.dart';
-import '../widgets/ecuador_phone_prefix.dart';
 import '../widgets/ry_text_field.dart';
 import '../services/auth_service.dart';
 import '../router/route_names.dart';
+
+enum _Fortaleza { debil, media, fuerte }
+
+_Fortaleza _fortalezaDe(String clave) {
+  if (clave.length < 6) return _Fortaleza.debil;
+  if (clave.length >= 8 &&
+      RegExp(r'\d').hasMatch(clave) &&
+      RegExp(r'[A-Za-z]').hasMatch(clave)) {
+    return _Fortaleza.fuerte;
+  }
+  return _Fortaleza.media;
+}
 
 class RegisterClientePage extends StatefulWidget {
   const RegisterClientePage({super.key});
@@ -36,9 +47,13 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     ..onTap = _mostrarTerminos;
   late final TapGestureRecognizer _tapLogin = TapGestureRecognizer()
     ..onTap = _irALogin;
+  final _nameFocusNode = FocusNode();
+  final _emailFocusNode = FocusNode();
+  final _phoneFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _confirmFocusNode = FocusNode();
   final _registrarKey = GlobalKey();
+  static const _scrollPadding = EdgeInsets.only(bottom: 160);
   double _keyboardInset = 0;
 
   List<TextEditingController> get _camposObligatorios => [
@@ -52,6 +67,8 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
   bool get _puedeRegistrar =>
       _acceptTerms &&
       _camposObligatorios.every((c) => c.text.trim().isNotEmpty);
+
+  ColorScheme get _cs => Theme.of(context).colorScheme;
 
   @override
   void initState() {
@@ -86,6 +103,9 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     _telefonoController.dispose();
     _tapTerminos.dispose();
     _tapLogin.dispose();
+    _nameFocusNode.dispose();
+    _emailFocusNode.dispose();
+    _phoneFocusNode.dispose();
     _passwordFocusNode.dispose();
     _confirmFocusNode.dispose();
     super.dispose();
@@ -126,9 +146,8 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     _formKey.currentState?.validate();
   }
 
-  TextStyle get _estiloLegal => AppTextStyles.textStyleCaption.copyWith(
-    color: AppColors.onSurfaceVariant,
-  );
+  TextStyle get _estiloLegal =>
+      AppTextStyles.textStyleCaption.copyWith(color: _cs.onSurfaceVariant);
 
   Widget _tituloLegal(String texto) => Padding(
     padding: const EdgeInsets.only(
@@ -138,7 +157,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     child: Text(
       texto,
       style: _estiloLegal.copyWith(
-        color: AppColors.onSurface,
+        color: _cs.onSurface,
         fontWeight: FontWeight.w700,
       ),
     ),
@@ -165,105 +184,160 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
 
   void _irALogin() => context.goNamed(RouteNames.login);
 
+  void _volver() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.goNamed(RouteNames.roleSelection);
+    }
+  }
+
   void _mostrarTerminos() {
+    final scroll = ScrollController();
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerHigh,
+      barrierColor: _cs.scrim.withValues(alpha: 0.85),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _cs.surfaceContainerLow,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          side: BorderSide(color: AppColors.outlineVariant),
+        ),
         title: Text(
           'Términos y condiciones de uso',
-          style: AppTextStyles.textStyleTitle.copyWith(
-            color: AppColors.onSurface,
-          ),
+          style: AppTextStyles.textStyleTitle.copyWith(color: _cs.onSurface),
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.sizeOf(dialogContext).height * 0.5,
+          child: Stack(
             children: [
-              Text(
-                'TÉRMINOS Y CONDICIONES DE USO – RepuestosYa',
-                style: _estiloLegal.copyWith(
-                  color: AppColors.onSurface,
-                  fontWeight: FontWeight.w700,
+              Scrollbar(
+                controller: scroll,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: scroll,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _parrafoLegal('Última actualización: Noviembre 2026'),
+                      _parrafoLegal(
+                        'Al utilizar la plataforma RepuestosYa, el Usuario acepta estos Términos y Condiciones.',
+                      ),
+                      _tituloLegal('1. Condiciones de uso'),
+                      _parrafoLegal('El Usuario se compromete a:'),
+                      _vinetaLegal(
+                        'Utilizar la plataforma de forma lícita y respetuosa.',
+                      ),
+                      _vinetaLegal(
+                        'No enviar mensajes falsos, difamatorios, insultantes, abusivos, pornográficos o que dañen a terceros.',
+                      ),
+                      _vinetaLegal(
+                        'Garantizar la veracidad de los datos personales que proporcione.',
+                      ),
+                      _vinetaLegal(
+                        'Ser responsable de toda la actividad realizada desde su cuenta.',
+                      ),
+                      _parrafoLegal(
+                        'Queda prohibido recabar datos con fines publicitarios, enviar publicidad no autorizada o publicar contenidos ilícitos, discriminatorios, violentos, falsos o que vulneren derechos de terceros.',
+                      ),
+                      _tituloLegal('2. Propiedad intelectual'),
+                      _parrafoLegal(
+                        'Todos los contenidos de la plataforma (textos, imágenes, logos, software, interfaces, etc.) son propiedad de RepuestosYa. El uso de la plataforma no otorga ningún derecho de explotación sobre dichos contenidos ni sobre las marcas de RepuestosYa.',
+                      ),
+                      _tituloLegal('3. Limitación de responsabilidad'),
+                      _parrafoLegal('RepuestosYa no será responsable por:'),
+                      _vinetaLegal(
+                        'Fallos de acceso o falta de exactitud de los contenidos.',
+                      ),
+                      _vinetaLegal(
+                        'Virus o daños en los sistemas del Usuario.',
+                      ),
+                      _vinetaLegal(
+                        'Incumplimientos legales o de las políticas de la plataforma.',
+                      ),
+                      _vinetaLegal(
+                        'Información o sitios externos a los que se pueda acceder desde la plataforma.',
+                      ),
+                      _tituloLegal('4. Enlaces de terceros'),
+                      _parrafoLegal(
+                        'Los enlaces a sitios de terceros se incluyen solo con fines informativos. RepuestosYa no controla ni se responsabiliza por su contenido ni por los daños que puedan derivarse de su uso.',
+                      ),
+                      _tituloLegal('5. Validación de cuentas (solo Almacenes)'),
+                      _parrafoLegal(
+                        'Para crear una cuenta como Almacén (proveedor) podrá requerirse una verificación de autenticidad que puede demorar hasta 48 horas. Una vez aprobada, se habilitarán las funcionalidades correspondientes.',
+                      ),
+                      _tituloLegal('6. Funcionamiento del Marketplace'),
+                      _parrafoLegal(
+                        'RepuestosYa es un marketplace de repuestos automotrices que conecta a clientes con almacenes.',
+                      ),
+                      _vinetaLegal('El cliente solicita un repuesto.'),
+                      _vinetaLegal(
+                        'Los almacenes verificados envían propuestas.',
+                      ),
+                      _vinetaLegal('El cliente elige la opción que prefiera.'),
+                      _vinetaLegal(
+                        'Los pagos no se realizan a través de RepuestosYa. El cliente y el almacén coordinan el pago y la entrega de forma directa.',
+                      ),
+                      _vinetaLegal(
+                        'Existe un chat interno para coordinar detalles.',
+                      ),
+                      _vinetaLegal(
+                        'El almacén puede cancelar una orden si no puede despacharla, notificando al cliente.',
+                      ),
+                      _vinetaLegal(
+                        'El cliente podrá calificar al almacén una vez finalizada la transacción.',
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              _parrafoLegal('Última actualización: Noviembre 2026'),
-              _parrafoLegal(
-                'Al utilizar la plataforma RepuestosYa, el Usuario acepta estos Términos y Condiciones.',
-              ),
-              _tituloLegal('1. Condiciones de uso'),
-              _parrafoLegal('El Usuario se compromete a:'),
-              _vinetaLegal(
-                'Utilizar la plataforma de forma lícita y respetuosa.',
-              ),
-              _vinetaLegal(
-                'No enviar mensajes falsos, difamatorios, insultantes, abusivos, pornográficos o que dañen a terceros.',
-              ),
-              _vinetaLegal(
-                'Garantizar la veracidad de los datos personales que proporcione.',
-              ),
-              _vinetaLegal(
-                'Ser responsable de toda la actividad realizada desde su cuenta.',
-              ),
-              _parrafoLegal(
-                'Queda prohibido recabar datos con fines publicitarios, enviar publicidad no autorizada o publicar contenidos ilícitos, discriminatorios, violentos, falsos o que vulneren derechos de terceros.',
-              ),
-              _tituloLegal('2. Propiedad intelectual'),
-              _parrafoLegal(
-                'Todos los contenidos de la plataforma (textos, imágenes, logos, software, interfaces, etc.) son propiedad de RepuestosYa. El uso de la plataforma no otorga ningún derecho de explotación sobre dichos contenidos ni sobre las marcas de RepuestosYa.',
-              ),
-              _tituloLegal('3. Limitación de responsabilidad'),
-              _parrafoLegal('RepuestosYa no será responsable por:'),
-              _vinetaLegal(
-                'Fallos de acceso o falta de exactitud de los contenidos.',
-              ),
-              _vinetaLegal('Virus o daños en los sistemas del Usuario.'),
-              _vinetaLegal(
-                'Incumplimientos legales o de las políticas de la plataforma.',
-              ),
-              _vinetaLegal(
-                'Información o sitios externos a los que se pueda acceder desde la plataforma.',
-              ),
-              _tituloLegal('4. Enlaces de terceros'),
-              _parrafoLegal(
-                'Los enlaces a sitios de terceros se incluyen solo con fines informativos. RepuestosYa no controla ni se responsabiliza por su contenido ni por los daños que puedan derivarse de su uso.',
-              ),
-              _tituloLegal('5. Validación de cuentas (solo Almacenes)'),
-              _parrafoLegal(
-                'Para crear una cuenta como Almacén (proveedor) podrá requerirse una verificación de autenticidad que puede demorar hasta 48 horas. Una vez aprobada, se habilitarán las funcionalidades correspondientes.',
-              ),
-              _tituloLegal('6. Funcionamiento del Marketplace'),
-              _parrafoLegal(
-                'RepuestosYa es un marketplace de repuestos automotrices que conecta a clientes con almacenes.',
-              ),
-              _vinetaLegal('El cliente solicita un repuesto.'),
-              _vinetaLegal('Los almacenes verificados envían propuestas.'),
-              _vinetaLegal('El cliente elige la opción que prefiera.'),
-              _vinetaLegal(
-                'Los pagos no se realizan a través de RepuestosYa. El cliente y el almacén coordinan el pago y la entrega de forma directa.',
-              ),
-              _vinetaLegal('Existe un chat interno para coordinar detalles.'),
-              _vinetaLegal(
-                'El almacén puede cancelar una orden si no puede despacharla, notificando al cliente.',
-              ),
-              _vinetaLegal(
-                'El cliente podrá calificar al almacén una vez finalizada la transacción.',
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          _cs.surfaceContainerLow.withValues(alpha: 0),
+                          _cs.surfaceContainerLow,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primaryContainer,
-            ),
-            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: _cs.onSurfaceVariant),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cerrar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: _cs.primaryContainer,
+              foregroundColor: _cs.onPrimaryContainer,
+              textStyle: AppTextStyles.textStyleButton.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            onPressed: () {
+              setState(() => _acceptTerms = true);
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text('Leer y aceptar'),
           ),
         ],
       ),
-    );
+    ).whenComplete(scroll.dispose);
   }
 
   void _handleRegistration() async {
@@ -323,132 +397,219 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _cs.surface,
       resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        toolbarHeight: 48,
+        backgroundColor: _cs.surface,
+        elevation: 0,
+        leading: Semantics(
+          label: 'Volver',
+          button: true,
+          child: IconButton(
+            onPressed: _volver,
+            icon: Icon(Icons.arrow_back, color: _cs.onSurface),
+          ),
+        ),
+      ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ShaderMask(
-              blendMode: BlendMode.dstIn,
-              shaderCallback: (rect) {
-                // Desvanece solo el borde superior (24 px): el avatar se
-                // esfuma al subir en vez de cortarse contra el techo.
-                final fade = (AppSpacing.spacingLg / rect.height).clamp(
-                  0.0,
-                  0.5,
-                );
-                return LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: const [
-                    Colors.transparent,
-                    Colors.white,
-                    Colors.white,
-                  ],
-                  stops: [0, fade, 1],
-                ).createShader(rect);
-              },
-              child: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.spacingMd,
-                  vertical: AppSpacing.spacingLg,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight:
-                        (constraints.maxHeight - 2 * AppSpacing.spacingLg)
-                            .clamp(0.0, double.infinity),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Logo Section
-                        _buildLogoSection(),
-                        const SizedBox(height: AppSpacing.spacingLg),
-                        // Registration Form Card
-                        _buildRegistrationForm(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+        top: false,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_buildRegistrationForm()],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildLogoSection() {
+  Widget _buildCabecera() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.primaryContainer.withValues(alpha: 0.2),
-          ),
-          child: const Icon(Icons.person, size: 50, color: AppColors.primary),
-        ),
-        const SizedBox(height: AppSpacing.spacingLg),
         Text(
           'Registro de Cliente',
-          style: AppTextStyles.textStyleHeading.copyWith(
-            color: AppColors.onSurface,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.textStyleTitle.copyWith(
+            fontSize: 21,
+            fontWeight: FontWeight.w700,
+            color: _cs.onSurface,
           ),
         ),
-        const SizedBox(height: AppSpacing.spacingXs),
+        const SizedBox(height: 4),
         Text(
-          'Crea tu cuenta para buscar y cotizar repuestos.',
-          style: AppTextStyles.textStyleBody.copyWith(
-            color: AppColors.onSurfaceVariant,
-          ),
+          'Crea tu cuenta para buscar y cotizar repuestos',
           textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.textStyleBody.copyWith(
+            fontSize: 13.5,
+            color: _cs.onSurfaceVariant,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildRegistrationForm() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppRadius.radiusMd),
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      padding: const EdgeInsets.all(AppSpacing.spacingMd),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Name Field
-            _buildNameField(),
-            const SizedBox(height: AppSpacing.spacingSm),
-            // Email Field
-            _buildEmailField(),
-            const SizedBox(height: AppSpacing.spacingSm),
-            // Teléfono (obligatorio: el almacén ganador lo usa para coordinar
-            // el pago y la entrega del repuesto)
-            _buildTelefonoField(),
-            const SizedBox(height: AppSpacing.spacingSm),
-            // Password Field
-            _buildPasswordField(),
-            const SizedBox(height: AppSpacing.spacingSm),
-            // Confirm Password Field
-            _buildConfirmPasswordField(),
-            const SizedBox(height: AppSpacing.spacingSm),
-            // Accept Terms
-            _buildAcceptTerms(),
-            const SizedBox(height: AppSpacing.spacingMd),
-            // Action Buttons
-            _buildActionButtons(),
-          ],
+  // Inputs del formulario: fondo de input, borde de reposo ≥3:1 y foco naranja.
+  ThemeData _temaFormulario(BuildContext context) {
+    final base = Theme.of(context);
+    OutlineInputBorder borde(Color color, {double width = 1}) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return base.copyWith(
+      inputDecorationTheme: base.inputDecorationTheme.copyWith(
+        fillColor: AppColors.inputFill,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
         ),
+        hintStyle: AppTextStyles.textStyleCaption.copyWith(
+          color: base.colorScheme.onSurfaceVariant,
+        ),
+        border: borde(AppColors.controlBorder),
+        enabledBorder: borde(AppColors.controlBorder),
+        focusedBorder: borde(base.colorScheme.primaryContainer, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildRegistrationForm() {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 28),
+          decoration: BoxDecoration(
+            color: _cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(AppRadius.radiusMd),
+            border: Border.all(
+              color: _cs.primaryContainer.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: _cs.primaryContainer.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 38, 16, 16),
+          child: Theme(
+            data: _temaFormulario(context),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(child: _buildCabecera()),
+                  const SizedBox(height: 16),
+                  _buildNameField(),
+                  const SizedBox(height: 12),
+                  _buildEmailField(),
+                  const SizedBox(height: 12),
+                  // Teléfono (obligatorio: el almacén ganador lo usa para coordinar
+                  // el pago y la entrega del repuesto)
+                  _buildTelefonoField(),
+                  const SizedBox(height: 12),
+                  _buildPasswordField(),
+                  if (_passwordController.text.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    _buildFortaleza(),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildConfirmPasswordField(),
+                  const SizedBox(height: 12),
+                  _buildAcceptTerms(),
+                  const SizedBox(height: AppSpacing.spacingMd),
+                  _buildActionButtons(),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Center(child: _buildAvatar()),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatar() {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _cs.surfaceContainerLow,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _cs.primaryContainer.withValues(alpha: 0.16),
+          border: Border.all(color: _cs.primaryContainer, width: 1.5),
+        ),
+        child: Icon(
+          Icons.person_outline_rounded,
+          size: 28,
+          color: _cs.primaryContainer,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFortaleza() {
+    final (texto, color, activos) = switch (_fortalezaDe(
+      _passwordController.text,
+    )) {
+      _Fortaleza.debil => ('Débil', SemanticColors.colorErrorText, 1),
+      _Fortaleza.media => ('Media', AppColors.warning, 2),
+      _Fortaleza.fuerte => ('Fuerte', AppColors.success, 3),
+    };
+    return Semantics(
+      excludeSemantics: true,
+      label: 'Fortaleza de la contraseña: $texto',
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      height: 3.5,
+                      decoration: BoxDecoration(
+                        color: i < activos
+                            ? color
+                            : _cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            texto,
+            style: AppTextStyles.textStyleSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -458,8 +619,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       label: 'Nombre completo',
       hint: 'Juan Pérez',
       controller: _nameController,
+      focusNode: _nameFocusNode,
+      textInputAction: TextInputAction.next,
+      onSubmitted: (_) => FocusScope.of(context).requestFocus(_emailFocusNode),
+      scrollPadding: _scrollPadding,
       type: RyTextFieldType.text,
-      isDense: true,
       prefixIcon: Icons.person,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -478,8 +642,11 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       label: 'Correo electrónico',
       hint: 'nombre@empresa.com',
       controller: _emailController,
+      focusNode: _emailFocusNode,
+      textInputAction: TextInputAction.next,
+      onSubmitted: (_) => FocusScope.of(context).requestFocus(_phoneFocusNode),
+      scrollPadding: _scrollPadding,
       type: RyTextFieldType.email,
-      isDense: true,
       prefixIcon: Icons.mail,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -494,20 +661,60 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
     );
   }
 
+  int get _digitosTelefono => _telefonoController.text.length;
+
+  // Ayuda del teléfono: guía cuando está vacío y contador n/9 mientras escribe.
+  String get _textoContadorTelefono => _digitosTelefono == 0
+      ? '9 dígitos sin el 0 inicial'
+      : '$_digitosTelefono/$ecuadorMobilePhoneLength dígitos';
+
+  TextStyle get _estiloContadorTelefono =>
+      AppTextStyles.textStyleCaption.copyWith(
+        fontSize: 12,
+        color: _digitosTelefono == ecuadorMobilePhoneLength
+            ? _cs.primaryContainer
+            : _cs.onSurfaceVariant,
+      );
+
+  Widget _prefijoTelefono() => Semantics(
+    label: 'Código telefónico de Ecuador, más 593',
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.spacingXs,
+        vertical: AppSpacing.spacingXxs,
+      ),
+      decoration: BoxDecoration(
+        color: _cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppRadius.radiusSm),
+        border: Border.all(color: AppColors.controlBorder),
+      ),
+      child: Text(
+        '+593',
+        style: AppTextStyles.textStyleSmall.copyWith(
+          color: _cs.onSurface,
+          letterSpacing: 0,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+
   Widget _buildTelefonoField() {
     return RyTextField(
       label: 'Teléfono',
       hint: 'Ej: 981894367',
       controller: _telefonoController,
+      focusNode: _phoneFocusNode,
       type: RyTextFieldType.phone,
-      isDense: true,
-      keyboardType: TextInputType.phone,
+      keyboardType: TextInputType.number,
       inputFormatters: ecuadorMobilePhoneInputFormatters(),
-      prefixWidget: const EcuadorPhonePrefix(),
-      helperText: '9 dígitos sin el 0 inicial',
-      helperStyle: AppTextStyles.textStyleCaption.copyWith(
-        color: AppColors.onSurfaceVariant,
-      ),
+      textInputAction: TextInputAction.next,
+      onSubmitted: (_) =>
+          FocusScope.of(context).requestFocus(_passwordFocusNode),
+      scrollPadding: _scrollPadding,
+      prefixWidget: _prefijoTelefono(),
+      helperText: _textoContadorTelefono,
+      helperStyle: _estiloContadorTelefono,
       helperMaxLines: 1,
       validator: (value) {
         return validarTelefonoMovilEcuador(value);
@@ -522,7 +729,10 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       controller: _passwordController,
       focusNode: _passwordFocusNode,
       type: RyTextFieldType.password,
-      isDense: true,
+      textInputAction: TextInputAction.next,
+      onSubmitted: (_) =>
+          FocusScope.of(context).requestFocus(_confirmFocusNode),
+      scrollPadding: _scrollPadding,
       prefixIcon: Icons.lock,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -543,7 +753,12 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
       controller: _confirmPasswordController,
       focusNode: _confirmFocusNode,
       type: RyTextFieldType.password,
-      isDense: true,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) {
+        FocusScope.of(context).unfocus();
+        if (_puedeRegistrar && !_isLoading) _handleRegistration();
+      },
+      scrollPadding: _scrollPadding,
       prefixIcon: Icons.lock_outline,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -567,13 +782,14 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               _acceptTerms = value ?? false;
             });
           },
+          side: BorderSide(color: AppColors.controlBorder, width: 1.8),
           fillColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return AppColors.primaryContainer;
+              return _cs.primaryContainer;
             }
-            return AppColors.surfaceContainerHigh;
+            return AppColors.transparent;
           }),
-          checkColor: AppColors.onPrimaryContainer,
+          checkColor: _cs.onPrimaryContainer,
         ),
         Expanded(
           child: GestureDetector(
@@ -586,15 +802,15 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
               textScaler: MediaQuery.textScalerOf(context),
               text: TextSpan(
                 style: AppTextStyles.textStyleCaption.copyWith(
-                  color: AppColors.onSurfaceVariant,
+                  color: _cs.onSurfaceVariant,
                 ),
                 children: [
                   const TextSpan(text: 'Acepto los '),
                   TextSpan(
-                    text: 'términos y condiciones de uso',
+                    text: 'términos de uso',
                     recognizer: _tapTerminos,
                     style: AppTextStyles.textStyleCaption.copyWith(
-                      color: AppColors.primaryContainer,
+                      color: _cs.primaryContainer,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -618,7 +834,6 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
           child: RyButton(
             key: _registrarKey,
             label: 'Registrarse',
-            trailingIcon: Icons.person_add,
             variant: RyButtonVariant.primary,
             size: RyButtonSize.large,
             isFullWidth: true,
@@ -627,14 +842,14 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
             onPressed: _handleRegistration,
           ),
         ),
-        const SizedBox(height: AppSpacing.spacingLg),
+        const SizedBox(height: 16),
         Center(
           child: RichText(
             textAlign: TextAlign.center,
             textScaler: MediaQuery.textScalerOf(context),
             text: TextSpan(
               style: AppTextStyles.textStyleButton.copyWith(
-                color: AppColors.onSurfaceVariant,
+                color: _cs.onSurfaceVariant,
               ),
               children: [
                 const TextSpan(text: '¿Ya tienes cuenta? '),
@@ -642,7 +857,7 @@ class _RegisterClientePageState extends State<RegisterClientePage> {
                   text: 'Inicia sesión',
                   recognizer: _tapLogin,
                   style: TextStyle(
-                    color: AppColors.primaryContainer,
+                    color: _cs.tertiaryContainer,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
